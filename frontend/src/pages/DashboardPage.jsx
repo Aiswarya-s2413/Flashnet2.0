@@ -24,7 +24,6 @@ export default function DashboardPage() {
   // Filters
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [selectedDistributor, setSelectedDistributor] = useState('All')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,7 +44,7 @@ export default function DashboardPage() {
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
       const invDate = parseDDMMYYYY(inv.invoice_date).getTime();
-      let passStart = true, passEnd = true, passDist = true;
+      let passStart = true, passEnd = true;
 
       // HTML date input yields YYYY-MM-DD
       if (startDate) {
@@ -59,18 +58,10 @@ export default function DashboardPage() {
         end.setHours(23, 59, 59, 999);
         if (invDate > end.getTime()) passEnd = false;
       }
-      if (selectedDistributor !== 'All' && inv.customer !== selectedDistributor) {
-        passDist = false;
-      }
 
-      return passStart && passEnd && passDist;
+      return passStart && passEnd;
     });
-  }, [invoices, startDate, endDate, selectedDistributor])
-
-  // Extract unique distributors for the dropdown
-  const distributors = useMemo(() => {
-    return [...new Set(invoices.map(i => i.customer))].filter(Boolean).sort()
-  }, [invoices])
+  }, [invoices, startDate, endDate])
 
   // Overview Stats
   const totalQty = filteredInvoices.reduce((sum, i) => sum + i.qty, 0)
@@ -112,20 +103,6 @@ export default function DashboardPage() {
         </div>
         
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label style={{ fontSize: '12px', opacity: 0.8, display: 'block' }}>Distributor</label>
-          <select 
-            value={selectedDistributor} 
-            onChange={e => setSelectedDistributor(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-primary)', minWidth: '180px' }}
-          >
-            <option value="All">All Distributors</option>
-            {distributors.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group" style={{ marginBottom: 0 }}>
           <label style={{ fontSize: '12px', opacity: 0.8, display: 'block' }}>Start Date <small>(applies to DD-MM-YYYY)</small></label>
           <input 
             type="date" 
@@ -147,7 +124,7 @@ export default function DashboardPage() {
 
         <button 
           className="btn btn-outline"
-          onClick={() => { setStartDate(''); setEndDate(''); setSelectedDistributor('All'); }}
+          onClick={() => { setStartDate(''); setEndDate(''); }}
           style={{ alignSelf: 'flex-end', padding: '8px 16px', marginLeft: 'auto' }}
         >
           Reset Filters
