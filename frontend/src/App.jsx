@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import ProductsPage from './pages/ProductsPage'
 import InvoicesPage from './pages/InvoicesPage'
 import OrdersPage from './pages/OrdersPage'
-import { Package, FileText, ShoppingCart } from 'lucide-react'
+import DashboardPage from './pages/DashboardPage'
+import { Package, FileText, ShoppingCart, LayoutDashboard } from 'lucide-react'
 
 function App() {
   return (
@@ -15,6 +16,10 @@ function App() {
           </div>
           <nav className="sidebar-nav">
             <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <LayoutDashboard size={18} />
+              Dashboard
+            </NavLink>
+            <NavLink to="/orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <ShoppingCart size={18} />
               Orders
             </NavLink>
@@ -30,7 +35,8 @@ function App() {
         </aside>
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<OrdersPage />} />
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
           </Routes>
