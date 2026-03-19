@@ -29,8 +29,8 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res = await API.get('/invoices/')
-        setInvoices(res.data)
+        const res = await API.get('/orders/')
+        setInvoices(res.data) // Using validated orders data now
       } catch (e) {
         console.error("Dashboard fetch error:", e)
       } finally {
