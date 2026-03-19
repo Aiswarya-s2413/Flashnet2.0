@@ -36,6 +36,34 @@ export default function InvoicesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Validation for DD-MM-YYYY format
+    const datePattern = /^\d{2}-\d{2}-\d{4}$/;
+    if (!datePattern.test(form.invoice_date)) {
+      setAlert({ type: 'error', title: 'Validation Error', messages: ['Invoice date must be in DD-MM-YYYY format.'] })
+      return;
+    }
+
+    const [day, month, year] = form.invoice_date.split('-');
+    const invoiceDateObj = new Date(year, month - 1, day);
+    const currentDate = new Date();
+    
+    // Check for valid calendar date
+    if (
+      invoiceDateObj.getFullYear() != year ||
+      invoiceDateObj.getMonth() != month - 1 ||
+      invoiceDateObj.getDate() != day
+    ) {
+      setAlert({ type: 'error', title: 'Validation Error', messages: ['Invoice date is not a valid calendar date.'] })
+      return;
+    }
+
+    // Check if future
+    if (invoiceDateObj > currentDate) {
+      setAlert({ type: 'error', title: 'Validation Error', messages: ['Invoice date cannot be in the future.'] })
+      return;
+    }
+
     setSaving(true)
     try {
       await API.post('/invoices/', { ...form, qty: parseInt(form.qty) })
@@ -173,7 +201,7 @@ export default function InvoicesPage() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="invoice_date">Invoice Date</label>
-                  <input id="invoice_date" name="invoice_date" type="date" value={form.invoice_date} onChange={handleChange} required />
+                  <input id="invoice_date" name="invoice_date" type="text" value={form.invoice_date} onChange={handleChange} required placeholder="DD-MM-YYYY" />
                 </div>
                 <div className="form-group">
                   <label htmlFor="material_code">Material Code</label>
