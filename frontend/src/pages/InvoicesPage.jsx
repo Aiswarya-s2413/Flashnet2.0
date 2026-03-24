@@ -64,6 +64,17 @@ export default function InvoicesPage() {
       return;
     }
 
+    // Enforce that qty is a multiple of packsize
+    const packsizeNum = parseFloat(form.packsize);
+    const qtyNum = parseFloat(form.qty);
+    
+    if (!isNaN(packsizeNum) && packsizeNum > 0) {
+      if (qtyNum % packsizeNum !== 0) {
+        setAlert({ type: 'error', title: 'Validation Error', messages: ['qty(kg) must be a strict multiple of the Packsize(kg).'] })
+        return;
+      }
+    }
+
     setSaving(true)
     try {
       await API.post('/invoices/', { ...form, qty: parseInt(form.qty) })
@@ -149,15 +160,15 @@ export default function InvoicesPage() {
         <table>
           <thead>
             <tr>
+              <th>Sold To</th>
+              <th>Ship To</th>
               <th>Invoice No.</th>
               <th>Invoice Date</th>
+              <th>Customer</th>
               <th>Material Code</th>
               <th>Material Name</th>
-              <th>Pack Size</th>
-              <th>Qty</th>
-              <th>Customer</th>
-              <th>Ship To</th>
-              <th>Sold To</th>
+              <th>Packsize(kg)</th>
+              <th>qty(kg)</th>
             </tr>
           </thead>
           <tbody>
@@ -169,15 +180,15 @@ export default function InvoicesPage() {
               </td></tr>
             ) : invoices.map(inv => (
               <tr key={inv.id}>
+                <td>{inv.sold_to}</td>
+                <td>{inv.ship_to}</td>
                 <td><span className="badge badge-accent">{inv.invoice_no}</span></td>
                 <td>{inv.invoice_date}</td>
+                <td>{inv.customer}</td>
                 <td>{inv.material_code}</td>
                 <td>{inv.material_name}</td>
                 <td>{inv.packsize}</td>
                 <td><span className="badge badge-green">{inv.qty}</span></td>
-                <td>{inv.customer}</td>
-                <td>{inv.ship_to}</td>
-                <td>{inv.sold_to}</td>
               </tr>
             ))}
           </tbody>
@@ -212,12 +223,12 @@ export default function InvoicesPage() {
                   <input id="material_name" name="material_name" value={form.material_name} onChange={handleChange} required placeholder="Must match Product Master" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="packsize">Pack Size</label>
-                  <input id="packsize" name="packsize" value={form.packsize} onChange={handleChange} required placeholder="0040" />
+                  <label htmlFor="packsize">Packsize(kg)</label>
+                  <input id="packsize" name="packsize" value={form.packsize} onChange={handleChange} required placeholder="40" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="qty">Quantity</label>
-                  <input id="qty" name="qty" type="number" min="1" value={form.qty} onChange={handleChange} required placeholder="50" />
+                  <label htmlFor="qty">qty(kg)</label>
+                  <input id="qty" name="qty" type="number" min="1" value={form.qty} onChange={handleChange} required placeholder="120" />
                 </div>
                 <div className="form-group full">
                   <label htmlFor="customer">Customer</label>
@@ -225,11 +236,11 @@ export default function InvoicesPage() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="ship_to">Ship To</label>
-                  <textarea id="ship_to" name="ship_to" value={form.ship_to} onChange={handleChange} required placeholder="Shipping address" />
+                  <input id="ship_to" type="number" step="1" name="ship_to" value={form.ship_to} onChange={handleChange} required placeholder="e.g. 100234" />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="sold_to">Sold To (Customer Address)</label>
-                  <textarea id="sold_to" name="sold_to" value={form.sold_to} onChange={handleChange} required placeholder="Customer billing address" />
+                  <label htmlFor="sold_to">Sold To</label>
+                  <input id="sold_to" type="number" step="1" name="sold_to" value={form.sold_to} onChange={handleChange} required placeholder="e.g. 100567" />
                 </div>
               </div>
               <div className="modal-actions">

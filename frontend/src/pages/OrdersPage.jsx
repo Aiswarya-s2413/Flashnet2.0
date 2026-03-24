@@ -65,15 +65,15 @@ export default function OrdersPage() {
           <thead>
             <tr>
               <th>#</th>
+              <th>Sold To</th>
+              <th>Ship To</th>
               <th>Invoice No.</th>
               <th>Invoice Date</th>
+              <th>Customer</th>
               <th>Material Code</th>
               <th>Material Name</th>
-              <th>Pack Size</th>
-              <th>Qty</th>
-              <th>Customer</th>
-              <th>Ship To</th>
-              <th>Sold To</th>
+              <th>Packsize(kg)</th>
+              <th>qty(kg)</th>
             </tr>
           </thead>
           <tbody>
@@ -90,15 +90,15 @@ export default function OrdersPage() {
             ) : orders.map((o, i) => (
               <tr key={o.id}>
                 <td style={{ color: 'var(--text-dim)' }}>{i + 1}</td>
+                <td>{o.sold_to}</td>
+                <td>{o.ship_to}</td>
                 <td><span className="badge badge-accent">{o.invoice_no}</span></td>
                 <td>{o.invoice_date}</td>
+                <td>{o.customer}</td>
                 <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.material_code}</td>
                 <td>{o.material_name}</td>
                 <td>{o.packsize}</td>
                 <td><span className="badge badge-green">{o.qty}</span></td>
-                <td>{o.customer}</td>
-                <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.ship_to}</td>
-                <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.sold_to}</td>
               </tr>
             ))}
           </tbody>
