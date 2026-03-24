@@ -9,6 +9,7 @@ const EMPTY_FORM = {
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([])
+  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -16,11 +17,15 @@ export default function InvoicesPage() {
   const [extracting, setExtracting] = useState(false)
   const [alert, setAlert] = useState(null)
 
-  const fetchInvoices = async () => {
+  const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await API.get('/invoices/')
-      setInvoices(res.data)
+      const [invRes, prodRes] = await Promise.all([
+        API.get('/invoices/'),
+        API.get('/products/')
+      ])
+      setInvoices(invRes.data)
+      setProducts(prodRes.data)
     } catch (e) {
       setAlert({ type: 'error', title: 'Error', messages: [e.message] })
     } finally {
@@ -28,7 +33,17 @@ export default function InvoicesPage() {
     }
   }
 
-  useEffect(() => { fetchInvoices() }, [])
+  useEffect(() => { fetchData() }, [])
+
+  const handleProductChange = (e) => {
+    const selectedName = e.target.value;
+    const matchedProduct = products.find(p => p.material_name === selectedName);
+    setForm(f => ({
+      ...f,
+      material_name: selectedName,
+      material_code: matchedProduct ? matchedProduct.material_code : ''
+    }))
+  }
 
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -88,7 +103,7 @@ export default function InvoicesPage() {
       setAlert({ type: 'success', title: 'Invoice Added', messages: ['Distributor invoice saved successfully.'] })
       setShowModal(false)
       setForm(EMPTY_FORM)
-      fetchInvoices()
+      fetchData()
     } catch (e) {
       const data = e.response?.data
       const msgs = data ? Object.entries(data).map(([k, v]) => `${k}: ${v}`) : [e.message]
@@ -143,7 +158,7 @@ export default function InvoicesPage() {
             {extracting ? <><span className="spinner" /> Extracting…</> : <><ArrowUpCircle size={15} /> Extract to Orders</>}
           </button>
         </div>
-        <button className="btn btn-outline" onClick={fetchInvoices}>
+        <button className="btn btn-outline" onClick={fetchData}>
           <RefreshCw size={15} /> Refresh
         </button>
       </div>
@@ -235,11 +250,16 @@ export default function InvoicesPage() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="material_code">Material Code</label>
-                  <input id="material_code" name="material_code" value={form.material_code} onChange={handleChange} required placeholder="28612230258" />
+                  <input id="material_code" name="material_code" value={form.material_code} readOnly required placeholder="Auto-fills on selection" style={{ backgroundColor: 'var(--bg)', cursor: 'not-allowed' }} />
                 </div>
                 <div className="form-group">
                   <label htmlFor="material_name">Material Name</label>
-                  <input id="material_name" name="material_name" value={form.material_name} onChange={handleChange} required placeholder="Exact product designation" />
+                  <select id="material_name" name="material_name" value={form.material_name} onChange={handleProductChange} required>
+                    <option value="">Select a product...</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.material_name}>{p.material_name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label htmlFor="packsize">Packsize(kg)</label>
