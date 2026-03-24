@@ -246,7 +246,7 @@ export default function InvoicesPage() {
                 </div>
                 <div className="form-group full">
                   <label htmlFor="customer">Customer Name</label>
-                  <input id="customer" name="customer" value={form.customer} onChange={handleChange} required placeholder="Corporate designation" />
+                  <input id="customer" name="customer" value={form.customer} onChange={handleChange} required placeholder="Enter customer name" />
                 </div>
                 <div className="form-group">
                   <label htmlFor="material_code">Material Code</label>
