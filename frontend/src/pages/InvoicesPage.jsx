@@ -37,6 +37,13 @@ export default function InvoicesPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    // Enforce Corporate Hard-Validation: No fields can be entirely whitespace
+    const hasEmptyField = Object.entries(form).some(([key, val]) => String(val).trim() === '');
+    if (hasEmptyField) {
+      setAlert({ type: 'error', title: 'Validation Error', messages: ['All fields are strictly required. Fields cannot be empty or contain only blank spaces.'] });
+      return;
+    }
+
     // Validation for DD-MM-YYYY format
     const datePattern = /^\d{2}-\d{2}-\d{4}$/;
     if (!datePattern.test(form.invoice_date)) {
@@ -207,6 +214,14 @@ export default function InvoicesPage() {
             <form onSubmit={handleSubmit}>
               <div className="form-grid">
                 <div className="form-group">
+                  <label htmlFor="sold_to">Sold To ID</label>
+                  <input id="sold_to" type="number" step="1" name="sold_to" value={form.sold_to} onChange={handleChange} required placeholder="e.g. 100567" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="ship_to">Ship To ID</label>
+                  <input id="ship_to" type="number" step="1" name="ship_to" value={form.ship_to} onChange={handleChange} required placeholder="e.g. 100234" />
+                </div>
+                <div className="form-group">
                   <label htmlFor="invoice_no">Invoice No.</label>
                   <input id="invoice_no" name="invoice_no" value={form.invoice_no} onChange={handleChange} required placeholder="INV-001" />
                 </div>
@@ -214,33 +229,25 @@ export default function InvoicesPage() {
                   <label htmlFor="invoice_date">Invoice Date</label>
                   <input id="invoice_date" name="invoice_date" type="text" value={form.invoice_date} onChange={handleChange} required placeholder="DD-MM-YYYY" />
                 </div>
+                <div className="form-group full">
+                  <label htmlFor="customer">Customer Name</label>
+                  <input id="customer" name="customer" value={form.customer} onChange={handleChange} required placeholder="Corporate designation" />
+                </div>
                 <div className="form-group">
                   <label htmlFor="material_code">Material Code</label>
                   <input id="material_code" name="material_code" value={form.material_code} onChange={handleChange} required placeholder="28612230258" />
                 </div>
                 <div className="form-group">
                   <label htmlFor="material_name">Material Name</label>
-                  <input id="material_name" name="material_name" value={form.material_name} onChange={handleChange} required placeholder="Must match Product Master" />
+                  <input id="material_name" name="material_name" value={form.material_name} onChange={handleChange} required placeholder="Exact product designation" />
                 </div>
                 <div className="form-group">
                   <label htmlFor="packsize">Packsize(kg)</label>
-                  <input id="packsize" name="packsize" value={form.packsize} onChange={handleChange} required placeholder="40" />
+                  <input id="packsize" type="number" step="any" name="packsize" value={form.packsize} onChange={handleChange} required placeholder="40" />
                 </div>
                 <div className="form-group">
                   <label htmlFor="qty">qty(kg)</label>
-                  <input id="qty" name="qty" type="number" min="1" value={form.qty} onChange={handleChange} required placeholder="120" />
-                </div>
-                <div className="form-group full">
-                  <label htmlFor="customer">Customer</label>
-                  <input id="customer" name="customer" value={form.customer} onChange={handleChange} required placeholder="Customer name" />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ship_to">Ship To</label>
-                  <input id="ship_to" type="number" step="1" name="ship_to" value={form.ship_to} onChange={handleChange} required placeholder="e.g. 100234" />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="sold_to">Sold To</label>
-                  <input id="sold_to" type="number" step="1" name="sold_to" value={form.sold_to} onChange={handleChange} required placeholder="e.g. 100567" />
+                  <input id="qty" name="qty" type="number" step="any" min="1" value={form.qty} onChange={handleChange} required placeholder="120" />
                 </div>
               </div>
               <div className="modal-actions">
