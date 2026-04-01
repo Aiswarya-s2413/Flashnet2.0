@@ -3,7 +3,8 @@ import ProductsPage from './pages/ProductsPage'
 import InvoicesPage from './pages/InvoicesPage'
 import OrdersPage from './pages/OrdersPage'
 import DashboardPage from './pages/DashboardPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard } from 'lucide-react'
+import UploadOrdersPage from './pages/UploadOrdersPage'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud } from 'lucide-react'
 
 function App() {
   return (
@@ -23,6 +24,10 @@ function App() {
               <ShoppingCart size={18} />
               Orders
             </NavLink>
+            <NavLink to="/upload-orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <UploadCloud size={18} />
+              Upload Orders
+            </NavLink>
             <NavLink to="/invoices" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FileText size={18} />
               Distributor Invoices
@@ -37,6 +42,7 @@ function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/upload-orders" element={<UploadOrdersPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
           </Routes>
