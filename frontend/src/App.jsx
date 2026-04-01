@@ -28,7 +28,7 @@ function App() {
             </NavLink>
             <NavLink to="/upload-orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <UploadCloud size={18} />
-              Upload Orders
+              Sales Register Upload
             </NavLink>
             <NavLink to="/upload-stock" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <Activity size={18} />

@@ -51,7 +51,7 @@ export default function UploadOrdersPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Direct Order Upload</h1>
+        <h1 className="page-title">Sales Register Upload</h1>
         <p className="page-subtitle">Mass import physical orders directly bypassing Distributor Extraction</p>
       </div>
 
