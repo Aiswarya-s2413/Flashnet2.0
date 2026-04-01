@@ -47,3 +47,21 @@ class StockLevel(models.Model):
 
     def __str__(self):
         return f"Stock: {self.product_desc} ({self.month_end_inventory})"
+
+class MonthlySales(models.Model):
+    distributor_name = models.CharField(max_length=255, blank=True, null=True)
+    ship_to_code = models.CharField(max_length=100, blank=True, null=True)
+    customer_name = models.CharField(max_length=255, blank=True, null=True)
+    customer_classification = models.CharField(max_length=50, blank=True, null=True)
+    product_code = models.CharField(max_length=100)
+    product_name = models.CharField(max_length=255)
+    product_bd_group = models.CharField(max_length=100, blank=True, null=True)
+    
+    volumes = models.JSONField(default=dict)
+    total_volume = models.FloatField(default=0, blank=True, null=True)
+    
+    values = models.JSONField(default=dict)
+    total_value = models.FloatField(default=0, blank=True, null=True)
+
+    def __str__(self):
+        return f"Sales: {self.customer_name} - {self.product_name}"

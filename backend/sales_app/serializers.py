@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales
 from django.utils import timezone
 
 class ProductMasterSerializer(serializers.ModelSerializer):
@@ -27,4 +27,9 @@ class OrderSerializer(serializers.ModelSerializer):
 class StockLevelSerializer(serializers.ModelSerializer):
     class Meta:
         model = StockLevel
+        fields = '__all__'
+
+class MonthlySalesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlySales
         fields = '__all__'

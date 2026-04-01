@@ -1,8 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel
-from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales
+from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer
 import pandas as pd
 
 class ProductMasterViewSet(viewsets.ModelViewSet):
@@ -20,6 +20,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 class StockLevelViewSet(viewsets.ModelViewSet):
     queryset = StockLevel.objects.all()
     serializer_class = StockLevelSerializer
+
+class MonthlySalesViewSet(viewsets.ModelViewSet):
+    queryset = MonthlySales.objects.all()
+    serializer_class = MonthlySalesSerializer
 
 @api_view(['POST'])
 def upload_products(request):
@@ -245,3 +249,125 @@ def upload_stock(request):
         
     except Exception as e:
         return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def upload_monthly_sales(request):
+    if 'file' not in request.FILES:
+        return Response({'error': 'No document provided for upload.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    file = request.FILES['file']
+    filename = file.name.lower()
+    
+    try:
+        # Dynamically support PDF extraction as requested
+        if filename.endswith('.pdf'):
+            try:
+                import pdfplumber
+            except ImportError:
+                return Response({'error': 'PDF parser not installed natively.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            with pdfplumber.open(file) as pdf:
+                all_rows = []
+                for page in pdf.pages:
+                    table = page.extract_table()
+                    if table:
+                        all_rows.extend(table)
+                        
+            if not all_rows or len(all_rows) < 4:
+                return Response({'error': 'No tabular data could be structurally extracted.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            headers = [str(h).replace('\n', ' ').strip() if h else '' for h in all_rows[2]] # Assuming headers are mostly row 3
+            df = pd.DataFrame(all_rows[3:], columns=headers)
+        elif filename.endswith(('.xls', '.xlsx')):
+            # The template provided relies upon multi-header complexity natively
+            df = pd.read_excel(file, skiprows=2)
+        else:
+            return Response({'error': 'Unsupported file.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        errors = []
+        valid_records = []
+        
+        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
+        
+        for index, row in df.iterrows():
+            line_no = index + 4 
+            
+            def get_val(key_name):
+                if key_name in df.columns:
+                    val = row.get(key_name)
+                    if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                        return ''
+                    string_val = str(val).strip()
+                    if string_val.endswith('.0') and not key_name.startswith('Total'):
+                        return string_val[:-2]
+                    return string_val
+                return ''
+
+            product_code = get_val('Product Code')
+            product_name = get_val('Product Name')
+            customer_name = get_val('Customer Name')
+            
+            if not product_code and not product_name and not customer_name:
+                continue 
+            
+            if product_code and product_code not in valid_codes:
+                errors.append(f"Row {line_no}: Product Code '{product_code}' is disconnected from explicit Product Master registries.")
+                continue 
+                
+            volumes = {}
+            values = {}
+            
+            # Map dynamic months horizontally natively processing pandas .1 suffixing
+            for col in df.columns:
+                col_str = str(col)
+                if 'Unnamed' in col_str: continue
+                
+                val = row.get(col)
+                num_val = 0.0
+                if not pd.isna(val):
+                    try:
+                        num_val = float(str(val).replace(',', ''))
+                    except ValueError:
+                        pass
+                
+                if col_str.endswith('.1'):
+                    month_key = col_str.replace('.1', '').strip()
+                    if 'Total' not in month_key:
+                        values[month_key] = num_val
+                else:
+                    dimension_cols = ['Distributor Name', 'Ship To Code', 'Customer Name', 'Customer Classification (A+,A,B,C,D)', 'Product Code', 'Product Name', 'Product BD Group', 'Total Volume (kg)', 'Total Value (INR)']
+                    if col_str not in dimension_cols and 'Total' not in col_str:
+                        volumes[col_str.strip()] = num_val
+            
+            total_vol_raw = get_val('Total Volume (kg)')
+            total_val_raw = get_val('Total Value (INR)')
+            
+            try:
+                total_vol = float(total_vol_raw.replace(',', '')) if total_vol_raw else 0.0
+                total_val = float(total_val_raw.replace(',', '')) if total_val_raw else 0.0
+            except ValueError:
+                total_vol = 0.0
+                total_val = 0.0
+            
+            valid_records.append(MonthlySales(
+                distributor_name=get_val('Distributor Name'),
+                ship_to_code=get_val('Ship To Code'),
+                customer_name=customer_name,
+                customer_classification=get_val('Customer Classification (A+,A,B,C,D)'),
+                product_code=product_code,
+                product_name=product_name,
+                product_bd_group=get_val('Product BD Group'),
+                volumes=volumes,
+                total_volume=total_vol,
+                values=values,
+                total_value=total_val
+            ))
+            
+        if errors:
+            return Response({'message': 'Master Validation rejected structural entries natively.', 'errors': errors[:30]}, status=status.HTTP_400_BAD_REQUEST)
+            
+        MonthlySales.objects.bulk_create(valid_records)
+        return Response({'message': f'Successfully ingested {len(valid_records)} robust Monthly Sales records.'}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f"Document pipeline failed natively: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

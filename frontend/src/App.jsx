@@ -5,7 +5,8 @@ import OrdersPage from './pages/OrdersPage'
 import DashboardPage from './pages/DashboardPage'
 import UploadOrdersPage from './pages/UploadOrdersPage'
 import UploadStockPage from './pages/UploadStockPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity } from 'lucide-react'
+import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map } from 'lucide-react'
 
 function App() {
   return (
@@ -33,6 +34,10 @@ function App() {
               <Activity size={18} />
               Upload Stock Report
             </NavLink>
+            <NavLink to="/upload-monthly-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <Map size={18} />
+              Monthly Sales
+            </NavLink>
             <NavLink to="/invoices" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FileText size={18} />
               Distributor Invoices
@@ -49,6 +54,7 @@ function App() {
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/upload-orders" element={<UploadOrdersPage />} />
             <Route path="/upload-stock" element={<UploadStockPage />} />
+            <Route path="/upload-monthly-sales" element={<UploadMonthlySalesPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
           </Routes>
