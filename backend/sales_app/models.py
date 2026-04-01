@@ -34,3 +34,16 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order {self.invoice_no}: {self.material_name} ({self.qty})"
+
+class StockLevel(models.Model):
+    sold_to = models.CharField(max_length=100, blank=True, null=True)
+    ship_to = models.CharField(max_length=100, blank=True, null=True)
+    product_code = models.CharField(max_length=100)
+    product_desc = models.CharField(max_length=255)
+    avg_six_month_sales = models.FloatField(blank=True, null=True)
+    month_end_inventory = models.FloatField(blank=True, null=True)
+    mid_month_inventory = models.FloatField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Stock: {self.product_desc} ({self.month_end_inventory})"

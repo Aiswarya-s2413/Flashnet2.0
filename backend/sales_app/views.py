@@ -1,8 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ProductMaster, DistributorInvoice, Order
-from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel
+from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer
 import pandas as pd
 
 class ProductMasterViewSet(viewsets.ModelViewSet):
@@ -16,6 +16,10 @@ class DistributorInvoiceViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+
+class StockLevelViewSet(viewsets.ModelViewSet):
+    queryset = StockLevel.objects.all()
+    serializer_class = StockLevelSerializer
 
 @api_view(['POST'])
 def upload_products(request):
@@ -147,6 +151,97 @@ def upload_orders(request):
         Order.objects.bulk_create(valid_orders)
         
         return Response({'message': f'Successfully verified and securely uploaded {len(valid_orders)} direct orders.'}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def upload_stock(request):
+    if 'file' not in request.FILES:
+        return Response({'error': 'No document provided for upload.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    file = request.FILES['file']
+    filename = file.name.lower()
+    
+    try:
+        # Dynamically support PDF extraction as requested
+        if filename.endswith('.pdf'):
+            try:
+                import pdfplumber
+            except ImportError:
+                return Response({'error': 'PDF parser not installed natively on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            with pdfplumber.open(file) as pdf:
+                all_rows = []
+                for page in pdf.pages:
+                    table = page.extract_table()
+                    if table:
+                        all_rows.extend(table)
+                        
+            if not all_rows or len(all_rows) < 2:
+                return Response({'error': 'No tabular data could be structurally extracted from the PDF.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            headers = [str(h).replace('\n', ' ').strip() if h else '' for h in all_rows[0]]
+            df = pd.DataFrame(all_rows[1:], columns=headers)
+        elif filename.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(file)
+        else:
+            return Response({'error': 'Unsupported file format. Please upload Excel or PDF.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        errors = []
+        valid_stocks = []
+        
+        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
+        
+        for index, row in df.iterrows():
+            line_no = index + 2 
+            
+            def get_val(key_options):
+                for k in key_options:
+                    if k in df.columns:
+                        val = row.get(k)
+                        if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                            return ''
+                        string_val = str(val).strip()
+                        if string_val.endswith('.0'):
+                            return string_val[:-2]
+                        return string_val
+                return ''
+
+            product_code = get_val(['Product Code', 'product_code'])
+            product_desc = get_val(['Prod Desc', 'product_desc', 'Product Desc'])
+            
+            # Skip genuinely empty rows safely
+            if not product_code and not product_desc:
+                continue
+            
+            if product_code and product_code not in valid_codes:
+                errors.append(f"Row {line_no}: Product Code '{product_code}' is not matching any verified Product Master code.")
+                continue 
+                
+            def get_float(key_options):
+                val = get_val(key_options)
+                try:
+                    return float(val) if val else None
+                except ValueError:
+                    return None
+            
+            valid_stocks.append(StockLevel(
+                sold_to=get_val(['Sold To', 'sold_to']),
+                ship_to=get_val(['Ship To', 'ship_to']),
+                product_code=product_code,
+                product_desc=product_desc,
+                avg_six_month_sales=get_float(['Avg Last six month sales in kg', 'Avg Last six month']),
+                month_end_inventory=get_float(['Month End Inventory', 'month_end_inventory']),
+                mid_month_inventory=get_float(['Mid Month Inventory', 'mid_month_inventory']),
+                remarks=get_val(['Remarks/Comments', 'Remarks', 'comments'])
+            ))
+            
+        if errors:
+            return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+            
+        StockLevel.objects.bulk_create(valid_stocks)
+        return Response({'message': f'Successfully verified and uploaded {len(valid_stocks)} stock records natively.'}, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
