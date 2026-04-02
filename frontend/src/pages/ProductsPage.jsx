@@ -62,6 +62,16 @@ export default function ProductsPage() {
           <span className="stat-label">Total Products</span>
           <span className="stat-value stat-accent">{products.length}</span>
         </div>
+        <div className="stat-card">
+          <span className="stat-label">Last Updated</span>
+          <span className="stat-value" style={{ fontSize: 16 }}>
+            {products.length > 0 ? (
+              new Date(Math.max(...products.map(p => new Date(p.updated_at).getTime()))).toLocaleString(undefined, { 
+                day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+              })
+            ) : 'Never'}
+          </span>
+        </div>
         {searchQuery && (
           <div className="stat-card">
             <span className="stat-label">Search Results</span>
