@@ -89,9 +89,7 @@ export default function UploadMonthlySalesPage() {
       </div>
 
       <h3 style={{ marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>Required Document Structure</h3>
-      <p style={{ color: 'var(--text-dim)', fontSize: 14, marginBottom: 24 }}>
-        Your underlying spreadsheet explicitly assumes "Distributor Name" block mapping logic is physically situated at Row 3 accurately mirroring the CSI template exactly.
-      </p>
+
 
       <div className="table-wrapper">
         <table>
