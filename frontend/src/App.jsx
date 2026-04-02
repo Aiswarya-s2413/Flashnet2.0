@@ -6,7 +6,7 @@ import DashboardPage from './pages/DashboardPage'
 import UploadOrdersPage from './pages/UploadOrdersPage'
 import UploadStockPage from './pages/UploadStockPage'
 import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map } from 'lucide-react'
+import { Package, FileText, LayoutDashboard, UploadCloud, Activity, Map } from 'lucide-react'
 
 function App() {
   return (
@@ -14,8 +14,8 @@ function App() {
       <div className="app-shell">
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <ShoppingCart size={24} />
-            <span>Sales Manager</span>
+            <img src="/logo.png" alt="FlashNet" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+            <span>FlashNet</span>
           </div>
           <nav className="sidebar-nav">
             <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
