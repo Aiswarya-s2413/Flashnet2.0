@@ -89,9 +89,7 @@ export default function UploadStockPage() {
       </div>
 
       <h3 style={{ marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>Required Document Structure</h3>
-      <p style={{ color: 'var(--text-dim)', fontSize: 14, marginBottom: 24 }}>
-        Your underlying spreadsheet or explicit PDF tabular render must strictly retain structural integrity mirroring exactly these designated physical headers precisely downwards. 
-      </p>
+
 
       <div className="table-wrapper">
         <table>
