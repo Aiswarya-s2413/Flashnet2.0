@@ -93,7 +93,7 @@ export default function DashboardPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Sales Dashboard</h1>
-        <p className="page-subtitle">Interactive dataset analysis and product quantities</p>
+
       </div>
 
       <div className="filter-panel" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '8px', marginBottom: '24px', display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>

@@ -25,7 +25,7 @@ export default function OrdersPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Orders</h1>
-        <p className="page-subtitle">Extracted and validated orders from distributor invoices</p>
+
       </div>
 
       {alert && (

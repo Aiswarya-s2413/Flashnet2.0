@@ -56,7 +56,7 @@ export default function UploadOrdersPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Sales Register Upload</h1>
-        <p className="page-subtitle"></p>
+
       </div>
 
       {alert && (

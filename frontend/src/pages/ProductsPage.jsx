@@ -31,7 +31,7 @@ export default function ProductsPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Product Master</h1>
-        <p className="page-subtitle">View your product catalogue</p>
+
       </div>
 
       {alert && (

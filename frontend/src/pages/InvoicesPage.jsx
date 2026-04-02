@@ -139,7 +139,7 @@ export default function InvoicesPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Distributor Invoices</h1>
-        <p className="page-subtitle">Secondary sales — Distributor to Customer</p>
+
       </div>
 
       {alert && (

@@ -51,7 +51,7 @@ export default function UploadStockPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Stock Level Inventory Upload</h1>
-        <p className="page-subtitle">Mass import physical warehouse stock levels directly via structural spreadsheet or PDF.</p>
+
       </div>
 
       {alert && (

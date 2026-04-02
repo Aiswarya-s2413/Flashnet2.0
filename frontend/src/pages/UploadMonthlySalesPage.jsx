@@ -51,7 +51,7 @@ export default function UploadMonthlySalesPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Monthly Sales to Customers Validation</h1>
-        <p className="page-subtitle">Mass import physical dimension sales logs directly via multi-level spreadsheet mappings.</p>
+
       </div>
 
       {alert && (
