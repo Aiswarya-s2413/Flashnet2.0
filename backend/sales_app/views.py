@@ -147,14 +147,20 @@ def upload_orders(request):
                 qty=numeric_qty
             ))
             
-        if errors:
+        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
+        
+        if errors and not ignore_errors:
             # Rejects entire upload actively indicating N-th line violations
             return Response({'message': 'Document validation immediately failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
         # Bulk save cleanly populated objects leaving untraced fields blank without crashing
         Order.objects.bulk_create(valid_orders)
         
-        return Response({'message': f'Successfully verified and securely uploaded {len(valid_orders)} direct orders.'}, status=status.HTTP_200_OK)
+        msg = f'Successfully verified and securely uploaded {len(valid_orders)} direct orders.'
+        if errors and ignore_errors:
+            msg += f' (Ignored {len(errors)} structurally conflicting rows).'
+            
+        return Response({'message': msg}, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

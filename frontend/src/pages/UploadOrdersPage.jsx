@@ -14,8 +14,8 @@ export default function UploadOrdersPage() {
     }
   }
 
-  const handleUpload = async (e) => {
-    e.preventDefault()
+  const handleUpload = async (e, ignoreErrors = false) => {
+    if (e && e.preventDefault) e.preventDefault()
     if (!file) return
 
     setLoading(true)
@@ -23,6 +23,9 @@ export default function UploadOrdersPage() {
 
     const formData = new FormData()
     formData.append('file', file)
+    if (ignoreErrors) {
+      formData.append('ignore_errors', 'true')
+    }
 
     try {
       const res = await API.post('/orders/upload/', formData, {
@@ -38,7 +41,8 @@ export default function UploadOrdersPage() {
         setAlert({
           type: 'error',
           title: data.message || 'Data Validation Checks Failed',
-          messages: data.errors // Shows "Row N: Material ... not matching..." perfectly!
+          messages: data.errors, // Shows "Row N: Material ... not matching..." perfectly!
+          ignorable: true
         })
       } else {
         setAlert({ type: 'error', title: 'Upload Failed', messages: [data?.error || e.message] })
@@ -52,7 +56,7 @@ export default function UploadOrdersPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Sales Register Upload</h1>
-        <p className="page-subtitle">Mass import physical orders directly bypassing Distributor Extraction</p>
+        <p className="page-subtitle"></p>
       </div>
 
       {alert && (
@@ -61,9 +65,22 @@ export default function UploadOrdersPage() {
             {alert.type === 'error' ? <AlertTriangle size={18}/> : <CheckCircle size={18}/>}
             <span className="alert-title" style={{ margin: 0 }}>{alert.title}</span>
           </div>
-          <ul style={{ margin: 0, paddingLeft: 24, maxHeight: 150, overflowY: 'auto' }}>
+          <ul style={{ margin: 0, paddingLeft: 24, maxHeight: 150, overflowY: 'auto', marginBottom: alert.ignorable ? 16 : 0 }}>
             {alert.messages.map((m, i) => <li key={i}>{m}</li>)}
           </ul>
+          {alert.ignorable && (
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12 }}>
+              <button 
+                type="button" 
+                onClick={() => handleUpload(null, true)}
+                className="btn" 
+                style={{ backgroundColor: '#fff', color: '#d9534f', border: '1px solid #d9534f', fontSize: 13, padding: '6px 12px' }}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Ignore Errors and Upload Valid Data'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
