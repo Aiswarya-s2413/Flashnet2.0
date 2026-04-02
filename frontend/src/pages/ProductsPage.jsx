@@ -77,22 +77,27 @@ export default function ProductsPage() {
               <th>#</th>
               <th>Material Code</th>
               <th>Material Name</th>
+              <th>Pack Size</th>
             </tr>
           </thead>
         <tbody>
             {loading ? (
               <tr><td colSpan={3} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading…</td></tr>
             ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan={3}>
+              <tr><td colSpan={4}>
                 <div className="empty-state"><Package size={40} /><p>{searchQuery ? 'No products match your search.' : 'No products available.'}</p></div>
               </td></tr>
-            ) : filteredProducts.map((p, i) => (
+            ) : filteredProducts.map((p, i) => {
+              const packSizeMatch = p.material_name?.trim().match(/(\d{4})$/)
+              const packSize = packSizeMatch ? packSizeMatch[1] : '-'
+              return (
               <tr key={p.id}>
                 <td style={{ color: 'var(--text-dim)' }}>{i + 1}</td>
                 <td><span className="badge badge-accent">{p.material_code}</span></td>
                 <td>{p.material_name}</td>
+                <td style={{ fontWeight: 500, color: 'var(--primary)' }}>{packSize}</td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
