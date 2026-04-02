@@ -6,7 +6,6 @@ export default function UploadStockPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
-  const [ignoreErrors, setIgnoreErrors] = useState(false)
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -15,8 +14,8 @@ export default function UploadStockPage() {
     }
   }
 
-  const handleUpload = async (e) => {
-    e.preventDefault()
+  const handleUpload = async (e, ignoreErrors = false) => {
+    if (e && e.preventDefault) e.preventDefault()
     if (!file) return
 
     setLoading(true)
@@ -25,6 +24,9 @@ export default function UploadStockPage() {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('ignore_errors', ignoreErrors)
+    if (ignoreErrors) {
+      formData.append('ignore_errors', 'true')
+    }
 
     try {
       const res = await API.post('/stocks/upload/', formData, {
@@ -39,7 +41,8 @@ export default function UploadStockPage() {
         setAlert({
           type: 'error',
           title: data.message || 'Validation Encountered Failures',
-          messages: data.errors 
+          messages: data.errors,
+          ignorable: true
         })
       } else {
         setAlert({ type: 'error', title: 'Upload Failed', messages: [data?.error || e.message] })
@@ -62,9 +65,22 @@ export default function UploadStockPage() {
             {alert.type === 'error' ? <AlertTriangle size={18}/> : <CheckCircle size={18}/>}
             <span className="alert-title" style={{ margin: 0 }}>{alert.title}</span>
           </div>
-          <ul style={{ margin: 0, paddingLeft: 24, maxHeight: 150, overflowY: 'auto' }}>
+          <ul style={{ margin: 0, paddingLeft: 24, maxHeight: 150, overflowY: 'auto', marginBottom: alert.ignorable ? 16 : 0 }}>
             {alert.messages.map((m, i) => <li key={i}>{m}</li>)}
           </ul>
+          {alert.ignorable && (
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12 }}>
+              <button 
+                type="button" 
+                onClick={() => handleUpload(null, true)}
+                className="btn" 
+                style={{ backgroundColor: '#fff', color: '#d9534f', border: '1px solid #d9534f', fontSize: 13, padding: '6px 12px' }}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Ignore Errors and Upload Valid Data'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -80,11 +96,7 @@ export default function UploadStockPage() {
             </div>
             <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Stock Report Document</h3>
             <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Supports robust multi-format matching across .xlsx or .pdf files natively</p>
-            <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13, marginBottom: 16 }} required />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none', width: '100%', justifyContent: 'flex-start' }}>
-              <input type="checkbox" checked={ignoreErrors} onChange={(e) => setIgnoreErrors(e.target.checked)} style={{ cursor: 'pointer', scale: '1.2' }} />
-              <span style={{ color: 'var(--text)' }}>Ignore validation errors (skip conflicting rows securely)</span>
-            </label>
+            <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
           </div>
           
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
