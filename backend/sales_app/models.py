@@ -3,6 +3,7 @@ from django.db import models
 class ProductMaster(models.Model):
     material_code = models.CharField(max_length=100, unique=True)
     material_name = models.CharField(max_length=255)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.material_code} - {self.material_name}"
