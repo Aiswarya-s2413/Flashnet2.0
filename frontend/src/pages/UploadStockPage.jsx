@@ -6,6 +6,7 @@ export default function UploadStockPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [ignoreErrors, setIgnoreErrors] = useState(false)
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -23,6 +24,7 @@ export default function UploadStockPage() {
 
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('ignore_errors', ignoreErrors)
 
     try {
       const res = await API.post('/stocks/upload/', formData, {
@@ -78,7 +80,11 @@ export default function UploadStockPage() {
             </div>
             <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Stock Report Document</h3>
             <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Supports robust multi-format matching across .xlsx or .pdf files natively</p>
-            <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
+            <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13, marginBottom: 16 }} required />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer', userSelect: 'none', width: '100%', justifyContent: 'flex-start' }}>
+              <input type="checkbox" checked={ignoreErrors} onChange={(e) => setIgnoreErrors(e.target.checked)} style={{ cursor: 'pointer', scale: '1.2' }} />
+              <span style={{ color: 'var(--text)' }}>Ignore validation errors (skip conflicting rows securely)</span>
+            </label>
           </div>
           
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
