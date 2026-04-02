@@ -1,36 +1,23 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import API from '../api'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { Filter } from 'lucide-react'
-
-// colors for pie chart
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
-
-// Helper to convert DD-MM-YYYY to standard JS Date for sorting
-const parseDDMMYYYY = (dateStr) => {
-  if (!dateStr || typeof dateStr !== 'string') return new Date(0);
-  const parts = dateStr.split('-');
-  if (parts.length === 3) {
-    const [day, month, year] = parts;
-    return new Date(year, month - 1, day);
-  }
-  return new Date(dateStr); // fallback if incorrect format
-}
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { Activity, Package, Map, ShoppingCart } from 'lucide-react'
 
 export default function DashboardPage() {
-  const [invoices, setInvoices] = useState([])
+  const [metrics, setMetrics] = useState(null)
   const [loading, setLoading] = useState(true)
-  
-  // Filters
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const res = await API.get('/orders/')
-        setInvoices(res.data) // Using validated orders data now
+        const res = await API.get('/dashboard/metrics/')
+        // Sort stock levels descending explicitly
+        const data = res.data
+        if (data.stock_levels) {
+          data.stock_levels.sort((a, b) => b.stock - a.stock)
+        }
+        setMetrics(data)
       } catch (e) {
         console.error("Dashboard fetch error:", e)
       } finally {
@@ -40,180 +27,157 @@ export default function DashboardPage() {
     fetchData()
   }, [])
 
-  // Filter data based on controls
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
-      const invDate = parseDDMMYYYY(inv.invoice_date).getTime();
-      let passStart = true, passEnd = true;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column' }}>
+         <span className="spinner" style={{ width: 40, height: 40, borderBottomColor: 'var(--primary)', marginBottom: 16 }} />
+         <p style={{ color: 'var(--text-dim)' }}>Aggregating dynamic matrices natively...</p>
+      </div>
+    )
+  }
 
-      // HTML date input yields YYYY-MM-DD
-      if (startDate) {
-        const start = new Date(startDate).getTime();
-        // compare timestamps
-        if (invDate < start) passStart = false;
-      }
-      if (endDate) {
-        // adjust to exact end of day
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        if (invDate > end.getTime()) passEnd = false;
-      }
+  if (!metrics) {
+    return <div style={{ padding: 40, textAlign: 'center' }}>Unable to load dashboard gracefully.</div>
+  }
 
-      return passStart && passEnd;
-    });
-  }, [invoices, startDate, endDate])
+  const { top_products, top_customers, monthly_progression, stock_levels } = metrics
 
-  // Overview Stats
-  const totalQty = filteredInvoices.reduce((sum, i) => sum + i.qty, 0)
-  const uniqueInvoices = new Set(filteredInvoices.map(i => i.invoice_no)).size
-  const uniqueDistributorsStr = new Set(filteredInvoices.map(i => i.customer)).size
+  const formatCurrency = (val) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
+  }
 
-  // Bar Chart Data (Product-wise Qty)
-  const productData = useMemo(() => {
-    const aggr = {};
-    filteredInvoices.forEach(inv => {
-      const pName = inv.material_name;
-      if (!aggr[pName]) aggr[pName] = 0;
-      aggr[pName] += inv.qty;
-    });
-    return Object.entries(aggr)
-      .map(([name, qty]) => ({ name, qty }))
-      .sort((a, b) => b.qty - a.qty) // descending sort
-  }, [filteredInvoices])
-
-  // Pie Chart Data (Top 5 + Others)
-  const pieData = useMemo(() => {
-    if (productData.length <= 5) return productData;
-    const top5 = productData.slice(0, 5);
-    const othersQty = productData.slice(5).reduce((s, p) => s + p.qty, 0);
-    return [...top5, { name: 'Others', qty: othersQty }];
-  }, [productData])
+  const formatNumber = (val) => {
+    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val)
+  }
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Sales Dashboard</h1>
-
+        <h1 className="page-title">Executive Dashboard</h1>
       </div>
 
-      <div className="filter-panel" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '8px', marginBottom: '24px', display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Filter size={18} />
-          <strong style={{ opacity: 0.9 }}>Data Filters:</strong>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
         
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label style={{ fontSize: '12px', opacity: 0.8, display: 'block' }}>Start Date <small>(applies to DD-MM-YYYY)</small></label>
-          <input 
-            type="date" 
-            value={startDate} 
-            onChange={e => setStartDate(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-primary)' }}
-          />
+        {/* Top Product Card */}
+        <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Top Product</p>
+            <h3 style={{ fontSize: 20, margin: '0 0 4px 0', lineHeight: 1.3 }}>
+              {top_products && top_products.length > 0 ? top_products[0].name : 'N/A'}
+            </h3>
+            <p style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 18 }}>
+              {top_products && top_products.length > 0 ? formatNumber(top_products[0].volume) : 0} <span style={{fontSize: 14, color: 'var(--text-dim)', fontWeight: 400}}>KGs</span>
+            </p>
+          </div>
+          <div style={{ padding: 12, backgroundColor: 'rgba(56, 189, 248, 0.1)', borderRadius: 12, color: 'var(--primary)' }}>
+            <Package size={24} />
+          </div>
         </div>
 
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label style={{ fontSize: '12px', opacity: 0.8, display: 'block' }}>End Date</label>
-          <input 
-            type="date" 
-            value={endDate} 
-            onChange={e => setEndDate(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-primary)' }}
-          />
+        {/* Top Customer Card */}
+        <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Top Customer</p>
+             <h3 style={{ fontSize: 20, margin: '0 0 4px 0', lineHeight: 1.3 }}>
+              {top_customers && top_customers.length > 0 ? top_customers[0].name : 'N/A'}
+            </h3>
+            <p style={{ color: '#10b981', fontWeight: 600, fontSize: 18 }}>
+              {top_customers && top_customers.length > 0 ? formatNumber(top_customers[0].volume) : 0} <span style={{fontSize: 14, color: 'var(--text-dim)', fontWeight: 400}}>KGs</span>
+            </p>
+          </div>
+          <div style={{ padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 12, color: '#10b981' }}>
+            <ShoppingCart size={24} />
+          </div>
         </div>
 
-        <button 
-          className="btn btn-outline"
-          onClick={() => { setStartDate(''); setEndDate(''); }}
-          style={{ alignSelf: 'flex-end', padding: '8px 16px', marginLeft: 'auto' }}
-        >
-          Reset Filters
-        </button>
       </div>
 
-      <div className="stats-row">
-        <div className="stat-card">
-          <span className="stat-label">Total Qty Sold</span>
-          <span className="stat-value stat-green">{totalQty.toLocaleString()}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Invoices Analyzed</span>
-          <span className="stat-value stat-accent">{uniqueInvoices.toLocaleString()}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Active Distributors</span>
-          <span className="stat-value">{uniqueDistributorsStr.toLocaleString()}</span>
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-dim)' }}>Loading dashboard...</div>
-      ) : filteredInvoices.length === 0 ? (
-        <div className="empty-state" style={{ padding: '50px', background: 'var(--bg-secondary)', borderRadius: '12px', marginTop: '20px' }}>
-          <p>No sales data matches the selected filters.</p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginTop: '24px' }}>
-          
-          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '24px', opacity: 0.9 }}>Product-wise Quantity (Sorted)</h3>
-            <div style={{ width: '100%', height: 400 }}>
-              <ResponsiveContainer>
-                <BarChart data={productData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis 
-                    dataKey="name" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    interval={0}
-                    height={80} 
-                    tick={{ fontSize: 11, fill: 'var(--text-dim)' }} 
-                  />
-                  <YAxis tick={{ fontSize: 12, fill: 'var(--text-dim)' }} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                  <Bar dataKey="qty" name="Total Quantity" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="card" style={{ padding: 24, height: 400 }}>
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Monthly Progression Overview</h3>
+            <p style={{ color: 'var(--text-dim)', fontSize: 14, margin: '4px 0 0 0' }}>Volume fluctuations extracted from monthly sales</p>
+          </div>
+          {monthly_progression && monthly_progression.length > 0 ? (
+            <ResponsiveContainer width="100%" height="80%">
+              <AreaChart data={monthly_progression} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorProg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  formatter={(value) => [formatNumber(value) + ' KGs', 'Volume']}
+                  contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  itemStyle={{ color: 'var(--text)' }}
+                />
+                <Area type="monotone" dataKey="volume" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+              No monthly sales data found natively.
             </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
-             <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '24px', opacity: 0.9 }}>Volume Share Overview</h3>
-                <div style={{ width: '100%', height: 350 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={true}
-                        outerRadius={100}
-                        innerRadius={60}
-                        dataKey="qty"
-                        nameKey="name"
-                        label={({ name, percent }) => `${name.substring(0, 15)}${name.length > 15 ? '...' : ''} (${(percent * 100).toFixed(0)}%)`}
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-             </div>
-          </div>
-
+          )}
         </div>
-      )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+        
+        {/* Top Products Volume Chart */}
+        <div className="card" style={{ padding: 24, height: 350 }}>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: 16 }}>Top Products by Volume</h3>
+          {top_products && top_products.length > 0 ? (
+            <ResponsiveContainer width="100%" height="85%">
+              <BarChart layout="vertical" data={top_products} margin={{ top: 5, right: 30, left: 60, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
+                <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-dim)', fontSize: 11}} width={120} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  formatter={(value) => [formatNumber(value) + ' KGs', 'Volume']}
+                  contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  cursor={{fill: 'var(--bg)'}}
+                />
+                <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ height: '85%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+              No products found structurally.
+            </div>
+          )}
+        </div>
+
+        {/* Top Monthly Stock Levels */}
+        <div className="card" style={{ padding: 24, height: 350 }}>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: 16 }}>Top Current Monthly Stock Levels</h3>
+          {stock_levels && stock_levels.length > 0 ? (
+            <ResponsiveContainer width="100%" height="85%">
+              <BarChart data={stock_levels.slice(0, 5)} margin={{ top: 5, right: 30, left: 0, bottom: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 11}} angle={-45} textAnchor="end" height={60} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  formatter={(value) => [formatNumber(value) + ' KGs', 'Inventory']}
+                  contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  cursor={{fill: 'var(--bg)'}}
+                />
+                <Bar dataKey="stock" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ height: '85%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+              No stock levels extracted.
+            </div>
+          )}
+        </div>
+
+      </div>
+
     </div>
   )
 }
