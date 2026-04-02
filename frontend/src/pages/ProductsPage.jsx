@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { Package, RefreshCw } from 'lucide-react'
+import { Package, RefreshCw, Search } from 'lucide-react'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState(null)
 
@@ -20,6 +21,11 @@ export default function ProductsPage() {
   }
 
   useEffect(() => { fetchProducts() }, [])
+
+  const filteredProducts = products.filter(p => 
+    (p.material_code || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.material_name || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div>
@@ -39,6 +45,16 @@ export default function ProductsPage() {
         <button className="btn btn-outline" onClick={fetchProducts}>
           <RefreshCw size={15} /> Refresh
         </button>
+        <div style={{ position: 'relative', flex: 1, maxWidth: 350 }}>
+          <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-dim)' }} />
+          <input 
+            type="text" 
+            placeholder="Search material code or name..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '10px 10px 10px 36px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface)', fontSize: 14 }}
+          />
+        </div>
       </div>
 
       <div className="stats-row">
@@ -46,6 +62,12 @@ export default function ProductsPage() {
           <span className="stat-label">Total Products</span>
           <span className="stat-value stat-accent">{products.length}</span>
         </div>
+        {searchQuery && (
+          <div className="stat-card">
+            <span className="stat-label">Search Results</span>
+            <span className="stat-value" style={{ color: 'var(--text)' }}>{filteredProducts.length}</span>
+          </div>
+        )}
       </div>
 
       <div className="table-wrapper">
@@ -57,14 +79,14 @@ export default function ProductsPage() {
               <th>Material Name</th>
             </tr>
           </thead>
-          <tbody>
+        <tbody>
             {loading ? (
               <tr><td colSpan={3} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading…</td></tr>
-            ) : products.length === 0 ? (
+            ) : filteredProducts.length === 0 ? (
               <tr><td colSpan={3}>
-                <div className="empty-state"><Package size={40} /><p>No products available.</p></div>
+                <div className="empty-state"><Package size={40} /><p>{searchQuery ? 'No products match your search.' : 'No products available.'}</p></div>
               </td></tr>
-            ) : products.map((p, i) => (
+            ) : filteredProducts.map((p, i) => (
               <tr key={p.id}>
                 <td style={{ color: 'var(--text-dim)' }}>{i + 1}</td>
                 <td><span className="badge badge-accent">{p.material_code}</span></td>
