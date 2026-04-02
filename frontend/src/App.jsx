@@ -6,7 +6,7 @@ import DashboardPage from './pages/DashboardPage'
 import UploadOrdersPage from './pages/UploadOrdersPage'
 import UploadStockPage from './pages/UploadStockPage'
 import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
-import { Package, FileText, LayoutDashboard, UploadCloud, Activity, Map } from 'lucide-react'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map } from 'lucide-react'
 
 function App() {
   return (
