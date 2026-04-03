@@ -161,7 +161,7 @@ export default function UploadStockPage() {
                 </td>
               </tr>
             ) : (
-              stocks.slice(0, 50).map((s, i) => (
+              stocks.map((s, i) => (
                 <tr key={s.id || i}>
                   <td>{s.sold_to}</td>
                   <td>{s.ship_to}</td>
@@ -173,9 +173,6 @@ export default function UploadStockPage() {
                   <td>{s.remarks}</td>
                 </tr>
               ))
-            )}
-            {stocks.length > 50 && (
-              <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 12 }}>Showing first 50 records structurally.</td></tr>
             )}
           </tbody>
         </table>

@@ -157,7 +157,7 @@ export default function UploadOrdersPage() {
                 </td>
               </tr>
             ) : (
-              orders.slice(0, 50).map((o, i) => (
+              orders.map((o, i) => (
                 <tr key={o.id || i}>
                   <td>{o.sold_to}</td>
                   <td>{o.ship_to}</td>
@@ -170,9 +170,6 @@ export default function UploadOrdersPage() {
                   <td><span className="badge badge-green">{o.qty}</span></td>
                 </tr>
               ))
-            )}
-            {orders.length > 50 && (
-              <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 12 }}>Showing first 50 of {orders.length} records.</td></tr>
             )}
           </tbody>
         </table>

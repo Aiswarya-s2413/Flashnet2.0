@@ -188,7 +188,7 @@ export default function UploadMonthlySalesPage() {
                 </td>
               </tr>
             ) : (
-              sales.slice(0, 50).map((s, i) => (
+              sales.map((s, i) => (
                 <tr key={s.id || i}>
                   <td>{s.distributor_name}</td>
                   <td>{s.ship_to_code}</td>
@@ -200,9 +200,6 @@ export default function UploadMonthlySalesPage() {
                   <td>{s.total_value?.toFixed(2) || '-'}</td>
                 </tr>
               ))
-            )}
-            {sales.length > 50 && (
-              <tr><td colSpan={15} style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 12 }}>Showing first 50 records structurally.</td></tr>
             )}
           </tbody>
         </table>
