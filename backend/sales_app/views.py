@@ -99,8 +99,13 @@ def upload_orders(request):
         has_standard_cols = any('material' in c or 'invoice' in c for c in col_names_lower)
         
         # Detect "Vikram Trading" raw sales format: columns like Sr, Code, Name, Nos, Quantity
-        # with customer names embedded as section header rows
+        # Sometimes these headers are pushed to the second row (df.iloc[0]) because of a title row
         has_raw_sales_cols = any('code' in c for c in col_names_lower) and any('name' in c for c in col_names_lower)
+        
+        if not has_raw_sales_cols and len(df) > 0:
+            first_row_vals = [str(v).lower().strip() for v in df.iloc[0].tolist()]
+            if any('code' in v for v in first_row_vals) and any('name' in v for v in first_row_vals):
+                has_raw_sales_cols = True
         
         if not has_standard_cols and has_raw_sales_cols:
             # --- VIKRAM TRADING / RAW SALES FORMAT ---
