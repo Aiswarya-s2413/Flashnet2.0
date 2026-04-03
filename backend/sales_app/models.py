@@ -23,15 +23,15 @@ class DistributorInvoice(models.Model):
         return f"Invoice {self.invoice_no}: {self.material_name} ({self.qty})"
 
 class Order(models.Model):
-    invoice_no = models.CharField(max_length=100)
-    invoice_date = models.DateField()
+    invoice_no = models.CharField(max_length=100, blank=True, default='')
+    invoice_date = models.DateField(null=True, blank=True)
     material_code = models.CharField(max_length=100)
     material_name = models.CharField(max_length=255)
     packsize = models.CharField(max_length=100)
     qty = models.IntegerField()
-    customer = models.CharField(max_length=255)
-    ship_to = models.TextField()
-    sold_to = models.TextField()
+    customer = models.CharField(max_length=255, blank=True, default='')
+    ship_to = models.TextField(blank=True, default='')
+    sold_to = models.TextField(blank=True, default='')
 
     def __str__(self):
         return f"Order {self.invoice_no}: {self.material_name} ({self.qty})"

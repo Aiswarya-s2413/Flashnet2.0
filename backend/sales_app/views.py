@@ -94,67 +94,174 @@ def upload_orders(request):
         # Load all product master names natively for lightning-fast robust validation
         valid_names = set(ProductMaster.objects.values_list('material_name', flat=True))
         
-        for index, row in df.iterrows():
-            line_no = index + 2 # Excel row number (header is historically row 1)
+        # --- FORMAT DETECTION ---
+        col_names_lower = [str(c).lower().strip() for c in df.columns]
+        has_standard_cols = any('material' in c or 'invoice' in c for c in col_names_lower)
+        
+        # Detect "Vikram Trading" raw sales format: columns like Sr, Code, Name, Nos, Quantity
+        # with customer names embedded as section header rows
+        has_raw_sales_cols = any('code' in c for c in col_names_lower) and any('name' in c for c in col_names_lower)
+        
+        if not has_standard_cols and has_raw_sales_cols:
+            # --- VIKRAM TRADING / RAW SALES FORMAT ---
+            # Re-read with header=None to get raw rows, then find the header row
+            file.seek(0)
+            raw_df = pd.read_excel(file, header=None)
             
-            # Safely fetch and stringify allowing missing empty fields gracefully
-            def get_val(key_options):
-                for k in key_options:
-                    if k in df.columns:
-                        val = row.get(k)
-                        if pd.isna(val) or str(val).strip() == 'nan':
-                            return ''
-                        
-                        # Handle trailing .0 cleanly for ids
-                        string_val = str(val).strip()
-                        if string_val.endswith('.0'):
-                            return string_val[:-2]
-                        return string_val
-                return ''
+            # Find the header row (contains 'Code' and 'Name')
+            header_row_idx = None
+            for i, row in raw_df.iterrows():
+                vals = [str(v).strip().lower() if pd.notna(v) else '' for v in row]
+                if 'code' in vals and 'name' in vals:
+                    header_row_idx = i
+                    break
+            
+            if header_row_idx is None:
+                return Response({'error': 'Could not detect column headers in raw sales file.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Parse data rows after header
+            data_rows = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+            headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+            
+            # Find column indices
+            code_idx = next((i for i, h in enumerate(headers) if h.lower() == 'code'), 1)
+            name_idx = next((i for i, h in enumerate(headers) if h.lower() == 'name'), 2)
+            qty_idx = next((i for i, h in enumerate(headers) if h.lower() in ('quantity', 'qty')), len(headers) - 1)
+            
+            current_customer = ''
+            
+            for i, row in data_rows.iterrows():
+                vals = [str(v).strip() if pd.notna(v) else '' for v in row]
+                
+                # Skip completely empty rows
+                if all(v == '' or v == 'nan' for v in vals):
+                    continue
+                
+                col0 = vals[0] if len(vals) > 0 else ''
+                code_val = vals[code_idx] if len(vals) > code_idx else ''
+                name_val = vals[name_idx] if len(vals) > name_idx else ''
+                qty_val = vals[qty_idx] if len(vals) > qty_idx else ''
+                
+                # Clean up 'nan' strings
+                if code_val.lower() == 'nan': code_val = ''
+                if name_val.lower() == 'nan': name_val = ''
+                if qty_val.lower() == 'nan': qty_val = ''
+                
+                # Detect CUSTOMER HEADER ROW:
+                # Has text in col0 that is NOT a pure number AND has a code+name on the same row
+                is_serial = col0.replace('.', '').isdigit() and len(col0) < 5
+                
+                # Total/summary row: col0 is a number, code and name are empty
+                if is_serial and not code_val and not name_val:
+                    continue  # Skip total rows
+                
+                # Customer header row: col0 is NOT a serial number (it's a long text / customer name)
+                if col0 and not is_serial and code_val and name_val:
+                    current_customer = col0.strip()
+                    # This row also contains the first product for this customer
+                    # Fall through to process it as a product row
+                elif col0 and not is_serial and not code_val:
+                    # Customer name only row (no product on this row)
+                    current_customer = col0.strip()
+                    continue
+                
+                # Skip rows without a product code or name
+                if not code_val or not name_val:
+                    continue
+                
+                # Parse quantity
+                try:
+                    numeric_qty = int(float(qty_val)) if qty_val else 0
+                except ValueError:
+                    numeric_qty = 0
+                
+                # Validate against Product Master
+                if name_val and name_val not in valid_names:
+                    errors.append(f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master.")
+                    continue
+                
+                valid_orders.append(Order(
+                    sold_to='',
+                    ship_to='',
+                    invoice_no='',
+                    invoice_date=None,
+                    customer=current_customer,
+                    material_code=code_val,
+                    material_name=name_val,
+                    packsize=0,
+                    qty=numeric_qty
+                ))
+        else:
+            # --- STANDARD FORMAT ---
+            for index, row in df.iterrows():
+                line_no = index + 2 # Excel row number (header is historically row 1)
+                
+                # Safely fetch and stringify allowing missing empty fields gracefully
+                def get_val(key_options):
+                    for k in key_options:
+                        if k in df.columns:
+                            val = row.get(k)
+                            if pd.isna(val) or str(val).strip() == 'nan':
+                                return ''
+                            
+                            # Handle trailing .0 cleanly for ids
+                            string_val = str(val).strip()
+                            if string_val.endswith('.0'):
+                                return string_val[:-2]
+                            return string_val
+                    return ''
 
-            material_name = get_val(['Material Name', 'Material', 'material_name'])
-            
-            if material_name and material_name not in valid_names:
-                errors.append(f"Row {line_no}: Material '{material_name}' is not matching any Product Master name.")
-                continue # Skip processing this row mathematically, but keep capturing errors
+                material_name = get_val(['Material Name', 'Material', 'material_name'])
                 
-            qty = get_val(['qty(kg)', 'Qty(kg)', 'qty', 'Qty'])
-            packsize = get_val(['Packsize(kg)', 'Packsize', 'packsize'])
-            
-            try:
-                numeric_qty = int(float(qty)) if qty else 0
-            except ValueError:
-                numeric_qty = 0
+                if material_name and material_name not in valid_names:
+                    errors.append(f"Row {line_no}: Material '{material_name}' is not matching any Product Master name.")
+                    continue
+                    
+                qty = get_val(['qty(kg)', 'Qty(kg)', 'qty', 'Qty'])
+                packsize = get_val(['Packsize(kg)', 'Packsize', 'packsize'])
                 
-            try:
-                numeric_packsize = float(packsize) if packsize else 0
-            except ValueError:
-                numeric_packsize = 0
+                try:
+                    numeric_qty = int(float(qty)) if qty else 0
+                except ValueError:
+                    numeric_qty = 0
+                    
+                try:
+                    numeric_packsize = float(packsize) if packsize else 0
+                except ValueError:
+                    numeric_packsize = 0
+                    
+                invoice_date = get_val(['Invoice Date', 'Date', 'invoice_date'])
                 
-            invoice_date = get_val(['Invoice Date', 'Date', 'invoice_date'])
-            # Attempt parsing ISO back to DD-MM-YYYY if pandas parsed it as native datetime
-            if isinstance(row.get('Invoice Date'), pd.Timestamp):
-                 invoice_date = row.get('Invoice Date').strftime('%d-%m-%Y')
-                 
-            valid_orders.append(Order(
-                sold_to=get_val(['Sold To', 'sold_to']),
-                ship_to=get_val(['Ship To', 'ship_to']),
-                invoice_no=get_val(['Invoice No.', 'Invoice No', 'invoice_no']),
-                invoice_date=invoice_date,
-                customer=get_val(['Customer', 'Customer Name', 'customer_name']),
-                material_code=get_val(['Material Code', 'material_code']),
-                material_name=material_name,
-                packsize=numeric_packsize,
-                qty=numeric_qty
-            ))
+                if not invoice_date or str(invoice_date).strip() == '':
+                    errors.append(f"Row {line_no}: Missing Invoice Date.")
+                    continue
+                    
+                try:
+                    if isinstance(row.get('Invoice Date'), pd.Timestamp):
+                        invoice_date = row.get('Invoice Date').strftime('%Y-%m-%d')
+                    else:
+                        invoice_date = pd.to_datetime(invoice_date, format='mixed', dayfirst=True).strftime('%Y-%m-%d')
+                except Exception:
+                    errors.append(f"Row {line_no}: Unrecognized Invoice Date format '{invoice_date}'.")
+                    continue
+                     
+                valid_orders.append(Order(
+                    sold_to=get_val(['Sold To', 'sold_to']),
+                    ship_to=get_val(['Ship To', 'ship_to']),
+                    invoice_no=get_val(['Invoice No.', 'Invoice No', 'invoice_no']),
+                    invoice_date=invoice_date,
+                    customer=get_val(['Customer', 'Customer Name', 'customer_name']),
+                    material_code=get_val(['Material Code', 'material_code']),
+                    material_name=material_name,
+                    packsize=numeric_packsize,
+                    qty=numeric_qty
+                ))
             
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
         
         if errors and not ignore_errors:
-            # Rejects entire upload actively indicating N-th line violations
             return Response({'message': 'Document validation immediately failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
-        # Bulk save cleanly populated objects leaving untraced fields blank without crashing
         Order.objects.bulk_create(valid_orders)
         
         msg = f'Successfully verified and securely uploaded {len(valid_orders)} direct orders.'
@@ -248,11 +355,15 @@ def upload_stock(request):
                 remarks=get_val(['Remarks/Comments', 'Remarks', 'comments'])
             ))
             
-        if errors:
+        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
+        if errors and not ignore_errors:
             return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
         StockLevel.objects.bulk_create(valid_stocks)
-        return Response({'message': f'Successfully verified and uploaded {len(valid_stocks)} stock records natively.'}, status=status.HTTP_200_OK)
+        msg = f'Successfully verified and uploaded {len(valid_stocks)} stock records natively.'
+        if errors and ignore_errors:
+            msg += f' (Ignored {len(errors)} structurally conflicting rows).'
+        return Response({'message': msg}, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -370,11 +481,15 @@ def upload_monthly_sales(request):
                 total_value=total_val
             ))
             
-        if errors:
-            return Response({'message': 'Sales logs successfully mapped and forcefully validated natively.', 'warnings': errors})
+        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
+        if errors and not ignore_errors:
+            return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
         MonthlySales.objects.bulk_create(valid_records)
-        return Response({'message': f'Successfully ingested {len(valid_records)} robust Monthly Sales records.'}, status=status.HTTP_200_OK)
+        msg = f'Successfully ingested {len(valid_records)} robust Monthly Sales records.'
+        if errors and ignore_errors:
+            msg += f' (Ignored {len(errors)} structurally conflicting rows).'
+        return Response({'message': msg}, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response({'error': f"Document pipeline failed natively: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
