@@ -423,7 +423,20 @@ def upload_monthly_sales(request):
                     break
                     
             # Extract headers and data
-            headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+            raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+            
+            # Deduplicate headers to avoid pandas Series ambiguity on row.get()
+            headers = []
+            seen = set()
+            for h in raw_headers:
+                new_h = h
+                idx = 1
+                while new_h in seen:
+                    new_h = f"{h}_{idx}"
+                    idx += 1
+                headers.append(new_h)
+                seen.add(new_h)
+                
             df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
             df.columns = headers
         else:
@@ -441,6 +454,10 @@ def upload_monthly_sales(request):
                 # Try exact match first
                 if key_name in df.columns:
                     val = row.get(key_name)
+                    # Handle if there are STILL duplicate columns and row.get returned a Series
+                    if isinstance(val, pd.Series):
+                        val = val.iloc[0]
+                    
                     if pd.isna(val) or str(val).strip() == 'nan' or val is None:
                         return ''
                     string_val = str(val).strip()
@@ -453,6 +470,9 @@ def upload_monthly_sales(request):
                 for c in df.columns:
                     if str(c).lower().strip() == lower_key:
                         val = row.get(c)
+                        if isinstance(val, pd.Series):
+                            val = val.iloc[0]
+                            
                         if pd.isna(val) or str(val).strip() == 'nan' or val is None:
                             return ''
                         string_val = str(val).strip()
