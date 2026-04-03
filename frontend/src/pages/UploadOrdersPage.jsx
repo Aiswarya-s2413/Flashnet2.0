@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import API from '../api'
 import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 import Pagination from '../components/Pagination'
+import { useSortableData, SortHeader } from '../components/SortableTable'
 
 const ROWS_PER_PAGE = 25
 
@@ -12,6 +13,7 @@ export default function UploadOrdersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [orders, setOrders] = useState([])
   const [fetching, setFetching] = useState(true)
+  const { sorted, sortKey, sortDir, requestSort } = useSortableData(orders)
 
   const fetchOrders = async () => {
     setFetching(true)
@@ -139,15 +141,15 @@ export default function UploadOrdersPage() {
         <table>
           <thead style={{ backgroundColor: 'var(--surface)' }}>
             <tr>
-              <th>Sold To</th>
-              <th>Ship To</th>
-              <th>Invoice No.</th>
-              <th>Invoice Date</th>
-              <th>Customer Name</th>
-              <th>Material Code</th>
-              <th>Material Name</th>
-              <th>Packsize(kg)</th>
-              <th>qty(kg)</th>
+              <SortHeader label="Sold To" sortKey="sold_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Ship To" sortKey="ship_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Invoice No." sortKey="invoice_no" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Invoice Date" sortKey="invoice_date" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Customer Name" sortKey="customer" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Material Code" sortKey="material_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Material Name" sortKey="material_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Packsize(kg)" sortKey="packsize" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="qty(kg)" sortKey="qty" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
             </tr>
           </thead>
           <tbody>
@@ -162,7 +164,7 @@ export default function UploadOrdersPage() {
                 </td>
               </tr>
             ) : (
-              orders.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
+              sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
                 <tr key={o.id || i}>
                   <td>{o.sold_to}</td>
                   <td>{o.ship_to}</td>

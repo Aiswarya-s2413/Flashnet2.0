@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import API from '../api'
 import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 import Pagination from '../components/Pagination'
+import { useSortableData, SortHeader } from '../components/SortableTable'
 
 const ROWS_PER_PAGE = 25
 
@@ -12,6 +13,7 @@ export default function UploadStockPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [stocks, setStocks] = useState([])
   const [fetching, setFetching] = useState(true)
+  const { sorted, sortKey, sortDir, requestSort } = useSortableData(stocks)
 
   const fetchStocks = async () => {
     setFetching(true)
@@ -144,14 +146,14 @@ export default function UploadStockPage() {
         <table>
           <thead style={{ backgroundColor: 'var(--surface)' }}>
             <tr>
-              <th>Sold To</th>
-              <th>Ship To</th>
-              <th>Product Code</th>
-              <th>Prod Desc</th>
-              <th>Avg Last six month sales in kg</th>
-              <th>Month End Inventory</th>
-              <th>Mid Month Inventory</th>
-              <th>Remarks/Comments</th>
+              <SortHeader label="Sold To" sortKey="sold_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Ship To" sortKey="ship_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Product Code" sortKey="product_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Prod Desc" sortKey="product_desc" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Avg 6M Sales" sortKey="avg_six_month_sales" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Month End Inv" sortKey="month_end_inventory" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Mid Month Inv" sortKey="mid_month_inventory" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Remarks" sortKey="remarks" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
             </tr>
           </thead>
           <tbody>
@@ -166,7 +168,7 @@ export default function UploadStockPage() {
                 </td>
               </tr>
             ) : (
-              stocks.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
+              sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
                 <tr key={s.id || i}>
                   <td>{s.sold_to}</td>
                   <td>{s.ship_to}</td>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import API from '../api'
 import { ShoppingCart, RefreshCw } from 'lucide-react'
 import Pagination from '../components/Pagination'
+import { useSortableData, SortHeader } from '../components/SortableTable'
 
 const ROWS_PER_PAGE = 25
 
@@ -10,6 +11,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const { sorted, sortKey, sortDir, requestSort } = useSortableData(orders)
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -69,15 +71,15 @@ export default function OrdersPage() {
           <thead>
             <tr>
               <th>#</th>
-              <th>Sold To</th>
-              <th>Ship To</th>
-              <th>Invoice No.</th>
-              <th>Invoice Date</th>
-              <th>Customer</th>
-              <th>Material Code</th>
-              <th>Material Name</th>
-              <th>Packsize(kg)</th>
-              <th>qty(kg)</th>
+              <SortHeader label="Sold To" sortKey="sold_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Ship To" sortKey="ship_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Invoice No." sortKey="invoice_no" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Invoice Date" sortKey="invoice_date" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Customer" sortKey="customer" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Material Code" sortKey="material_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Material Name" sortKey="material_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Packsize(kg)" sortKey="packsize" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="qty(kg)" sortKey="qty" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
             </tr>
           </thead>
           <tbody>
@@ -91,7 +93,7 @@ export default function OrdersPage() {
                   <p style={{ fontSize: 13 }}>Add invoices and use <strong>Extract to Orders</strong> on the Invoices page.</p>
                 </div>
               </td></tr>
-            ) : orders.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
+            ) : sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
               <tr key={o.id}>
                 <td style={{ color: 'var(--text-dim)' }}>{(currentPage - 1) * ROWS_PER_PAGE + i + 1}</td>
                 <td>{o.sold_to}</td>

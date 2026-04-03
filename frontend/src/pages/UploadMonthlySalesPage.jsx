@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import API from '../api'
 import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 import Pagination from '../components/Pagination'
+import { useSortableData, SortHeader } from '../components/SortableTable'
 
 const ROWS_PER_PAGE = 25
 
@@ -12,6 +13,7 @@ export default function UploadMonthlySalesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [sales, setSales] = useState([])
   const [fetching, setFetching] = useState(true)
+  const { sorted, sortKey, sortDir, requestSort } = useSortableData(sales)
 
   const fetchSales = async () => {
     setFetching(true)
@@ -145,14 +147,14 @@ export default function UploadMonthlySalesPage() {
           {sales.length > 0 && !fetching ? (
             <thead style={{ backgroundColor: 'var(--surface)' }}>
               <tr>
-                <th>Distributor Name</th>
-                <th>Ship To Code</th>
-                <th>Customer Name</th>
-                <th>Customer Classification</th>
-                <th>Product Code</th>
-                <th>Product Name</th>
-                <th>Total Volume</th>
-                <th>Total Value</th>
+                <SortHeader label="Distributor" sortKey="distributor_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Ship To Code" sortKey="ship_to_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Customer" sortKey="customer_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Classification" sortKey="customer_classification" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Product Code" sortKey="product_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Product Name" sortKey="product_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Total Volume" sortKey="total_volume" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Total Value" sortKey="total_value" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               </tr>
             </thead>
           ) : (
@@ -193,7 +195,7 @@ export default function UploadMonthlySalesPage() {
                 </td>
               </tr>
             ) : (
-              sales.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
+              sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
                 <tr key={s.id || i}>
                   <td>{s.distributor_name}</td>
                   <td>{s.ship_to_code}</td>
