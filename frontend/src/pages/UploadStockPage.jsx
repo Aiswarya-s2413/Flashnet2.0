@@ -1,11 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function UploadStockPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [stocks, setStocks] = useState([])
+  const [fetching, setFetching] = useState(true)
+
+  const fetchStocks = async () => {
+    setFetching(true)
+    try {
+      const res = await API.get('/stocks/')
+      setStocks(res.data)
+    } catch(e) {
+      console.error(e)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStocks()
+  }, [])
+
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -35,6 +54,7 @@ export default function UploadStockPage() {
       setAlert({ type: 'success', title: 'Upload Successful', messages: [res.data.message] })
       setFile(null)
       document.getElementById('file-upload').value = ''
+      fetchStocks()
     } catch (e) {
       const data = e.response?.data
       if (data?.errors) {
@@ -106,8 +126,14 @@ export default function UploadStockPage() {
         </form>
       </div>
 
-      <h3 style={{ marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>Required Document Structure</h3>
-
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+        <h3 style={{ margin: 0 }}>{stocks.length > 0 ? `Uploaded Stock Level Records (${stocks.length})` : 'Required Document Structure'}</h3>
+        {stocks.length > 0 && (
+          <button className="btn btn-outline" onClick={fetchStocks} style={{ fontSize: 13, padding: '4px 12px' }}>
+            <RefreshCw size={13} /> Refresh List
+          </button>
+        )}
+      </div>
 
       <div className="table-wrapper">
         <table>
@@ -124,13 +150,33 @@ export default function UploadStockPage() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td colSpan={8} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
-                <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-                <div>Data mapping automatically dynamically binds and evaluates rows structurally.</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>"Product Code" properties are forcefully vetted aggressively avoiding unregistered Product Master data leaks.</div>
-              </td>
-            </tr>
+            {fetching ? (
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Stock Data…</td></tr>
+            ) : stocks.length === 0 ? (
+              <tr>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
+                  <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
+                  <div>Data mapping automatically dynamically binds and evaluates rows structurally.</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>"Product Code" properties are forcefully vetted aggressively avoiding unregistered Product Master data leaks.</div>
+                </td>
+              </tr>
+            ) : (
+              stocks.slice(0, 50).map((s, i) => (
+                <tr key={s.id || i}>
+                  <td>{s.sold_to}</td>
+                  <td>{s.ship_to}</td>
+                  <td style={{ fontFamily: 'monospace' }}>{s.product_code}</td>
+                  <td>{s.product_desc}</td>
+                  <td>{s.avg_six_month_sales?.toFixed(2) || '-'}</td>
+                  <td>{s.month_end_inventory?.toFixed(2) || '-'}</td>
+                  <td>{s.mid_month_inventory?.toFixed(2) || '-'}</td>
+                  <td>{s.remarks}</td>
+                </tr>
+              ))
+            )}
+            {stocks.length > 50 && (
+              <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 12 }}>Showing first 50 records structurally.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

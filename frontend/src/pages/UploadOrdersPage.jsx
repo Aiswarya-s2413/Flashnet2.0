@@ -1,11 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function UploadOrdersPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [fetching, setFetching] = useState(true)
+
+  const fetchOrders = async () => {
+    setFetching(true)
+    try {
+      const res = await API.get('/orders/')
+      setOrders(res.data)
+    } catch(e) {
+      console.error(e)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  useEffect(() => { fetchOrders() }, [])
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -35,6 +51,7 @@ export default function UploadOrdersPage() {
       setAlert({ type: 'success', title: 'Upload Successful', messages: [res.data.message] })
       setFile(null)
       document.getElementById('file-upload').value = ''
+      fetchOrders()
     } catch (e) {
       const data = e.response?.data
       if (data?.errors) {
@@ -104,8 +121,14 @@ export default function UploadOrdersPage() {
         </form>
       </div>
 
-      <h3 style={{ marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>Required Document Structure</h3>
-
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+        <h3 style={{ margin: 0 }}>{orders.length > 0 ? `Uploaded Sales Register Records (${orders.length})` : 'Required Document Structure'}</h3>
+        {orders.length > 0 && (
+          <button className="btn btn-outline" onClick={fetchOrders} style={{ fontSize: 13, padding: '4px 12px' }}>
+            <RefreshCw size={13} /> Refresh List
+          </button>
+        )}
+      </div>
 
       <div className="table-wrapper">
         <table>
@@ -123,13 +146,34 @@ export default function UploadOrdersPage() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td colSpan={9} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
-                <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-                <div>Data mapping aligns strictly downward matching these exact column properties.</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Material Names are strictly cross-referenced securely against the absolute Product Master natively.</div>
-              </td>
-            </tr>
+            {fetching ? (
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Orders…</td></tr>
+            ) : orders.length === 0 ? (
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
+                  <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
+                  <div>Data mapping aligns strictly downward matching these exact column properties.</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Material Names are strictly cross-referenced securely against the absolute Product Master natively.</div>
+                </td>
+              </tr>
+            ) : (
+              orders.slice(0, 50).map((o, i) => (
+                <tr key={o.id || i}>
+                  <td>{o.sold_to}</td>
+                  <td>{o.ship_to}</td>
+                  <td><span className="badge badge-accent">{o.invoice_no}</span></td>
+                  <td>{o.invoice_date}</td>
+                  <td>{o.customer}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.material_code}</td>
+                  <td>{o.material_name}</td>
+                  <td>{o.packsize}</td>
+                  <td><span className="badge badge-green">{o.qty}</span></td>
+                </tr>
+              ))
+            )}
+            {orders.length > 50 && (
+              <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 12 }}>Showing first 50 of {orders.length} records.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

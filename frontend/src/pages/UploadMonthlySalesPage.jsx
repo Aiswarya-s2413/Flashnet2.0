@@ -1,11 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default function UploadMonthlySalesPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [sales, setSales] = useState([])
+  const [fetching, setFetching] = useState(true)
+
+  const fetchSales = async () => {
+    setFetching(true)
+    try {
+      const res = await API.get('/monthly-sales/')
+      setSales(res.data)
+    } catch(e) {
+      console.error(e)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchSales()
+  }, [])
+
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -35,6 +54,7 @@ export default function UploadMonthlySalesPage() {
       setAlert({ type: 'success', title: 'Upload Successful', messages: [res.data.message] })
       setFile(null)
       document.getElementById('file-upload').value = ''
+      fetchSales()
     } catch (e) {
       const data = e.response?.data
       if (data?.errors) {
@@ -106,43 +126,84 @@ export default function UploadMonthlySalesPage() {
         </form>
       </div>
 
-      <h3 style={{ marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>Required Document Structure</h3>
-
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+        <h3 style={{ margin: 0 }}>{sales.length > 0 ? `Uploaded Monthly Sales Records (${sales.length})` : 'Required Document Structure'}</h3>
+        {sales.length > 0 && (
+          <button className="btn btn-outline" onClick={fetchSales} style={{ fontSize: 13, padding: '4px 12px' }}>
+            <RefreshCw size={13} /> Refresh List
+          </button>
+        )}
+      </div>
 
       <div className="table-wrapper">
         <table>
-          <thead style={{ backgroundColor: 'var(--surface)' }}>
-            <tr>
-              <th colSpan="7" style={{textAlign: 'center', borderRight: '1px solid var(--border)'}}>Dimensions</th>
-              <th colSpan="4" style={{textAlign: 'center', borderRight: '1px solid var(--border)'}}>Volume (Kgs)</th>
-              <th colSpan="4" style={{textAlign: 'center'}}>Value (INR)</th>
-            </tr>
-            <tr>
-              <th>Distributor Name</th>
-              <th>Ship To Code</th>
-              <th>Customer Name</th>
-              <th>Customer Classification</th>
-              <th>Product Code</th>
-              <th>Product Name</th>
-              <th style={{borderRight: '1px solid var(--border)'}}>Product BD Group</th>
-              <th>Oct-25</th>
-              <th>Nov-25</th>
-              <th>...</th>
-              <th style={{borderRight: '1px solid var(--border)', color: 'var(--primary)'}}>Total Volume (kg)</th>
-              <th>Oct-25</th>
-              <th>Nov-25</th>
-              <th>...</th>
-              <th style={{color: 'var(--primary)'}}>Total Value (INR)</th>
-            </tr>
-          </thead>
+          {sales.length > 0 && !fetching ? (
+            <thead style={{ backgroundColor: 'var(--surface)' }}>
+              <tr>
+                <th>Distributor Name</th>
+                <th>Ship To Code</th>
+                <th>Customer Name</th>
+                <th>Customer Classification</th>
+                <th>Product Code</th>
+                <th>Product Name</th>
+                <th>Total Volume</th>
+                <th>Total Value</th>
+              </tr>
+            </thead>
+          ) : (
+            <thead style={{ backgroundColor: 'var(--surface)' }}>
+              <tr>
+                <th colSpan="7" style={{textAlign: 'center', borderRight: '1px solid var(--border)'}}>Dimensions</th>
+                <th colSpan="4" style={{textAlign: 'center', borderRight: '1px solid var(--border)'}}>Volume (Kgs)</th>
+                <th colSpan="4" style={{textAlign: 'center'}}>Value (INR)</th>
+              </tr>
+              <tr>
+                <th>Distributor Name</th>
+                <th>Ship To Code</th>
+                <th>Customer Name</th>
+                <th>Customer Classification</th>
+                <th>Product Code</th>
+                <th>Product Name</th>
+                <th style={{borderRight: '1px solid var(--border)'}}>Product BD Group</th>
+                <th>Oct-25</th>
+                <th>Nov-25</th>
+                <th>...</th>
+                <th style={{borderRight: '1px solid var(--border)', color: 'var(--primary)'}}>Total Volume (kg)</th>
+                <th>Oct-25</th>
+                <th>Nov-25</th>
+                <th>...</th>
+                <th style={{color: 'var(--primary)'}}>Total Value (INR)</th>
+              </tr>
+            </thead>
+          )}
           <tbody>
-            <tr>
-              <td colSpan={15} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
-                <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-                <div>Data mapping automatically unpacks horizontally parsing all columns dynamically regardless of explicit months mapped currently.</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>"Product Code" properties are forcefully vetted aggressively bypassing non-indexed Product Master fragments natively.</div>
-              </td>
-            </tr>
+            {fetching ? (
+              <tr><td colSpan={15} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Sales Data…</td></tr>
+            ) : sales.length === 0 ? (
+              <tr>
+                <td colSpan={15} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
+                  <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
+                  <div>Data mapping automatically unpacks horizontally parsing all columns dynamically regardless of explicit months mapped currently.</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>"Product Code" properties are forcefully vetted aggressively bypassing non-indexed Product Master fragments natively.</div>
+                </td>
+              </tr>
+            ) : (
+              sales.slice(0, 50).map((s, i) => (
+                <tr key={s.id || i}>
+                  <td>{s.distributor_name}</td>
+                  <td>{s.ship_to_code}</td>
+                  <td>{s.customer_name}</td>
+                  <td>{s.customer_classification}</td>
+                  <td style={{ fontFamily: 'monospace' }}>{s.product_code}</td>
+                  <td>{s.product_name}</td>
+                  <td>{s.total_volume?.toFixed(2) || '-'}</td>
+                  <td>{s.total_value?.toFixed(2) || '-'}</td>
+                </tr>
+              ))
+            )}
+            {sales.length > 50 && (
+              <tr><td colSpan={15} style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: 12 }}>Showing first 50 records structurally.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
