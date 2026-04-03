@@ -175,10 +175,20 @@ def upload_orders(request):
                 except ValueError:
                     numeric_qty = 0
                 
-                # Validate against Product Master
-                if name_val and name_val not in valid_names:
-                    errors.append(f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master.")
-                    continue
+                # Validate against Product Master with robust fuzzy matching for Raw Sales
+                actual_material_name = name_val
+                if name_val:
+                    if name_val not in valid_names:
+                        # Try fuzzy matching: check if DB name starts with raw name or vice versa
+                        # Case insensitive match
+                        name_lower = name_val.lower()
+                        fuzzy_match = next((v for v in valid_names if v.lower().startswith(name_lower) or name_lower.startswith(v.lower())), None)
+                        
+                        if fuzzy_match:
+                            actual_material_name = fuzzy_match
+                        else:
+                            errors.append(f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master (even with fuzzy matching).")
+                            continue
                 
                 valid_orders.append(Order(
                     sold_to='',
@@ -187,7 +197,7 @@ def upload_orders(request):
                     invoice_date=None,
                     customer=current_customer,
                     material_code=code_val,
-                    material_name=name_val,
+                    material_name=actual_material_name,
                     packsize=0,
                     qty=numeric_qty
                 ))
