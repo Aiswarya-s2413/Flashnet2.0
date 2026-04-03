@@ -412,8 +412,20 @@ def upload_monthly_sales(request):
             headers = [str(h).replace('\n', ' ').strip() if h else '' for h in all_rows[2]] # Assuming headers are mostly row 3
             df = pd.DataFrame(all_rows[3:], columns=headers)
         elif filename.endswith(('.xls', '.xlsx')):
-            # The template provided relies upon multi-header complexity natively
-            df = pd.read_excel(file, skiprows=2)
+            # Dynamically detect header row by scanning first 5 rows
+            raw_df = pd.read_excel(file, header=None)
+            header_row_idx = 0
+            
+            for i, r in raw_df.head(6).iterrows():
+                row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
+                if any('product code' in v or 'customer name' in v or 'product name' in v for v in row_vals):
+                    header_row_idx = i
+                    break
+                    
+            # Extract headers and data
+            headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+            df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+            df.columns = headers
         else:
             return Response({'error': 'Unsupported file.'}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -423,9 +435,10 @@ def upload_monthly_sales(request):
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
         
         for index, row in df.iterrows():
-            line_no = index + 4 
+            line_no = header_row_idx + index + 2 
             
             def get_val(key_name):
+                # Try exact match first
                 if key_name in df.columns:
                     val = row.get(key_name)
                     if pd.isna(val) or str(val).strip() == 'nan' or val is None:
@@ -434,6 +447,18 @@ def upload_monthly_sales(request):
                     if string_val.endswith('.0') and not key_name.startswith('Total'):
                         return string_val[:-2]
                     return string_val
+                
+                # Try case insensitive match if exact fails
+                lower_key = key_name.lower()
+                for c in df.columns:
+                    if str(c).lower().strip() == lower_key:
+                        val = row.get(c)
+                        if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                            return ''
+                        string_val = str(val).strip()
+                        if string_val.endswith('.0') and not key_name.startswith('Total'):
+                            return string_val[:-2]
+                        return string_val
                 return ''
 
             product_code = get_val('Product Code')
