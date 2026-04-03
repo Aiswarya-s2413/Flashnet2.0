@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
 import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import Pagination from '../components/Pagination'
+
+const ROWS_PER_PAGE = 25
 
 export default function UploadStockPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [stocks, setStocks] = useState([])
   const [fetching, setFetching] = useState(true)
 
@@ -55,6 +59,7 @@ export default function UploadStockPage() {
       setFile(null)
       document.getElementById('file-upload').value = ''
       fetchStocks()
+      setCurrentPage(1)
     } catch (e) {
       const data = e.response?.data
       if (data?.errors) {
@@ -161,7 +166,7 @@ export default function UploadStockPage() {
                 </td>
               </tr>
             ) : (
-              stocks.map((s, i) => (
+              stocks.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
                 <tr key={s.id || i}>
                   <td>{s.sold_to}</td>
                   <td>{s.ship_to}</td>
@@ -176,6 +181,7 @@ export default function UploadStockPage() {
             )}
           </tbody>
         </table>
+        <Pagination currentPage={currentPage} totalPages={Math.ceil(stocks.length / ROWS_PER_PAGE)} onPageChange={setCurrentPage} />
       </div>
     </div>
   )

@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
 import { ShoppingCart, RefreshCw } from 'lucide-react'
+import Pagination from '../components/Pagination'
+
+const ROWS_PER_PAGE = 25
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -87,9 +91,9 @@ export default function OrdersPage() {
                   <p style={{ fontSize: 13 }}>Add invoices and use <strong>Extract to Orders</strong> on the Invoices page.</p>
                 </div>
               </td></tr>
-            ) : orders.map((o, i) => (
+            ) : orders.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
               <tr key={o.id}>
-                <td style={{ color: 'var(--text-dim)' }}>{i + 1}</td>
+                <td style={{ color: 'var(--text-dim)' }}>{(currentPage - 1) * ROWS_PER_PAGE + i + 1}</td>
                 <td>{o.sold_to}</td>
                 <td>{o.ship_to}</td>
                 <td><span className="badge badge-accent">{o.invoice_no}</span></td>
@@ -103,6 +107,7 @@ export default function OrdersPage() {
             ))}
           </tbody>
         </table>
+        <Pagination currentPage={currentPage} totalPages={Math.ceil(orders.length / ROWS_PER_PAGE)} onPageChange={setCurrentPage} />
       </div>
     </div>
   )

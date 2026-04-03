@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
 import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import Pagination from '../components/Pagination'
+
+const ROWS_PER_PAGE = 25
 
 export default function UploadMonthlySalesPage() {
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [sales, setSales] = useState([])
   const [fetching, setFetching] = useState(true)
 
@@ -55,6 +59,7 @@ export default function UploadMonthlySalesPage() {
       setFile(null)
       document.getElementById('file-upload').value = ''
       fetchSales()
+      setCurrentPage(1)
     } catch (e) {
       const data = e.response?.data
       if (data?.errors) {
@@ -188,7 +193,7 @@ export default function UploadMonthlySalesPage() {
                 </td>
               </tr>
             ) : (
-              sales.map((s, i) => (
+              sales.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
                 <tr key={s.id || i}>
                   <td>{s.distributor_name}</td>
                   <td>{s.ship_to_code}</td>
@@ -203,6 +208,7 @@ export default function UploadMonthlySalesPage() {
             )}
           </tbody>
         </table>
+        <Pagination currentPage={currentPage} totalPages={Math.ceil(sales.length / ROWS_PER_PAGE)} onPageChange={setCurrentPage} />
       </div>
     </div>
   )
