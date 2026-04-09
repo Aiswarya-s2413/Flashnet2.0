@@ -603,9 +603,10 @@ def upload_primary_sales(request):
             line_no = header_row_idx + index + 2 
             
             def get_val(key_name):
-                lower_key = key_name.lower().replace(' ', '')
+                import re
+                lower_key = re.sub(r'[\s\n\r_]', '', key_name.lower())
                 for c in df.columns:
-                    if str(c).lower().replace(' ', '') == lower_key:
+                    if re.sub(r'[\s\n\r_]', '', str(c).lower()) == lower_key:
                         val = row.get(c)
                         if isinstance(val, pd.Series):
                             val = val.iloc[0]
@@ -640,7 +641,6 @@ def upload_primary_sales(request):
             bill_date = None
             if bill_date_raw:
                 try:
-                    # Can specify format or rely on pd.to_datetime inferred mapping
                     bill_date = pd.to_datetime(bill_date_raw).date()
                 except Exception:
                     errors.append(f"Row {line_no}: Invalid Billing Date.")
@@ -649,7 +649,10 @@ def upload_primary_sales(request):
             def get_float(name):
                 val = get_val(name)
                 if val:
-                    try: return float(val.replace(',', ''))
+                    try:
+                        import re
+                        clean_val = re.sub(r'[^\d.-]', '', str(val))
+                        return float(clean_val)
                     except Exception: return 0.0
                 return 0.0
 
