@@ -730,3 +730,116 @@ def dashboard_metrics(request):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def primary_vs_secondary_analytics(request):
+    try:
+        from django.db.models import Sum
+        from django.db.models.functions import TruncMonth
+        from collections import defaultdict
+        import datetime
+
+        # 1. KPI EXTRACTION
+        ps_agg = PrimarySales.objects.aggregate(total=Sum('assessable_value'))
+        ss_agg = MonthlySales.objects.aggregate(total=Sum('total_value'))
+        
+        total_ps = ps_agg['total'] or 0.0
+        total_ss = ss_agg['total'] or 0.0
+        channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
+
+        # 2. MONTHLY TRENDS MATCHING
+        trend_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
+        
+        # Primary Sales Months
+        ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
+        for pm in ps_months:
+            if pm['month']:
+                month_str = pm['month'].strftime('%b %y')  # 'Jan 25'
+                trend_map[month_str]['ps'] += pm['total']
+
+        # Secondary Sales Months (JSON Parsing)
+        for ms in MonthlySales.objects.all():
+            for key, val in ms.values.items():
+                if isinstance(val, (int, float)):
+                    trend_map[str(key).strip()]['ss'] += float(val)
+
+        # Build Trend Array intelligently
+        trend_array = []
+        for k, v in trend_map.items():
+            eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+            trend_array.append({
+                'month': k,
+                'Primary Sales': round(v['ps'], 2),
+                'Secondary Sales': round(v['ss'], 2),
+                'Efficiency %': round(eff, 2)
+            })
+        
+        def parse_my(my_str):
+            try:
+                import dateutil.parser
+                return dateutil.parser.parse(my_str)
+            except:
+                return datetime.datetime.min
+
+        trend_array.sort(key=lambda x: parse_my(x['month']))
+
+        # 3. DISTRIBUTOR COMPARISONS
+        dist_map = defaultdict(lambda: {'ps': 0, 'ss': 0, 'zone': 'All'})
+        
+        for ps in PrimarySales.objects.all():
+            dist = ps.ship_to_party_name or ps.sold_to_party_address or 'Unknown'
+            dist_name = str(dist).strip().upper()
+            if dist_name:
+                dist_map[dist_name]['ps'] += (ps.assessable_value or 0)
+                if ps.division:
+                    dist_map[dist_name]['zone'] = ps.division
+                
+        for ms in MonthlySales.objects.all():
+            dist_name = str(ms.distributor_name).strip().upper() if ms.distributor_name else 'Unknown'
+            if dist_name:
+                dist_map[dist_name]['ss'] += (ms.total_value or 0)
+
+        distributor_array = []
+        for k, v in dist_map.items():
+            if v['ps'] == 0 and v['ss'] == 0: continue
+            eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+            distributor_array.append({
+                'distributor': k,
+                'zone': v['zone'] or 'All Zones',
+                'primary': round(v['ps'], 2),
+                'secondary': round(v['ss'], 2),
+                'efficiency': round(eff, 2)
+            })
+        
+        # Top 10 by Primary Sales
+        distributor_array.sort(key=lambda x: x['primary'], reverse=True)
+        
+        # 4. PRODUCT GROUP BREAKDOWN
+        prod_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
+        
+        for ps in PrimarySales.objects.all():
+            group = ps.material_desc or 'Unknown Product'
+            group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
+            prod_map[group]['ps'] += (ps.assessable_value or 0)
+
+        for ms in MonthlySales.objects.all():
+            group = ms.product_bd_group or 'Unknown Product'
+            prod_map[group]['ss'] += (ms.total_value or 0)
+
+        product_array = [{'group': k, 'Primary Sales': round(v['ps'], 2), 'Secondary Sales': round(v['ss'], 2)} 
+                         for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
+        product_array.sort(key=lambda x: x['Primary Sales'] + x['Secondary Sales'], reverse=True)
+
+        return Response({
+            'kpis': {
+                'total_primary': round(total_ps, 2),
+                'total_secondary': round(total_ss, 2),
+                'channel_efficiency': round(channel_efficiency, 2),
+            },
+            'monthly_trend': trend_array,
+            'distributor_performance': distributor_array[:50],
+            'product_group': product_array[:15]
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
