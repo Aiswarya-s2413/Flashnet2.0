@@ -1,8 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales
-from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales
+from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer
 from django.db.models import Sum
 import pandas as pd
 
@@ -25,6 +25,10 @@ class StockLevelViewSet(viewsets.ModelViewSet):
 class MonthlySalesViewSet(viewsets.ModelViewSet):
     queryset = MonthlySales.objects.all()
     serializer_class = MonthlySalesSerializer
+
+class PrimarySalesViewSet(viewsets.ModelViewSet):
+    queryset = PrimarySales.objects.all()
+    serializer_class = PrimarySalesSerializer
 
 @api_view(['POST'])
 def upload_products(request):
@@ -553,6 +557,132 @@ def upload_monthly_sales(request):
         
     except Exception as e:
         return Response({'error': f"Document pipeline failed natively: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def upload_primary_sales(request):
+    try:
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        filename = file.name.lower()
+        if filename.endswith(('.xls', '.xlsx')):
+            raw_df = pd.read_excel(file, header=None)
+            header_row_idx = 0
+            
+            for i, r in raw_df.head(6).iterrows():
+                row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
+                if any('billing no' in v or 'tax invoice' in v or 'assessable' in v for v in row_vals):
+                    header_row_idx = i
+                    break
+                    
+            raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+            headers = []
+            seen = set()
+            for h in raw_headers:
+                new_h = h
+                idx = 1
+                while new_h in seen:
+                    new_h = f"{h}_{idx}"
+                    idx += 1
+                headers.append(new_h)
+                seen.add(new_h)
+                
+            df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+            df.columns = headers
+        else:
+            return Response({'error': 'Unsupported file.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        errors = []
+        valid_records = []
+        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
+        
+        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
+        
+        for index, row in df.iterrows():
+            line_no = header_row_idx + index + 2 
+            
+            def get_val(key_name):
+                lower_key = key_name.lower().replace(' ', '')
+                for c in df.columns:
+                    if str(c).lower().replace(' ', '') == lower_key:
+                        val = row.get(c)
+                        if isinstance(val, pd.Series):
+                            val = val.iloc[0]
+                        if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                            return ''
+                        string_val = str(val).strip()
+                        if string_val.endswith('.0'):
+                            return string_val[:-2]
+                        return string_val
+                return ''
+
+            billing_no = get_val('Billing No')
+            material_code = get_val('Material Code')
+            
+            if not billing_no and not material_code:
+                continue
+                
+            if material_code and material_code not in valid_codes:
+                errors.append(f"Row {line_no}: Material Code '{material_code}' not perfectly recognized in Product Master.")
+                continue
+                
+            so_date_raw = get_val('SO Creation Date')
+            so_date = None
+            if so_date_raw:
+                try:
+                    so_date = pd.to_datetime(so_date_raw).date()
+                except Exception:
+                    errors.append(f"Row {line_no}: Invalid SO Date.")
+                    continue
+                    
+            bill_date_raw = get_val('Billing Date')
+            bill_date = None
+            if bill_date_raw:
+                try:
+                    # Can specify format or rely on pd.to_datetime inferred mapping
+                    bill_date = pd.to_datetime(bill_date_raw).date()
+                except Exception:
+                    errors.append(f"Row {line_no}: Invalid Billing Date.")
+                    continue
+                    
+            def get_float(name):
+                val = get_val(name)
+                if val:
+                    try: return float(val.replace(',', ''))
+                    except Exception: return 0.0
+                return 0.0
+
+            valid_records.append(PrimarySales(
+                billing_no=billing_no,
+                tax_invoice_no=get_val('Tax Invoice No'),
+                sales_order=get_val('Sales Order'),
+                so_creation_date=so_date,
+                division=get_val('Division'),
+                sold_to_party=get_val('Sold to party'),
+                sold_to_party_address=get_val('Sold to party Address'),
+                ship_to_party=get_val('Ship to Party'),
+                ship_to_party_name=get_val('Ship to Party Name'),
+                material_code=material_code,
+                material_desc=get_val('Material Desc'),
+                billing_date=bill_date,
+                plant=get_val('Plant'),
+                rate_per_unit=get_float('Rate Per Unit'),
+                billed_quantity=get_float('Billed Quantity'),
+                assessable_value=get_float('Assessable Value')
+            ))
+            
+        if errors and not ignore_errors:
+            return Response({'message': 'Validation failed heavily.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+            
+        PrimarySales.objects.bulk_create(valid_records)
+        msg = f'Successfully secured {len(valid_records)} Primary Sales extractions.'
+        if errors and ignore_errors:
+            msg += f' (Ignored {len(errors)} format conflicts).'
+        return Response({'message': msg}, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({'error': f"Primary Sales parser totally failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def dashboard_metrics(request):
