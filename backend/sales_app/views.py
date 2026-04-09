@@ -657,6 +657,14 @@ def upload_primary_sales(request):
                     except Exception: return 0.0
                 return 0.0
 
+            # DIAGNOSTIC TRAP FOR FIRST ROW
+            if index == 0:
+                headers = [str(c).strip() for c in df.columns]
+                extracted_val = get_val('Assessable Value')
+                import json
+                return Response({'error': f"DIAGNOSTIC INFO: Detected Headers: {json.dumps(headers)}. Extracted AV String: '{extracted_val}'"}, status=status.HTTP_400_BAD_REQUEST)
+
+
             valid_records.append(PrimarySales(
                 billing_no=billing_no,
                 tax_invoice_no=get_val('Tax Invoice No'),
