@@ -606,7 +606,8 @@ def upload_primary_sales(request):
                 import re
                 lower_key = re.sub(r'[\s\n\r_]', '', key_name.lower())
                 for c in df.columns:
-                    if re.sub(r'[\s\n\r_]', '', str(c).lower()) == lower_key:
+                    header_str = re.sub(r'[\s\n\r_]', '', str(c).lower())
+                    if lower_key in header_str:
                         val = row.get(c)
                         if isinstance(val, pd.Series):
                             val = val.iloc[0]
