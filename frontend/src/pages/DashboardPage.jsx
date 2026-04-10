@@ -7,6 +7,7 @@ import { Activity, Package, Map, ShoppingCart, TrendingUp, TrendingDown, Refresh
 
 // Sub-component: Overview Tab (Original Dashboard)
 const OverviewTab = ({ metrics }) => {
+  if (!metrics) return <div style={{textAlign: 'center', padding: 40}}>Loading metrics securely...</div>
   const { top_products, top_customers, monthly_progression, stock_levels } = metrics
 
   const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
@@ -54,9 +55,9 @@ const OverviewTab = ({ metrics }) => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
+                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} tickFormatter={(val) => val ? String(val).substring(0, 10) : ''} />
                 <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(value) => [formatNumber(value) + ' KGs', 'Volume']} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} itemStyle={{ color: 'var(--text)' }} />
+                <Tooltip formatter={(value) => [formatNumber(value) + ' KGs', 'Volume']} labelFormatter={(label) => label ? String(label).substring(0, 10) : ''} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} itemStyle={{ color: 'var(--text)' }} />
                 <Area type="monotone" dataKey="volume" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
               </AreaChart>
             </ResponsiveContainer>
