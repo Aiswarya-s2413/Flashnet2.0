@@ -1,0 +1,11 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn ssh -o StrictHostKeyChecking=no mohit@168.144.27.187 "cd ~/Flashnet2.0/backend && git pull origin main && source venv/bin/activate && python3 manage.py migrate && echo 'Abacus@2026' | sudo -S systemctl restart gunicorn && echo 'DEPLOYMENT_SUCCESSFUL'"
+
+expect {
+    "password:" {
+        send "Abacus@2026\r"
+        exp_continue
+    }
+    eof
+}

@@ -159,29 +159,31 @@ const AnalyticsTab = ({ data }) => {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
         <div className="card" style={{ padding: 24, overflowX: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
              <h3 style={{ margin: 0, fontSize: 16 }}>Distributor-wise Performance</h3>
-             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Top by Primary Sales</span>
+             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Grouped by Network</span>
           </div>
-          <table className="data-table" style={{ width: '100%', minWidth: 600 }}>
+          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
              <thead>
                <tr>
-                 <th>Distributor</th>
-                 <th>Zone</th>
-                 <th>Primary</th>
-                 <th>Secondary</th>
+                 <th>Group</th>
+                 <th>Sold To</th>
+                 <th>Ship To</th>
+                 <th>Primary Sales</th>
+                 <th>Secondary Sales</th>
                  <th>Efficiency</th>
                </tr>
              </thead>
              <tbody>
                {(distributor_performance || []).map((row, i) => (
                  <tr key={i}>
-                   <td style={{ fontWeight: 500 }}>{row.distributor}</td>
-                   <td style={{ color: 'var(--text-dim)' }}>{row.zone}</td>
-                   <td>{formatLakhs(row.primary)}</td>
-                   <td>{formatLakhs(row.secondary)}</td>
+                   <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
+                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
+                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
+                   <td style={{ fontWeight: 500 }}>{formatLakhs(row.primary)}</td>
+                   <td style={{ fontWeight: 500 }}>{formatLakhs(row.secondary)}</td>
                    <td>
                      <span className={`badge ${row.efficiency >= 80 ? 'badge-green' : row.efficiency >= 50 ? 'badge-amber' : 'badge-red'}`}>
                        {row.efficiency}%
@@ -190,26 +192,18 @@ const AnalyticsTab = ({ data }) => {
                  </tr>
                ))}
                {!(distributor_performance && distributor_performance.length > 0) && (
-                 <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
+                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
                )}
              </tbody>
+             <tfoot>
+               <tr style={{ backgroundColor: 'var(--surface)' }}>
+                 <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL KPI:</td>
+                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#3b82f6', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_primary || 0)}</td>
+                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#10b981', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
+                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#f59e0b', borderTop: '2px solid var(--border)' }}>{kpis?.channel_efficiency || 0}%</td>
+               </tr>
+             </tfoot>
           </table>
-        </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div className="card" style={{ padding: 24, flex: 1, minHeight: 300 }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: 16 }}>Zone-wise Contribution</h3>
-             <ResponsiveContainer width="100%" height="85%">
-              <BarChart layout="vertical" data={distributor_performance?.slice(0, 5) || []} margin={{ top: 5, right: 30, left: 60, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-                <XAxis type="number" tickFormatter={(val) => `₹${(val/100000).toFixed(0)}L`} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
-                <YAxis dataKey="zone" type="category" tick={{fill: 'var(--text-dim)', fontSize: 11}} width={120} axisLine={false} tickLine={false} />
-                <Tooltip cursor={{fill: 'var(--bg)'}} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8 }} />
-                <Bar dataKey="primary" name="PS" fill="#3b82f6" radius={[0, 4, 4, 0]} maxBarSize={20} />
-                <Bar dataKey="secondary" name="SS" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </div>
       </div>
     </div>

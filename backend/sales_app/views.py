@@ -748,20 +748,35 @@ def primary_vs_secondary_analytics(request):
         channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
 
         # 2. MONTHLY TRENDS MATCHING
+        import dateutil.parser
         trend_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
         
         # Primary Sales Months
         ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
         for pm in ps_months:
             if pm['month']:
-                month_str = pm['month'].strftime('%b %y')  # 'Jan 25'
+                month_str = pm['month'].strftime('%Y-%m')
                 trend_map[month_str]['ps'] += pm['total']
 
         # Secondary Sales Months (JSON Parsing)
         for ms in MonthlySales.objects.all():
             for key, val in ms.values.items():
                 if isinstance(val, (int, float)):
-                    trend_map[str(key).strip()]['ss'] += float(val)
+                    try:
+                        dt = dateutil.parser.parse(str(key).strip())
+                        month_str = dt.strftime('%Y-%m')
+                    except Exception:
+                        month_str = str(key).strip()
+                    trend_map[month_str]['ss'] += float(val)
+
+        # Intersection-based Global KPI Efficiency Calculation
+        shared_months = [m for m, v in trend_map.items() if v['ps'] > 0 and v['ss'] > 0]
+        if shared_months:
+            ps_shared_total = sum(trend_map[m]['ps'] for m in shared_months)
+            ss_shared_total = sum(trend_map[m]['ss'] for m in shared_months)
+            channel_efficiency = (ss_shared_total / ps_shared_total * 100) if ps_shared_total > 0 else 0
+        else:
+            channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
 
         # Build Trend Array intelligently
         trend_array = []
@@ -784,28 +799,42 @@ def primary_vs_secondary_analytics(request):
         trend_array.sort(key=lambda x: parse_my(x['month']))
 
         # 3. DISTRIBUTOR COMPARISONS
-        dist_map = defaultdict(lambda: {'ps': 0, 'ss': 0, 'zone': 'All'})
+        dist_map = defaultdict(lambda: {'ps': 0, 'ss': 0, 'zone': 'All', 'sold_to': set(), 'ship_to': set()})
         
+        import re
+        def get_group_name(raw_name):
+            n = raw_name.upper()
+            if 'VIKRAM' in n: return 'VIKRAM TRADING'
+            if 'JAKHARIA' in n: return 'JAKHARIA INDUSTRIES'
+            n = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
+            return n
+
         for ps in PrimarySales.objects.all():
-            dist = ps.ship_to_party_name or ps.sold_to_party_address or 'Unknown'
-            dist_name = str(dist).strip().upper()
-            if dist_name:
-                dist_map[dist_name]['ps'] += (ps.assessable_value or 0)
-                if ps.division:
-                    dist_map[dist_name]['zone'] = ps.division
+            sold = ps.sold_to_party_address or ps.sold_to_party or ''
+            ship = ps.ship_to_party_name or ps.ship_to_party or ''
+            raw_name = ship if ship else sold
+            if raw_name:
+                group = get_group_name(raw_name)
+                dist_map[group]['ps'] += (ps.assessable_value or 0)
+                if ps.division: dist_map[group]['zone'] = ps.division
+                if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
+                if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
                 
         for ms in MonthlySales.objects.all():
-            dist_name = str(ms.distributor_name).strip().upper() if ms.distributor_name else 'Unknown'
-            if dist_name:
-                dist_map[dist_name]['ss'] += (ms.total_value or 0)
+            raw_name = str(ms.distributor_name).strip() if ms.distributor_name else ''
+            if raw_name:
+                group = get_group_name(raw_name)
+                dist_map[group]['ss'] += (ms.total_value or 0)
+                dist_map[group]['sold_to'].add(raw_name.title())
 
         distributor_array = []
         for k, v in dist_map.items():
             if v['ps'] == 0 and v['ss'] == 0: continue
             eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
             distributor_array.append({
-                'distributor': k,
-                'zone': v['zone'] or 'All Zones',
+                'group': k,
+                'sold_to': ', '.join(list(v['sold_to']))[:100],
+                'ship_to': ', '.join(list(v['ship_to']))[:100],
                 'primary': round(v['ps'], 2),
                 'secondary': round(v['ss'], 2),
                 'efficiency': round(eff, 2)
