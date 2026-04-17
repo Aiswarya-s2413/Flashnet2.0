@@ -87,3 +87,52 @@ class PrimarySales(models.Model):
 
     def __str__(self):
         return f"Primary Sale: {self.billing_no} - {self.material_desc}"
+
+class ExceptionalPriceRequest(models.Model):
+    STATUS_CHOICES = [
+        ('Draft', 'Draft'),
+        ('Pending Sales Exec Review', 'Pending Sales Exec Review'),
+        ('Pending Pricing & BD Teams', 'Pending Pricing & BD Teams'),
+        ('Pending Sales Director', 'Pending Sales Director'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected')
+    ]
+    legacy_organization = models.CharField(max_length=255, blank=True, null=True)
+    soldto_code = models.CharField(max_length=100, blank=True, null=True)
+    soldto_name = models.CharField(max_length=255, blank=True, null=True)
+    shipto_code = models.CharField(max_length=100, blank=True, null=True)
+    shipto_name = models.CharField(max_length=255, blank=True, null=True)
+    end_customer_name = models.CharField(max_length=255, blank=True, null=True)
+    additional_remarks = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending Sales Exec Review')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"EPR #{self.id} - {self.soldto_name} ({self.status})"
+
+class EPRLineItem(models.Model):
+    epr = models.ForeignKey(ExceptionalPriceRequest, related_name='line_items', on_delete=models.CASCADE)
+    business_proposal = models.CharField(max_length=100, blank=True, null=True)
+    price_request_type = models.CharField(max_length=100, blank=True, null=True)
+    material_code = models.CharField(max_length=100, blank=True, null=True)
+    material_name = models.CharField(max_length=255, blank=True, null=True)
+    existing_dist_price = models.FloatField(blank=True, null=True)
+    existing_icp = models.FloatField(blank=True, null=True)
+    existing_sale_volume = models.FloatField(blank=True, null=True)
+    requested_dist_price = models.FloatField(blank=True, null=True)
+    requested_icp = models.FloatField(blank=True, null=True)
+    proposed_sale_volume = models.FloatField(blank=True, null=True)
+    freight_charges = models.CharField(max_length=255, blank=True, null=True)
+    distributor_payment_terms = models.CharField(max_length=100, blank=True, null=True)
+    end_customer_payment_terms = models.CharField(max_length=100, blank=True, null=True)
+    product_used_in_package = models.CharField(max_length=20, blank=True, null=True)
+    other_products_details = models.CharField(max_length=255, blank=True, null=True)
+    competition_running = models.CharField(max_length=20, blank=True, null=True)
+    competition_product_name = models.CharField(max_length=255, blank=True, null=True)
+    competition_price = models.FloatField(blank=True, null=True)
+    competition_volume = models.FloatField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Line Item {self.material_name} for EPR #{self.epr_id}"

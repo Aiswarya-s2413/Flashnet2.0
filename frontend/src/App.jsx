@@ -7,7 +7,8 @@ import UploadOrdersPage from './pages/UploadOrdersPage'
 import UploadStockPage from './pages/UploadStockPage'
 import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
 import UploadPrimarySalesPage from './pages/UploadPrimarySalesPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map } from 'lucide-react'
+import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3 } from 'lucide-react'
 
 function App() {
   return (
@@ -51,6 +52,10 @@ function App() {
               <Package size={18} />
               Product Master
             </NavLink>
+            <NavLink to="/exceptional-price-request" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <Edit3 size={18} />
+              Price Request
+            </NavLink>
           </nav>
         </aside>
         <main className="main-content">
@@ -63,6 +68,7 @@ function App() {
             <Route path="/upload-primary-sales" element={<UploadPrimarySalesPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/exceptional-price-request" element={<ExceptionalPriceRequestPage />} />
           </Routes>
         </main>
       </div>

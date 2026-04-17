@@ -1,8 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales
-from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales, ExceptionalPriceRequest, EPRLineItem
+from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer, ExceptionalPriceRequestSerializer
 from django.db.models import Sum
 import pandas as pd
 
@@ -29,6 +29,10 @@ class MonthlySalesViewSet(viewsets.ModelViewSet):
 class PrimarySalesViewSet(viewsets.ModelViewSet):
     queryset = PrimarySales.objects.all()
     serializer_class = PrimarySalesSerializer
+
+class EPRViewSet(viewsets.ModelViewSet):
+    queryset = ExceptionalPriceRequest.objects.all()
+    serializer_class = ExceptionalPriceRequestSerializer
 
 @api_view(['POST'])
 def upload_products(request):

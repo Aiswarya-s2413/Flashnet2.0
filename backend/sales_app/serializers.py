@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales, ExceptionalPriceRequest, EPRLineItem
 from django.utils import timezone
 
 class ProductMasterSerializer(serializers.ModelSerializer):
@@ -38,3 +38,22 @@ class PrimarySalesSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrimarySales
         fields = '__all__'
+
+class EPRLineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EPRLineItem
+        fields = '__all__'
+
+class ExceptionalPriceRequestSerializer(serializers.ModelSerializer):
+    line_items = EPRLineItemSerializer(many=True, required=False)
+
+    class Meta:
+        model = ExceptionalPriceRequest
+        fields = '__all__'
+
+    def create(self, validated_data):
+        line_items_data = validated_data.pop('line_items', [])
+        epr = ExceptionalPriceRequest.objects.create(**validated_data)
+        for line_item_data in line_items_data:
+            EPRLineItem.objects.create(epr=epr, **line_item_data)
+        return epr
