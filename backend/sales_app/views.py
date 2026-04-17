@@ -776,11 +776,13 @@ def primary_vs_secondary_analytics(request):
         # Intersection-based Global KPI Efficiency Calculation
         shared_months = [m for m, v in trend_map.items() if v['ps'] > 0 and v['ss'] > 0]
         if shared_months:
-            ps_shared_total = sum(trend_map[m]['ps'] for m in shared_months)
-            ss_shared_total = sum(trend_map[m]['ss'] for m in shared_months)
-            channel_efficiency = (ss_shared_total / ps_shared_total * 100) if ps_shared_total > 0 else 0
-        else:
+            total_ps = sum(trend_map[m]['ps'] for m in shared_months)
+            total_ss = sum(trend_map[m]['ss'] for m in shared_months)
             channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
+        else:
+            total_ps = 0
+            total_ss = 0
+            channel_efficiency = 0
 
         # Build Trend Array intelligently
         trend_array = []
