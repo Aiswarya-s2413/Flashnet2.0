@@ -516,8 +516,9 @@ def upload_monthly_sales(request):
                     except ValueError:
                         pass
                 
-                if col_str.endswith('.1'):
-                    month_key = col_str.replace('.1', '').strip()
+                if col_str.endswith('_1') or col_str.endswith('.1'):
+                    suffix = '_1' if col_str.endswith('_1') else '.1'
+                    month_key = col_str.replace(suffix, '').strip()
                     if 'Total' not in month_key:
                         values[month_key] = num_val
                 else:
