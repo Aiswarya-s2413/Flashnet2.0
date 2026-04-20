@@ -430,20 +430,33 @@ def upload_monthly_sales(request):
                     header_row_idx = i
                     break
                     
-            # Extract headers and data
-            raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+            # Extract headers and data, gracefully handling datetime headers
+            import datetime
+            raw_headers = []
+            for v in raw_df.iloc[header_row_idx]:
+                if pd.isna(v):
+                    raw_headers.append('')
+                elif isinstance(v, (pd.Timestamp, datetime.datetime)):
+                    raw_headers.append(v.strftime('%b %Y'))
+                else:
+                    s = str(v).strip()
+                    if s.endswith('00:00:00'):
+                        s = s.replace('00:00:00', '').strip()
+                    raw_headers.append(s)
             
             # Deduplicate headers to avoid pandas Series ambiguity on row.get()
+            # Value columns are typically next to Volume columns, receiving a duplicated header
             headers = []
             seen = set()
             for h in raw_headers:
                 new_h = h
                 idx = 1
-                while new_h in seen:
+                while new_h and new_h in seen:
                     new_h = f"{h}_{idx}"
                     idx += 1
                 headers.append(new_h)
-                seen.add(new_h)
+                if new_h:
+                    seen.add(new_h)
                 
             df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
             df.columns = headers
@@ -503,10 +516,11 @@ def upload_monthly_sales(request):
             volumes = {}
             values = {}
             
-            # Map dynamic months horizontally natively processing pandas .1 suffixing
+            # Map dynamic months horizontally natively processing pandas suffixing
+            import dateutil.parser
             for col in df.columns:
                 col_str = str(col)
-                if 'Unnamed' in col_str: continue
+                if 'Unnamed' in col_str or not col_str.strip(): continue
                 
                 val = row.get(col)
                 num_val = 0.0
@@ -517,14 +531,22 @@ def upload_monthly_sales(request):
                         pass
                 
                 if col_str.endswith('_1') or col_str.endswith('.1'):
-                    suffix = '_1' if col_str.endswith('_1') else '.1'
-                    month_key = col_str.replace(suffix, '').strip()
+                    month_key = col_str.replace('_1', '').replace('.1', '').strip()
                     if 'Total' not in month_key:
+                        try:
+                            month_key = dateutil.parser.parse(month_key).strftime('%Y-%m')
+                        except Exception:
+                            pass
                         values[month_key] = num_val
                 else:
-                    dimension_cols = ['Distributor Name', 'Ship To Code', 'Customer Name', 'Customer Classification (A+,A,B,C,D)', 'Product Code', 'Product Name', 'Product BD Group', 'Total Volume (kg)', 'Total Value (INR)']
-                    if col_str not in dimension_cols and 'Total' not in col_str:
-                        volumes[col_str.strip()] = num_val
+                    dimension_cols = ['distributor name', 'ship to code', 'customer name', 'customer classification (a+,a,b,c,d)', 'product code', 'product name', 'product bd group', 'total volume (kg)', 'total value (inr)']
+                    if col_str.lower() not in dimension_cols and 'Total' not in col_str:
+                        month_key = col_str.strip()
+                        try:
+                            month_key = dateutil.parser.parse(month_key).strftime('%Y-%m')
+                        except Exception:
+                            pass
+                        volumes[month_key] = num_val
             
             total_vol_raw = get_val('Total Volume (kg)')
             total_val_raw = get_val('Total Value (INR)')
