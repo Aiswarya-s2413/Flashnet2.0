@@ -9,7 +9,7 @@ import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
 import UploadPrimarySalesPage from './pages/UploadPrimarySalesPage'
 import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
 import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckSquare } from 'lucide-react'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle } from 'lucide-react'
 
 function App() {
   return (
@@ -58,7 +58,7 @@ function App() {
               Price Request
             </NavLink>
             <NavLink to="/epr-approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <CheckSquare size={18} />
+              <CheckCircle size={18} />
               EPR Approvals
             </NavLink>
           </nav>
