@@ -8,7 +8,8 @@ import UploadStockPage from './pages/UploadStockPage'
 import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
 import UploadPrimarySalesPage from './pages/UploadPrimarySalesPage'
 import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3 } from 'lucide-react'
+import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckSquare } from 'lucide-react'
 
 function App() {
   return (
@@ -56,6 +57,10 @@ function App() {
               <Edit3 size={18} />
               Price Request
             </NavLink>
+            <NavLink to="/epr-approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <CheckSquare size={18} />
+              EPR Approvals
+            </NavLink>
           </nav>
         </aside>
         <main className="main-content">
@@ -69,6 +74,7 @@ function App() {
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/exceptional-price-request" element={<ExceptionalPriceRequestPage />} />
+            <Route path="/epr-approvals" element={<PriceRequestApprovalsPage />} />
           </Routes>
         </main>
       </div>
