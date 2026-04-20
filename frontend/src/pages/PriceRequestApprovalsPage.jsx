@@ -21,6 +21,7 @@ export default function PriceRequestApprovalsPage() {
       })
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchEPRs()
   }, [])
