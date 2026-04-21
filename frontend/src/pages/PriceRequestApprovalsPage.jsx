@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { FileText, CheckCircle, XCircle, ArrowRight, X } from 'lucide-react'
+import API from '../api'
 
 export default function PriceRequestApprovalsPage() {
   const [eprs, setEprs] = useState([])
@@ -7,18 +8,22 @@ export default function PriceRequestApprovalsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const fetchEPRs = () => {
+  const fetchEPRs = async () => {
     setLoading(true)
-    fetch('/api/epr/')
-      .then(res => res.json())
-      .then(data => {
-        setEprs(data)
-        setLoading(false)
-      })
-      .catch(err => {
-        setError("Failed to fetch EPRs")
-        setLoading(false)
-      })
+    setError(null)
+    try {
+      const { data } = await API.get('/epr/')
+      setEprs(Array.isArray(data) ? data : [])
+      setLoading(false)
+    } catch (err) {
+      // Don't show error for empty responses or 404s — just show empty table
+      if (err.response && (err.response.status === 404 || err.response.status === 204)) {
+        setEprs([])
+      } else {
+        setError("Failed to fetch EPRs: " + (err.response?.data?.detail || err.message))
+      }
+      setLoading(false)
+    }
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -28,20 +33,16 @@ export default function PriceRequestApprovalsPage() {
 
   const updateStatus = async (eprId, newStatus) => {
     try {
-      const response = await fetch(`/api/epr/${eprId}/`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      })
+      const response = await API.patch(`/epr/${eprId}/`, { status: newStatus })
 
-      if (response.ok) {
+      if (response.status === 200 || response.status === 204) {
         setSelectedEpr(null)
         fetchEPRs()
       } else {
         alert("Failed to update status")
       }
     } catch (err) {
-      alert("Error updating status: " + err.message)
+      alert("Error updating status: " + (err.response?.data?.error || err.message))
     }
   }
 
