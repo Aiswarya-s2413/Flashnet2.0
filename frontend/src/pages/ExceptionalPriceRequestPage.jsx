@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import API from '../api'
 
 const DEFAULT_LINE_ITEM = {
   business_proposal: 'New',
@@ -42,9 +43,8 @@ export default function ExceptionalPriceRequestPage() {
   const [products, setProducts] = useState([])
 
   useEffect(() => {
-    fetch('/api/products/')
-      .then(res => res.json())
-      .then(data => setProducts(data))
+    API.get('/products/')
+      .then(res => setProducts(res.data))
       .catch(err => console.error("Failed to load products", err))
   }, [])
 
@@ -100,25 +100,22 @@ export default function ExceptionalPriceRequestPage() {
     }
 
     try {
-      const response = await fetch('/api/epr/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+      const response = await API.post('/epr/', payload)
 
-      if (response.ok) {
-        setMessage('Exceptional Price Request Submitted Successfully!')
+      if (response.status === 200 || response.status === 201) {
+        setMessage('ExceptionalPrice Request Submitted Successfully!')
         setHeader({
           legacy_organization: '', soldto_code: '', soldto_name: '',
           shipto_code: '', shipto_name: '', end_customer_name: '', additional_remarks: ''
         })
         setLineItems([{ ...DEFAULT_LINE_ITEM }])
-      } else {
-        const errorData = await response.json()
-        setError(JSON.stringify(errorData))
       }
     } catch (err) {
-      setError(err.message)
+      if (err.response && err.response.data) {
+        setError(JSON.stringify(err.response.data))
+      } else {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -168,117 +165,157 @@ export default function ExceptionalPriceRequestPage() {
           </div>
         </div>
 
-        {/* Line Items Table */}
-        <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px', overflowX: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '12px', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold' }}>Requested Products</h2>
-            <button type="button" onClick={addLineItem} style={{ background: '#1c4ed8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Plus size={16} /> Add Row
+        {/* Line Items Section (Vertical Card Layout) */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e293b' }}>Requested Products</h2>
+            <button type="button" onClick={addLineItem} style={{ background: '#1c4ed8', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', boxShadow: '0 2px 4px rgba(28,78,216,0.2)' }}>
+              <Plus size={16} /> Add Product
             </button>
           </div>
 
-          <div style={{ overflowX: 'auto', paddingBottom: '16px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '2000px' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                  <th style={thStyle}>Sr. No</th>
-                  <th style={thStyle}>Business Proposal</th>
-                  <th style={thStyle}>Request Type</th>
-                  <th style={thStyle}>Mat. Code</th>
-                  <th style={thStyle}>Material Name</th>
-                  <th style={thStyle}>Old Dist. Price (INR)</th>
-                  <th style={thStyle}>Old ICP (INR)</th>
-                  <th style={thStyle}>Old Vol. (kg/Ann)</th>
-                  <th style={thStyle}>Req. Dist. Price (INR)</th>
-                  <th style={thStyle}>Req. ICP (INR)</th>
-                  <th style={thStyle}>Proposed Vol. (kg/Mo)</th>
-                  <th style={thStyle}>Freight Charges</th>
-                  <th style={thStyle}>Dist. Payment Terms</th>
-                  <th style={thStyle}>Customer Payment</th>
-                  <th style={thStyle}>Used in Package</th>
-                  <th style={thStyle}>Other Package Details</th>
-                  <th style={thStyle}>Competition Running</th>
-                  <th style={thStyle}>Competition Name</th>
-                  <th style={thStyle}>Comp. Price (INR/kg)</th>
-                  <th style={thStyle}>Comp. Vol. YTD</th>
-                  <th style={thStyle}>Remarks</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((item, index) => (
-                  <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={tdStyle}>{index + 1}</td>
-                    <td style={tdStyle}>
-                      <select style={inputStyle} value={item.business_proposal} onChange={(e) => handleLineItemChange(index, 'business_proposal', e.target.value)}>
-                        <option>New</option>
-                        <option>Existing Business</option>
-                      </select>
-                    </td>
-                    <td style={tdStyle}>
-                      <select style={inputStyle} value={item.price_request_type} onChange={(e) => handleLineItemChange(index, 'price_request_type', e.target.value)}>
-                        <option>New</option>
-                        <option>Extn</option>
-                        <option>Reduction</option>
-                      </select>
-                    </td>
-                    <td style={tdStyle}>
-                      <input style={{...inputStyle, background: '#f3f4f6', cursor: 'not-allowed'}} type="text" value={item.material_code} onChange={e => handleLineItemChange(index, 'material_code', e.target.value)} readOnly placeholder="Auto" />
-                    </td>
-                    <td style={tdStyle}>
-                      <select style={inputStyle} value={item.material_name} onChange={e => handleLineItemChange(index, 'material_name', e.target.value)}>
-                        <option value="">-- Select Material --</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.material_name}>{p.material_name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    
-                    <td style={tdStyle}><input style={inputStyle} type="number" step="0.01" value={item.existing_dist_price} onChange={e => handleLineItemChange(index, 'existing_dist_price', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="number" step="0.01" value={item.existing_icp} onChange={e => handleLineItemChange(index, 'existing_icp', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="number" step="0.01" value={item.existing_sale_volume} onChange={e => handleLineItemChange(index, 'existing_sale_volume', e.target.value)} /></td>
-                    
-                    <td style={tdStyle}><input style={{...inputStyle, background: '#e0f2fe'}} type="number" step="0.01" value={item.requested_dist_price} onChange={e => handleLineItemChange(index, 'requested_dist_price', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={{...inputStyle, background: '#ffedd5'}} type="number" step="0.01" value={item.requested_icp} onChange={e => handleLineItemChange(index, 'requested_icp', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="number" step="0.01" value={item.proposed_sale_volume} onChange={e => handleLineItemChange(index, 'proposed_sale_volume', e.target.value)} /></td>
-                    
-                    <td style={tdStyle}>
-                      <select style={inputStyle} value={item.freight_charges} onChange={e => handleLineItemChange(index, 'freight_charges', e.target.value)}>
-                        <option>Paid By Distributor</option>
-                        <option>FTL Order</option>
-                      </select>
-                    </td>
-                    <td style={tdStyle}><input style={inputStyle} type="text" value={item.distributor_payment_terms} onChange={e => handleLineItemChange(index, 'distributor_payment_terms', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="text" value={item.end_customer_payment_terms} onChange={e => handleLineItemChange(index, 'end_customer_payment_terms', e.target.value)} /></td>
-                    
-                    <td style={tdStyle}>
-                      <select style={inputStyle} value={item.product_used_in_package} onChange={e => handleLineItemChange(index, 'product_used_in_package', e.target.value)}>
-                        <option>Yes</option>
-                        <option>No</option>
-                      </select>
-                    </td>
-                    <td style={tdStyle}><input style={inputStyle} type="text" value={item.other_products_details} onChange={e => handleLineItemChange(index, 'other_products_details', e.target.value)} /></td>
-                    
-                    <td style={tdStyle}>
-                      <select style={inputStyle} value={item.competition_running} onChange={e => handleLineItemChange(index, 'competition_running', e.target.value)}>
-                        <option>Yes</option>
-                        <option>No</option>
-                      </select>
-                    </td>
-                    <td style={tdStyle}><input style={inputStyle} type="text" value={item.competition_product_name} onChange={e => handleLineItemChange(index, 'competition_product_name', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="number" step="0.01" value={item.competition_price} onChange={e => handleLineItemChange(index, 'competition_price', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="number" step="0.01" value={item.competition_volume} onChange={e => handleLineItemChange(index, 'competition_volume', e.target.value)} /></td>
-                    <td style={tdStyle}><input style={inputStyle} type="text" value={item.remarks} onChange={e => handleLineItemChange(index, 'remarks', e.target.value)} /></td>
-                    <td style={tdStyle}>
-                      <button type="button" onClick={() => removeLineItem(index)} style={{ background: 'transparent', border: 'none', color: lineItems.length > 1 ? '#ef4444' : '#ccc', cursor: lineItems.length > 1 ? 'pointer' : 'not-allowed' }}>
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {lineItems.map((item, index) => (
+            <div key={index} style={{ background: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', marginBottom: '24px', position: 'relative' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '999px', fontSize: '13px' }}>#{index + 1}</span> 
+                  {item.material_name || 'New Product Request'}
+                </h3>
+                {lineItems.length > 1 && (
+                  <button type="button" onClick={() => removeLineItem(index)} style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '500', transition: 'all 0.2s' }}>
+                    <Trash2 size={14} /> Remove
+                  </button>
+                )}
+              </div>
+
+              {/* Group 1: Product & Request Type */}
+              <h4 style={sectionHeadingStyle}>Product & Request Details</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div>
+                  <label style={labelStyle}>Material Name *</label>
+                  <select style={inputStyle} value={item.material_name} onChange={e => handleLineItemChange(index, 'material_name', e.target.value)} required>
+                    <option value="">-- Select Material --</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.material_name}>{p.material_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Material Code</label>
+                  <input style={{...inputStyle, background: '#f8fafc', cursor: 'not-allowed'}} type="text" value={item.material_code} readOnly placeholder="Auto-filled" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Business Proposal</label>
+                  <select style={inputStyle} value={item.business_proposal} onChange={(e) => handleLineItemChange(index, 'business_proposal', e.target.value)}>
+                    <option>New</option>
+                    <option>Existing Business</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Request Type</label>
+                  <select style={inputStyle} value={item.price_request_type} onChange={(e) => handleLineItemChange(index, 'price_request_type', e.target.value)}>
+                    <option>New</option>
+                    <option>Extn</option>
+                    <option>Reduction</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Group 2: Volume & Pricing Details */}
+              <h4 style={sectionHeadingStyle}>Volume & Pricing Comparatives</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div>
+                  <label style={labelStyle}>Old Dist. Price (INR)</label>
+                  <input style={inputStyle} type="number" step="0.01" value={item.existing_dist_price} onChange={e => handleLineItemChange(index, 'existing_dist_price', e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Old ICP (INR)</label>
+                  <input style={inputStyle} type="number" step="0.01" value={item.existing_icp} onChange={e => handleLineItemChange(index, 'existing_icp', e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Old Vol. (kg/Ann)</label>
+                  <input style={inputStyle} type="number" step="0.01" value={item.existing_sale_volume} onChange={e => handleLineItemChange(index, 'existing_sale_volume', e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Req. Dist. Price (INR) <span style={{color: '#ef4444'}}>*</span></label>
+                  <input style={{...inputStyle, borderColor: '#bfdbfe', background: '#eff6ff'}} type="number" step="0.01" value={item.requested_dist_price} onChange={e => handleLineItemChange(index, 'requested_dist_price', e.target.value)} required />
+                </div>
+                <div>
+                  <label style={labelStyle}>Req. ICP (INR) <span style={{color: '#ef4444'}}>*</span></label>
+                  <input style={{...inputStyle, borderColor: '#fed7aa', background: '#fff7ed'}} type="number" step="0.01" value={item.requested_icp} onChange={e => handleLineItemChange(index, 'requested_icp', e.target.value)} required />
+                </div>
+                <div>
+                  <label style={labelStyle}>Proposed Vol. (kg/Mo)</label>
+                  <input style={{...inputStyle, borderColor: '#bbf7d0', background: '#f0fdf4'}} type="number" step="0.01" value={item.proposed_sale_volume} onChange={e => handleLineItemChange(index, 'proposed_sale_volume', e.target.value)} />
+                </div>
+              </div>
+
+              {/* Group 3: Logistics & Commercials */}
+              <h4 style={sectionHeadingStyle}>Logistics & Commercials</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div>
+                  <label style={labelStyle}>Freight Charges</label>
+                  <select style={inputStyle} value={item.freight_charges} onChange={e => handleLineItemChange(index, 'freight_charges', e.target.value)}>
+                    <option>Paid By Distributor</option>
+                    <option>FTL Order</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Distributor Payment Terms</label>
+                  <input style={inputStyle} type="text" value={item.distributor_payment_terms} onChange={e => handleLineItemChange(index, 'distributor_payment_terms', e.target.value)} placeholder="e.g. 30 Days" />
+                </div>
+                <div>
+                  <label style={labelStyle}>End Customer Payment Terms</label>
+                  <input style={inputStyle} type="text" value={item.end_customer_payment_terms} onChange={e => handleLineItemChange(index, 'end_customer_payment_terms', e.target.value)} placeholder="e.g. 60 Days" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Used in Package</label>
+                  <select style={inputStyle} value={item.product_used_in_package} onChange={e => handleLineItemChange(index, 'product_used_in_package', e.target.value)}>
+                    <option>No</option>
+                    <option>Yes</option>
+                  </select>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Other Products Details (If used in package)</label>
+                  <input style={inputStyle} type="text" value={item.other_products_details} onChange={e => handleLineItemChange(index, 'other_products_details', e.target.value)} placeholder="Describe package relationships..." />
+                </div>
+              </div>
+
+              {/* Group 4: Competition & Remarks */}
+              <h4 style={sectionHeadingStyle}>Competition Justification</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={labelStyle}>Competition Running</label>
+                  <select style={inputStyle} value={item.competition_running} onChange={e => handleLineItemChange(index, 'competition_running', e.target.value)}>
+                    <option>No</option>
+                    <option>Yes</option>
+                  </select>
+                </div>
+                {item.competition_running === 'Yes' && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Competition Product Name</label>
+                      <input style={inputStyle} type="text" value={item.competition_product_name} onChange={e => handleLineItemChange(index, 'competition_product_name', e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Comp. Price (INR/kg)</label>
+                      <input style={inputStyle} type="number" step="0.01" value={item.competition_price} onChange={e => handleLineItemChange(index, 'competition_price', e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Comp. Volume YTD</label>
+                      <input style={inputStyle} type="number" step="0.01" value={item.competition_volume} onChange={e => handleLineItemChange(index, 'competition_volume', e.target.value)} />
+                    </div>
+                  </>
+                )}
+                <div style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
+                  <label style={labelStyle}>Line Item Remarks</label>
+                  <input style={inputStyle} type="text" value={item.remarks} onChange={e => handleLineItemChange(index, 'remarks', e.target.value)} placeholder="Specific remarks for this request..." />
+                </div>
+              </div>
+
+            </div>
+          ))}
         </div>
 
         {/* Additional Remarks Section */}
@@ -309,3 +346,4 @@ const labelStyle = { display: 'block', fontSize: '14px', fontWeight: '500', colo
 const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }
 const thStyle = { padding: '12px', fontWeight: '600', color: '#475569', fontSize: '12px', whiteSpace: 'nowrap' }
 const tdStyle = { padding: '8px', verticalAlign: 'top' }
+const sectionHeadingStyle = { fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', color: '#64748b', marginBottom: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }
