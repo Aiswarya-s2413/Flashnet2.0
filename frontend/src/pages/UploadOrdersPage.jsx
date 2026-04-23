@@ -297,8 +297,19 @@ export default function UploadOrdersPage() {
         )}
       </div>
 
-      <div className="table-wrapper">
-        <table>
+      <div className="table-wrapper" style={{ overflowX: 'hidden' }}>
+        <table style={{ tableLayout: 'fixed', width: '100%' }}>
+          <colgroup>
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '17%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+          </colgroup>
           <thead style={{ backgroundColor: 'var(--surface)' }}>
             <tr>
               <SortHeader label="Sold To" sortKey="sold_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
@@ -326,13 +337,13 @@ export default function UploadOrdersPage() {
             ) : (
               sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
                 <tr key={o.id || i}>
-                  <td>{o.sold_to}</td>
-                  <td>{o.ship_to}</td>
-                  <td><span className="badge badge-accent">{o.invoice_no}</span></td>
+                  <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.sold_to}>{o.sold_to}</td>
+                  <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.ship_to}>{o.ship_to}</td>
+                  <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.invoice_no}><span className="badge badge-accent">{o.invoice_no}</span></td>
                   <td>{o.invoice_date}</td>
-                  <td>{o.customer}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.material_code}</td>
-                  <td>{o.material_name}</td>
+                  <td style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', borderBottom: 'none' }} title={o.customer}>{o.customer}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.material_code}>{o.material_code}</td>
+                  <td style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', borderBottom: 'none' }} title={o.material_name}>{o.material_name}</td>
                   <td>{o.packsize}</td>
                   <td><span className="badge badge-green">{o.qty}</span></td>
                 </tr>
