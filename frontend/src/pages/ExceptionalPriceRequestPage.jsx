@@ -183,7 +183,6 @@ export default function ExceptionalPriceRequestPage() {
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '999px', fontSize: '13px' }}>#{index + 1}</span> 
                   {item.material_name || 'New Product Request'}
                 </h3>
                 {lineItems.length > 1 && (
