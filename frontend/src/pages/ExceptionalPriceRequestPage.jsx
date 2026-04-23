@@ -140,7 +140,11 @@ export default function ExceptionalPriceRequestPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
             <div>
               <label style={labelStyle}>Legacy Organization</label>
-              <input style={inputStyle} type="text" name="legacy_organization" value={header.legacy_organization} onChange={handleHeaderChange} />
+              <select style={inputStyle} name="legacy_organization" value={header.legacy_organization} onChange={handleHeaderChange}>
+                <option value="">-- Select --</option>
+                <option value="inx1">inx1</option>
+                <option value="inx2">inx2</option>
+              </select>
             </div>
             <div>
               <label style={labelStyle}>Sold-To Code</label>
