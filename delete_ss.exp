@@ -1,0 +1,11 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn ssh -o PubkeyAuthentication=no -o StrictHostKeyChecking=no mohit@168.144.27.187 "cd ~/Flashnet2.0/backend && source venv/bin/activate && echo 'from sales_app.models import MonthlySales; count, _ = MonthlySales.objects.all().delete(); print(f\"Deleted {count} records.\")' | python3 manage.py shell"
+
+expect {
+    "password:" {
+        send "Abacus@2026\r"
+        exp_continue
+    }
+    eof
+}

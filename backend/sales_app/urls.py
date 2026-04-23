@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductMasterViewSet, DistributorInvoiceViewSet, OrderViewSet, StockLevelViewSet, MonthlySalesViewSet, PrimarySalesViewSet, EPRViewSet, upload_products, extract_orders, upload_orders, upload_stock, upload_monthly_sales, upload_primary_sales, dashboard_metrics, primary_vs_secondary_analytics
+from .views import ProductMasterViewSet, DistributorInvoiceViewSet, OrderViewSet, StockLevelViewSet, MonthlySalesViewSet, PrimarySalesViewSet, EPRViewSet, TraderTemplateViewSet, upload_products, extract_orders, upload_orders, extract_headers, upload_stock, upload_monthly_sales, upload_primary_sales, dashboard_metrics, primary_vs_secondary_analytics
 
 router = DefaultRouter()
 router.register(r'products', ProductMasterViewSet)
@@ -10,10 +10,12 @@ router.register(r'stocks', StockLevelViewSet)
 router.register(r'monthly-sales', MonthlySalesViewSet)
 router.register(r'primary-sales', PrimarySalesViewSet)
 router.register(r'epr', EPRViewSet)
+router.register(r'trader-templates', TraderTemplateViewSet)
 
 urlpatterns = [
     path('products/upload/', upload_products, name='upload-products'),
     path('orders/extract/', extract_orders, name='extract-orders'),
+    path('orders/extract-headers/', extract_headers, name='extract-headers'),
     path('orders/upload/', upload_orders, name='upload-orders'),
     path('stocks/upload/', upload_stock, name='upload-stock'),
     path('monthly-sales/upload/', upload_monthly_sales, name='upload-monthly-sales'),

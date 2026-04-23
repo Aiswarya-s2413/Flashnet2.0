@@ -1,8 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales, ExceptionalPriceRequest, EPRLineItem
-from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer, ExceptionalPriceRequestSerializer
+from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales, ExceptionalPriceRequest, EPRLineItem, TraderTemplate
+from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer, ExceptionalPriceRequestSerializer, TraderTemplateSerializer
 from django.db.models import Sum
 import pandas as pd
 
@@ -33,6 +33,10 @@ class PrimarySalesViewSet(viewsets.ModelViewSet):
 class EPRViewSet(viewsets.ModelViewSet):
     queryset = ExceptionalPriceRequest.objects.all()
     serializer_class = ExceptionalPriceRequestSerializer
+
+class TraderTemplateViewSet(viewsets.ModelViewSet):
+    queryset = TraderTemplate.objects.all()
+    serializer_class = TraderTemplateSerializer
 
 @api_view(['POST'])
 def upload_products(request):
@@ -88,11 +92,47 @@ def extract_orders(request):
     return Response({'message': f'Successfully extracted {extracted_count} orders.'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
+def extract_headers(request):
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    file = request.FILES['file']
+    try:
+        df = pd.read_excel(file, header=None, nrows=10)
+        # Scan first few rows to dynamically detect header row if it's pushed down
+        header_row_idx = 0
+        for i, r in df.iterrows():
+            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
+            if len([v for v in row_vals if len(v) > 0]) > 2: # At least 3 columns to be safe
+                header_row_idx = i
+                break
+                
+        raw_headers = [str(v).strip() if pd.notna(v) else f'Column_{i}' for i, v in enumerate(df.iloc[header_row_idx])]
+        # Remove consecutive unnamed columns
+        headers = []
+        for x in raw_headers:
+            if not x.startswith('Column_') or (x not in headers):
+                headers.append(x)
+        return Response({'headers': list(dict.fromkeys(headers))}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': f"Failed to extract headers: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
 def upload_orders(request):
     if 'file' not in request.FILES:
         return Response({'error': 'No document provided for upload.'}, status=status.HTTP_400_BAD_REQUEST)
     
     file = request.FILES['file']
+    
+    mapping_str = request.POST.get('mapping')
+    import json
+    custom_mapping = {}
+    if mapping_str:
+        try:
+            custom_mapping = json.loads(mapping_str)
+        except:
+            pass
+
     try:
         df = pd.read_excel(file)
         
@@ -102,18 +142,23 @@ def upload_orders(request):
         # Load all product master names natively for lightning-fast robust validation
         valid_names = set(ProductMaster.objects.values_list('material_name', flat=True))
         
-        # --- FORMAT DETECTION ---
-        col_names_lower = [str(c).lower().strip() for c in df.columns]
-        has_standard_cols = any('material' in c or 'invoice' in c for c in col_names_lower)
-        
-        # Detect "Vikram Trading" raw sales format: columns like Sr, Code, Name, Nos, Quantity
-        # Sometimes these headers are pushed to the second row (df.iloc[0]) because of a title row
-        has_raw_sales_cols = any('code' in c for c in col_names_lower) and any('name' in c for c in col_names_lower)
-        
-        if not has_raw_sales_cols and len(df) > 0:
-            first_row_vals = [str(v).lower().strip() for v in df.iloc[0].tolist()]
-            if any('code' in v for v in first_row_vals) and any('name' in v for v in first_row_vals):
-                has_raw_sales_cols = True
+        # If mapping is provided, force standard format logic and bypass raw format detection
+        if custom_mapping:
+            has_standard_cols = True
+            has_raw_sales_cols = False
+        else:
+            # --- FORMAT DETECTION ---
+            col_names_lower = [str(c).lower().strip() for c in df.columns]
+            has_standard_cols = any('material' in c or 'invoice' in c for c in col_names_lower)
+            
+            # Detect "Vikram Trading" raw sales format: columns like Sr, Code, Name, Nos, Quantity
+            # Sometimes these headers are pushed to the second row (df.iloc[0]) because of a title row
+            has_raw_sales_cols = any('code' in c for c in col_names_lower) and any('name' in c for c in col_names_lower)
+            
+            if not has_raw_sales_cols and len(df) > 0:
+                first_row_vals = [str(v).lower().strip() for v in df.iloc[0].tolist()]
+                if any('code' in v for v in first_row_vals) and any('name' in v for v in first_row_vals):
+                    has_raw_sales_cols = True
         
         if not has_standard_cols and has_raw_sales_cols:
             # --- VIKRAM TRADING / RAW SALES FORMAT ---
@@ -220,7 +265,10 @@ def upload_orders(request):
                 line_no = index + 2 # Excel row number (header is historically row 1)
                 
                 # Safely fetch and stringify allowing missing empty fields gracefully
-                def get_val(key_options):
+                def get_val(key_options, internal_key=None):
+                    if internal_key and custom_mapping.get(internal_key):
+                        key_options = [custom_mapping[internal_key]] + key_options
+                    
                     for k in key_options:
                         if k in df.columns:
                             val = row.get(k)
@@ -234,14 +282,14 @@ def upload_orders(request):
                             return string_val
                     return ''
 
-                material_name = get_val(['Material Name', 'Material', 'material_name'])
+                material_name = get_val(['Material Name', 'Material', 'material_name'], 'material_name')
                 
                 if material_name and material_name not in valid_names:
                     errors.append(f"Row {line_no}: Material '{material_name}' is not matching any Product Master name.")
                     continue
                     
-                qty = get_val(['qty(kg)', 'Qty(kg)', 'qty', 'Qty'])
-                packsize = get_val(['Packsize(kg)', 'Packsize', 'packsize'])
+                qty = get_val(['qty(kg)', 'Qty(kg)', 'qty', 'Qty'], 'qty')
+                packsize = get_val(['Packsize(kg)', 'Packsize', 'packsize'], 'packsize')
                 
                 try:
                     numeric_qty = int(float(qty)) if qty else 0
@@ -253,15 +301,22 @@ def upload_orders(request):
                 except ValueError:
                     numeric_packsize = 0
                     
-                invoice_date = get_val(['Invoice Date', 'Date', 'invoice_date'])
+                invoice_date_key = [custom_mapping['invoice_date']] if custom_mapping.get('invoice_date') else ['Invoice Date', 'Date', 'invoice_date']
+                invoice_date = None
+                for k in invoice_date_key:
+                    if k in df.columns:
+                        val = row.get(k)
+                        if pd.notna(val) and str(val).strip() != 'nan':
+                            invoice_date = val
+                            break
                 
                 if not invoice_date or str(invoice_date).strip() == '':
                     errors.append(f"Row {line_no}: Missing Invoice Date.")
                     continue
                     
                 try:
-                    if isinstance(row.get('Invoice Date'), pd.Timestamp):
-                        invoice_date = row.get('Invoice Date').strftime('%Y-%m-%d')
+                    if isinstance(invoice_date, pd.Timestamp):
+                        invoice_date = invoice_date.strftime('%Y-%m-%d')
                     else:
                         invoice_date = pd.to_datetime(invoice_date, format='mixed', dayfirst=True).strftime('%Y-%m-%d')
                 except Exception:
@@ -269,12 +324,12 @@ def upload_orders(request):
                     continue
                      
                 valid_orders.append(Order(
-                    sold_to=get_val(['Sold To', 'sold_to']),
-                    ship_to=get_val(['Ship To', 'ship_to']),
-                    invoice_no=get_val(['Invoice No.', 'Invoice No', 'invoice_no']),
+                    sold_to=get_val(['Sold To', 'sold_to'], 'sold_to'),
+                    ship_to=get_val(['Ship To', 'ship_to'], 'ship_to'),
+                    invoice_no=get_val(['Invoice No.', 'Invoice No', 'invoice_no'], 'invoice_no'),
                     invoice_date=invoice_date,
-                    customer=get_val(['Customer', 'Customer Name', 'customer_name']),
-                    material_code=get_val(['Material Code', 'material_code']),
+                    customer=get_val(['Customer', 'Customer Name', 'customer_name'], 'customer'),
+                    material_code=get_val(['Material Code', 'material_code'], 'material_code'),
                     material_name=material_name,
                     packsize=numeric_packsize,
                     qty=numeric_qty

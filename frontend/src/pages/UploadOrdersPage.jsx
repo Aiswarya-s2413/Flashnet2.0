@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw, Layers } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import { useSortableData, SortHeader } from '../components/SortableTable'
 
@@ -15,6 +15,16 @@ export default function UploadOrdersPage() {
   const [fetching, setFetching] = useState(true)
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(orders)
 
+  const [traderTemplates, setTraderTemplates] = useState([])
+  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [fileHeaders, setFileHeaders] = useState([])
+  const [columnMapping, setColumnMapping] = useState({
+    sold_to: '', ship_to: '', invoice_no: '', invoice_date: '',
+    customer: '', material_code: '', material_name: '', packsize: '', qty: ''
+  })
+  const [traderName, setTraderName] = useState('')
+  const [mappingMode, setMappingMode] = useState(false)
+
   const fetchOrders = async () => {
     setFetching(true)
     try {
@@ -27,12 +37,45 @@ export default function UploadOrdersPage() {
     }
   }
 
-  useEffect(() => { fetchOrders() }, [])
+  const fetchTemplates = async () => {
+    try {
+      const res = await API.get('/trader-templates/')
+      setTraderTemplates(res.data)
+    } catch(e) {
+      console.error("Failed to load templates", e)
+    }
+  }
 
-  const handleFileChange = (e) => {
+  useEffect(() => { 
+    fetchOrders()
+    fetchTemplates()
+  }, [])
+
+  const handleFileChange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0])
+      const selectedFile = e.target.files[0]
+      setFile(selectedFile)
       setAlert(null)
+      
+      // If we are creating a new custom mapping, extract headers immediately
+      if (selectedTemplate === 'new') {
+        setLoading(true)
+        const formData = new FormData()
+        formData.append('file', selectedFile)
+        try {
+          const res = await API.post('/orders/extract-headers/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+          setFileHeaders(res.data.headers || [])
+          setMappingMode(true)
+        } catch (e) {
+          setAlert({ type: 'error', title: 'Header Extraction Failed', messages: [e.response?.data?.error || e.message] })
+        } finally {
+          setLoading(false)
+        }
+      } else {
+        setMappingMode(false)
+      }
     }
   }
 
@@ -43,11 +86,49 @@ export default function UploadOrdersPage() {
     setLoading(true)
     setAlert(null)
 
+    // Ensure all mappings are filled if in mapping mode
+    if (mappingMode) {
+      const missing = Object.entries(columnMapping).filter(([k,v]) => !v).map(([k]) => k)
+      if (missing.length > 0) {
+        setAlert({ type: 'error', title: 'Incomplete Mapping', messages: [`Please map all fields. Missing: ${missing.join(', ')}`] })
+        setLoading(false)
+        return
+      }
+    }
+
+    // Save Template if requested
+    if (mappingMode && traderName.trim()) {
+      try {
+        const tResponse = await API.post('/trader-templates/', {
+          trader_name: traderName,
+          column_mapping: columnMapping
+        })
+        fetchTemplates()
+        setSelectedTemplate(tResponse.data.id.toString())
+      } catch(e) {
+        setAlert({ type: 'error', title: 'Template Save Failed', messages: ['A template with this name might already exist.'] })
+        setLoading(false)
+        return
+      }
+    }
+
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('ignore_errors', ignoreErrors)
     if (ignoreErrors) {
       formData.append('ignore_errors', 'true')
+    }
+    
+    // Attach mapping
+    let activeMapping = null
+    if (mappingMode) {
+      activeMapping = columnMapping
+    } else if (selectedTemplate && selectedTemplate !== 'new' && selectedTemplate !== 'standard') {
+      const t = traderTemplates.find(x => x.id.toString() === selectedTemplate)
+      if (t) activeMapping = t.column_mapping
+    }
+    
+    if (activeMapping) {
+      formData.append('mapping', JSON.stringify(activeMapping))
     }
 
     try {
@@ -56,17 +137,17 @@ export default function UploadOrdersPage() {
       })
       setAlert({ type: 'success', title: 'Upload Successful', messages: [res.data.message] })
       setFile(null)
+      setMappingMode(false)
       document.getElementById('file-upload').value = ''
       fetchOrders()
       setCurrentPage(1)
     } catch (e) {
       const data = e.response?.data
       if (data?.errors) {
-        // Validation format errors mapped to UI
         setAlert({
           type: 'error',
           title: data.message || 'Data Validation Checks Failed',
-          messages: data.errors, // Shows "Row N: Material ... not matching..." perfectly!
+          messages: data.errors,
           ignorable: true
         })
       } else {
@@ -77,11 +158,24 @@ export default function UploadOrdersPage() {
     }
   }
 
+  const MappingRow = ({ label, fieldKey }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, padding: '8px 12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+      <span style={{ fontSize: 14, fontWeight: 500, width: '40%' }}>{label}</span>
+      <select 
+        style={{ width: '55%', padding: '6px 10px', borderRadius: 4, border: '1px solid #cbd5e1' }}
+        value={columnMapping[fieldKey]}
+        onChange={(e) => setColumnMapping({...columnMapping, [fieldKey]: e.target.value})}
+      >
+        <option value="">-- Select Column --</option>
+        {fileHeaders.map((h, i) => <option key={i} value={h}>{h}</option>)}
+      </select>
+    </div>
+  )
+
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">Sales Register Upload</h1>
-
       </div>
 
       {alert && (
@@ -109,23 +203,89 @@ export default function UploadOrdersPage() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
-        <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
-          <div style={{ 
-              border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px', 
-              display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--bg)', marginBottom: 24 
-            }}>
-            <UploadCloud size={48} style={{ color: 'var(--primary)', marginBottom: 16 }} />
-            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Order Document</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Only explicitly formatted .xlsx or .xls files</p>
-            <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
+      <div style={{ display: 'grid', gridTemplateColumns: mappingMode ? '1fr 1fr' : '1fr', gap: 32, alignItems: 'start' }}>
+        
+        {/* Upload Card */}
+        <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
+          <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
+            
+            <div style={{ textAlign: 'left', width: '100%', marginBottom: 20 }}>
+              <label style={{ fontSize: 14, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Document Format Template</label>
+              <select 
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 6, backgroundColor: '#f8fafc' }}
+                value={selectedTemplate}
+                onChange={(e) => {
+                  setSelectedTemplate(e.target.value)
+                  setFile(null)
+                  setMappingMode(false)
+                  if(document.getElementById('file-upload')) document.getElementById('file-upload').value = ''
+                }}
+              >
+                <option value="standard">Standard / Auto-Detect Format</option>
+                <optgroup label="Saved Trader Templates">
+                  {traderTemplates.map(t => (
+                    <option key={t.id} value={t.id.toString()}>{t.trader_name}</option>
+                  ))}
+                </optgroup>
+                <option value="new">+ Create Custom Mapping</option>
+              </select>
+            </div>
+
+            <div style={{ 
+                border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px', 
+                display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--bg)', marginBottom: 24 
+              }}>
+              <UploadCloud size={48} style={{ color: 'var(--primary)', marginBottom: 16 }} />
+              <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Order Document</h3>
+              <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Only explicitly formatted .xlsx or .xls files</p>
+              <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
+            </div>
+            
+            {!mappingMode && (
+              <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
+                {loading ? <span className="spinner" /> : <FileSpreadsheet size={18} />}
+                {loading ? 'Processing Document...' : 'Process Document'}
+              </button>
+            )}
+          </form>
+        </div>
+
+        {/* Dynamic Mapping UI */}
+        {mappingMode && (
+          <div className="card" style={{ padding: '32px 24px', backgroundColor: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}><Layers size={20} color="#3b82f6" /> Map Custom Columns</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 24, lineHeight: 1.5 }}>
+              We've extracted the headers from your file. Match them to our system fields below so this document can be processed correctly.
+            </p>
+
+            <MappingRow label="Sold To Region/Code" fieldKey="sold_to" />
+            <MappingRow label="Ship To Details" fieldKey="ship_to" />
+            <MappingRow label="Invoice Number *" fieldKey="invoice_no" />
+            <MappingRow label="Invoice Date *" fieldKey="invoice_date" />
+            <MappingRow label="Customer Name" fieldKey="customer" />
+            <MappingRow label="Material Code" fieldKey="material_code" />
+            <MappingRow label="Material Name *" fieldKey="material_name" />
+            <MappingRow label="Packsize (kg)" fieldKey="packsize" />
+            <MappingRow label="Quantity (kg) *" fieldKey="qty" />
+
+            <div style={{ marginTop: 24, padding: '16px', backgroundColor: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: 8 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#0f766e', display: 'block', marginBottom: 6 }}>Save Mapping Template As (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Trader Alpha Format" 
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #99f6e4', borderRadius: 4, background: '#fff' }}
+                value={traderName}
+                onChange={(e) => setTraderName(e.target.value)}
+              />
+              <p style={{ fontSize: 11, color: '#0d9488', marginTop: 6, margin: 0 }}>Save this to skip this step for future uploads from this trader.</p>
+            </div>
+
+            <button className="btn btn-primary" onClick={handleUpload} disabled={loading} style={{ width: '100%', padding: 12, justifyContent: 'center', marginTop: 24 }}>
+              {loading ? <span className="spinner" /> : <CheckCircle size={18} />}
+              {loading ? 'Processing Document...' : 'Confirm Mapping & Process Upload'}
+            </button>
           </div>
-          
-          <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
-            {loading ? <span className="spinner" /> : <FileSpreadsheet size={18} />}
-            {loading ? 'Validating against Product Master...' : 'Process Document'}
-          </button>
-        </form>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>

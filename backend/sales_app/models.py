@@ -136,3 +136,11 @@ class EPRLineItem(models.Model):
 
     def __str__(self):
         return f"Line Item {self.material_name} for EPR #{self.epr_id}"
+
+class TraderTemplate(models.Model):
+    trader_name = models.CharField(max_length=255, unique=True)
+    column_mapping = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.trader_name
