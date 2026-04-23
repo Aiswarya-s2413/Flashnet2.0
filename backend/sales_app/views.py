@@ -863,13 +863,14 @@ def primary_vs_secondary_analytics(request):
         # Build Trend Array intelligently
         trend_array = []
         for k, v in trend_map.items():
-            eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
-            trend_array.append({
-                'month': k,
-                'Primary Sales': round(v['ps'], 2),
-                'Secondary Sales': round(v['ss'], 2),
-                'Efficiency %': round(eff, 2)
-            })
+            if v['ps'] > 0 and v['ss'] > 0:
+                eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+                trend_array.append({
+                    'month': k,
+                    'Primary Sales': round(v['ps'], 2),
+                    'Secondary Sales': round(v['ss'], 2),
+                    'Efficiency %': round(eff, 2)
+                })
         
         def parse_my(my_str):
             try:
