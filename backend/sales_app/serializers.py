@@ -43,6 +43,7 @@ class EPRLineItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = EPRLineItem
         fields = '__all__'
+        extra_kwargs = {'epr': {'read_only': True}}
 
 class ExceptionalPriceRequestSerializer(serializers.ModelSerializer):
     line_items = EPRLineItemSerializer(many=True, required=False)
