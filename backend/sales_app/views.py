@@ -162,6 +162,19 @@ def upload_orders(request):
         
         if not has_standard_cols and has_raw_sales_cols:
             # --- VIKRAM TRADING / RAW SALES FORMAT ---
+            # Try scraping the implicit date from the report header column dynamically
+            import re
+            import datetime
+            extracted_date = None
+            
+            header_text = " ".join([str(c) for c in df.columns[:5]])
+            date_match = re.search(r'(\d{2}/\d{2}/\d{4})', header_text)
+            if date_match:
+                try:
+                    extracted_date = datetime.datetime.strptime(date_match.group(1), "%d/%m/%Y").date()
+                except ValueError:
+                    pass
+
             # Re-read with header=None to get raw rows, then find the header row
             file.seek(0)
             raw_df = pd.read_excel(file, header=None)
@@ -252,7 +265,7 @@ def upload_orders(request):
                     sold_to='',
                     ship_to='',
                     invoice_no='',
-                    invoice_date=None,
+                    invoice_date=extracted_date,
                     customer=current_customer,
                     material_code=code_val,
                     material_name=actual_material_name,
