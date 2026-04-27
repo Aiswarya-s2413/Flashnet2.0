@@ -773,30 +773,32 @@ def upload_primary_sales(request):
 @api_view(['GET'])
 def dashboard_metrics(request):
     try:
+        from django.db.models import Sum
+        from django.db.models.functions import TruncMonth
+
         # Top 5 Products by Total Volume
-        top_products_qs = MonthlySales.objects.values('product_name')\
-                            .annotate(volume=Sum('total_volume'))\
+        top_products_qs = Order.objects.values('material_name')\
+                            .annotate(volume=Sum('qty'))\
                             .order_by('-volume')[:5]
-        top_products = [{'name': item['product_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_products_qs]
+        top_products = [{'name': item['material_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_products_qs]
 
         # Top 5 Customers by Total Volume
-        top_customers_qs = MonthlySales.objects.values('customer_name')\
-                            .annotate(volume=Sum('total_volume'))\
+        top_customers_qs = Order.objects.values('customer')\
+                            .annotate(volume=Sum('qty'))\
                             .order_by('-volume')[:5]
-        top_customers = [{'name': item['customer_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
+        top_customers = [{'name': item['customer'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
 
-        # Monthly Progression (Dynamic Parsing)
-        monthly_progression_dict = {}
-        for sale in MonthlySales.objects.all():
-            for month, vol in sale.volumes.items():
-                if month and month.strip():
-                    try:
-                        monthly_progression_dict[month] = monthly_progression_dict.get(month, 0) + float(vol)
-                    except (ValueError, TypeError):
-                        pass
+        # Monthly Progression extracted dynamically from genuine invoice dates
+        monthly_progression_qs = Order.objects.annotate(month=TruncMonth('invoice_date'))\
+                                    .values('month')\
+                                    .annotate(volume=Sum('qty'))\
+                                    .order_by('month')
         
-        # We assume chronological ordering can be maintained loosely by insertion order, but better kept as simple array
-        monthly_progression = [{'name': k, 'volume': v} for k, v in monthly_progression_dict.items()]
+        monthly_progression = []
+        for item in monthly_progression_qs:
+            if item['month']:
+                month_str = item['month'].strftime('%Y-%m')
+                monthly_progression.append({'name': month_str, 'volume': item['volume'] or 0})
 
         # Top 5 Stock Levels by Month End Inventory
         stock_qs = StockLevel.objects.values('product_desc')\
@@ -821,35 +823,29 @@ def primary_vs_secondary_analytics(request):
         from collections import defaultdict
         import datetime
 
-        # 1. KPI EXTRACTION
-        ps_agg = PrimarySales.objects.aggregate(total=Sum('assessable_value'))
-        ss_agg = MonthlySales.objects.aggregate(total=Sum('total_value'))
+        # 1. KPI EXTRACTION (Strictly Volume based matching)
+        ps_agg = PrimarySales.objects.aggregate(total=Sum('billed_quantity'))
+        ss_agg = Order.objects.aggregate(total=Sum('qty'))
         
         total_ps = ps_agg['total'] or 0.0
         total_ss = ss_agg['total'] or 0.0
-        channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
 
         # 2. MONTHLY TRENDS MATCHING
-        import dateutil.parser
         trend_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
         
         # Primary Sales Months
-        ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
+        ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('billed_quantity'))
         for pm in ps_months:
             if pm['month']:
                 month_str = pm['month'].strftime('%Y-%m')
                 trend_map[month_str]['ps'] += pm['total']
 
-        # Secondary Sales Months (JSON Parsing)
-        for ms in MonthlySales.objects.all():
-            for key, val in ms.values.items():
-                if isinstance(val, (int, float)):
-                    try:
-                        dt = dateutil.parser.parse(str(key).strip())
-                        month_str = dt.strftime('%Y-%m')
-                    except Exception:
-                        month_str = str(key).strip()
-                    trend_map[month_str]['ss'] += float(val)
+        # Secondary Sales Months (Raw Invoice Dates mapped cleanly)
+        ss_months = Order.objects.annotate(month=TruncMonth('invoice_date')).values('month').annotate(total=Sum('qty'))
+        for sm in ss_months:
+            if sm['month']:
+                month_str = sm['month'].strftime('%Y-%m')
+                trend_map[month_str]['ss'] += sm['total']
 
         # Intersection-based Global KPI Efficiency Calculation
         shared_months = [m for m, v in trend_map.items() if v['ps'] > 0 and v['ss'] > 0]
@@ -898,17 +894,18 @@ def primary_vs_secondary_analytics(request):
             raw_name = ship if ship else sold
             if raw_name:
                 group = get_group_name(raw_name)
-                dist_map[group]['ps'] += (ps.assessable_value or 0)
+                dist_map[group]['ps'] += (ps.billed_quantity or 0)
                 if ps.division: dist_map[group]['zone'] = ps.division
                 if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
                 if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
                 
-        for ms in MonthlySales.objects.all():
-            raw_name = str(ms.distributor_name).strip() if ms.distributor_name else ''
+        for ms in Order.objects.all():
+            raw_name = str(ms.customer).strip() or str(ms.ship_to).strip() or str(ms.sold_to).strip()
             if raw_name:
                 group = get_group_name(raw_name)
-                dist_map[group]['ss'] += (ms.total_value or 0)
-                dist_map[group]['sold_to'].add(raw_name.title())
+                dist_map[group]['ss'] += (ms.qty or 0)
+                if ms.sold_to: dist_map[group]['sold_to'].add(str(ms.sold_to).title())
+                if ms.ship_to: dist_map[group]['ship_to'].add(str(ms.ship_to).title())
 
         distributor_array = []
         for k, v in dist_map.items():
@@ -932,11 +929,12 @@ def primary_vs_secondary_analytics(request):
         for ps in PrimarySales.objects.all():
             group = ps.material_desc or 'Unknown Product'
             group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
-            prod_map[group]['ps'] += (ps.assessable_value or 0)
+            prod_map[group]['ps'] += (ps.billed_quantity or 0)
 
-        for ms in MonthlySales.objects.all():
-            group = ms.product_bd_group or 'Unknown Product'
-            prod_map[group]['ss'] += (ms.total_value or 0)
+        for ms in Order.objects.all():
+            group = ms.material_name or 'Unknown Product'
+            group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
+            prod_map[group]['ss'] += (ms.qty or 0)
 
         product_array = [{'group': k, 'Primary Sales': round(v['ps'], 2), 'Secondary Sales': round(v['ss'], 2)} 
                          for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
