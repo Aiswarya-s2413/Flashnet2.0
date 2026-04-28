@@ -173,7 +173,6 @@ const AnalyticsTab = ({ data }) => {
                  <th>Ship To</th>
                  <th>Primary Sales</th>
                  <th>Secondary Sales</th>
-                 <th>Efficiency</th>
                </tr>
              </thead>
              <tbody>
@@ -184,15 +183,10 @@ const AnalyticsTab = ({ data }) => {
                    <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
                    <td style={{ fontWeight: 500 }}>{formatLakhs(row.primary)}</td>
                    <td style={{ fontWeight: 500 }}>{formatLakhs(row.secondary)}</td>
-                   <td>
-                     <span className={`badge ${row.efficiency >= 80 ? 'badge-green' : row.efficiency >= 50 ? 'badge-amber' : 'badge-red'}`}>
-                       {row.efficiency}%
-                     </span>
-                   </td>
                  </tr>
                ))}
                {!(distributor_performance && distributor_performance.length > 0) && (
-                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
+                 <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
                )}
              </tbody>
              <tfoot>
@@ -200,7 +194,6 @@ const AnalyticsTab = ({ data }) => {
                  <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL KPI:</td>
                  <td style={{ fontWeight: 'bold', fontSize: 15, color: '#3b82f6', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_primary || 0)}</td>
                  <td style={{ fontWeight: 'bold', fontSize: 15, color: '#10b981', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
-                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#f59e0b', borderTop: '2px solid var(--border)' }}>{kpis?.channel_efficiency || 0}%</td>
                </tr>
              </tfoot>
           </table>
