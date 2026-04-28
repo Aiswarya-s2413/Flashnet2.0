@@ -162,7 +162,7 @@ const AnalyticsTab = ({ data }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
         <div className="card" style={{ padding: 24, overflowX: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-             <h3 style={{ margin: 0, fontSize: 16 }}>Distributor-wise Performance</h3>
+             <h3 style={{ margin: 0, fontSize: 16 }}>Distributors</h3>
              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Grouped by Network</span>
           </div>
           <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
@@ -172,27 +172,58 @@ const AnalyticsTab = ({ data }) => {
                  <th>Sold To</th>
                  <th>Ship To</th>
                  <th>Primary Sales</th>
-                 <th>Secondary Sales</th>
                </tr>
              </thead>
              <tbody>
-               {(distributor_performance || []).map((row, i) => (
+               {(distributor_performance || []).filter(row => row.primary > 0).map((row, i) => (
                  <tr key={i}>
                    <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
                    <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
                    <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
                    <td style={{ fontWeight: 500 }}>{formatLakhs(row.primary)}</td>
-                   <td style={{ fontWeight: 500 }}>{formatLakhs(row.secondary)}</td>
                  </tr>
                ))}
-               {!(distributor_performance && distributor_performance.length > 0) && (
-                 <tr><td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
+               {!((distributor_performance || []).filter(row => row.primary > 0).length > 0) && (
+                 <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
                )}
              </tbody>
              <tfoot>
                <tr style={{ backgroundColor: 'var(--surface)' }}>
-                 <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL KPI:</td>
+                 <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL PRIMARY KPI:</td>
                  <td style={{ fontWeight: 'bold', fontSize: 15, color: '#3b82f6', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_primary || 0)}</td>
+               </tr>
+             </tfoot>
+          </table>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 32, marginBottom: 20 }}>
+             <h3 style={{ margin: 0, fontSize: 16 }}>Customers</h3>
+             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Grouped by Network</span>
+          </div>
+          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
+             <thead>
+               <tr>
+                 <th>Group</th>
+                 <th>Sold To</th>
+                 <th>Ship To</th>
+                 <th>Secondary Sales</th>
+               </tr>
+             </thead>
+             <tbody>
+               {(distributor_performance || []).filter(row => row.primary === 0).map((row, i) => (
+                 <tr key={i}>
+                   <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
+                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
+                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
+                   <td style={{ fontWeight: 500 }}>{formatLakhs(row.secondary)}</td>
+                 </tr>
+               ))}
+               {!((distributor_performance || []).filter(row => row.primary === 0).length > 0) && (
+                 <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No customer metrics extracted.</td></tr>
+               )}
+             </tbody>
+             <tfoot>
+               <tr style={{ backgroundColor: 'var(--surface)' }}>
+                 <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL SECONDARY KPI:</td>
                  <td style={{ fontWeight: 'bold', fontSize: 15, color: '#10b981', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
                </tr>
              </tfoot>
