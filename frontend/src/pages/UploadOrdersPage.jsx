@@ -148,7 +148,8 @@ export default function UploadOrdersPage() {
           type: 'error',
           title: data.message || 'Data Validation Checks Failed',
           messages: data.errors,
-          ignorable: true
+          ignorable: true,
+          error_file_base64: data.error_file_base64
         })
       } else {
         setAlert({ type: 'error', title: 'Upload Failed', messages: [data?.error || e.message] })
@@ -188,7 +189,7 @@ export default function UploadOrdersPage() {
             {alert.messages.map((m, i) => <li key={i}>{m}</li>)}
           </ul>
           {alert.ignorable && (
-            <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12 }}>
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: 12, display: 'flex', gap: '12px' }}>
               <button 
                 type="button" 
                 onClick={() => handleUpload(null, true)}
@@ -198,6 +199,23 @@ export default function UploadOrdersPage() {
               >
                 {loading ? 'Processing...' : 'Ignore Errors and Upload Valid Data'}
               </button>
+              {alert.error_file_base64 && (
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${alert.error_file_base64}`;
+                    link.download = 'Highlighted_Validation_Errors.xlsx';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="btn btn-primary" 
+                  style={{ fontSize: 13, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileSpreadsheet size={14} /> Download Error Report
+                </button>
+              )}
             </div>
           )}
         </div>

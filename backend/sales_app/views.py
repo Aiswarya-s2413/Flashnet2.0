@@ -351,7 +351,44 @@ def upload_orders(request):
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
         
         if errors and not ignore_errors:
-            return Response({'message': 'Document validation immediately failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+            error_file_base64 = None
+            try:
+                import io
+                import base64
+                import re
+                import openpyxl
+                from openpyxl.styles import PatternFill
+
+                # Extract row numbers from errors
+                error_rows = set()
+                for err in errors:
+                    match = re.search(r"Row (\d+):", err)
+                    if match:
+                        error_rows.add(int(match.group(1)))
+
+                if error_rows:
+                    file.seek(0)
+                    wb = openpyxl.load_workbook(file)
+                    ws = wb.active
+                    red_fill = PatternFill(start_color="FFFFCCCC", end_color="FFFFCCCC", fill_type="solid") # Light red
+                    
+                    for row_idx in error_rows:
+                        # Apply fill to all cells in the row
+                        for cell in ws[row_idx]:
+                            cell.fill = red_fill
+
+                    out_stream = io.BytesIO()
+                    wb.save(out_stream)
+                    out_stream.seek(0)
+                    error_file_base64 = base64.b64encode(out_stream.read()).decode('utf-8')
+            except Exception as ex:
+                print(f"Failed to generate error highlight Excel: {ex}")
+
+            response_data = {'message': 'Document validation immediately failed.', 'errors': errors}
+            if error_file_base64:
+                response_data['error_file_base64'] = error_file_base64
+            
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
             
         Order.objects.bulk_create(valid_orders)
         
