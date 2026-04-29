@@ -439,6 +439,14 @@ def upload_stock(request):
         
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
         
+        valid_sales_pairs = set()
+        for sold_to_val, mat_code in Order.objects.values_list('sold_to', 'material_code'):
+            if sold_to_val and mat_code:
+                valid_sales_pairs.add((str(sold_to_val).strip().lower(), str(mat_code).strip().lower()))
+        for sold_to_val, mat_code in PrimarySales.objects.values_list('sold_to_party', 'material_code'):
+            if sold_to_val and mat_code:
+                valid_sales_pairs.add((str(sold_to_val).strip().lower(), str(mat_code).strip().lower()))
+        
         for index, row in df.iterrows():
             line_no = index + 2 
             
@@ -461,9 +469,17 @@ def upload_stock(request):
             if not product_code and not product_desc:
                 continue
             
+            sold_to_val = get_val(['Sold To', 'sold_to'])
+            
             if product_code and product_code not in valid_codes:
-                errors.append(f"Row {line_no}: Product Code '{product_code}' is not matching any verified Product Master code.")
+                errors.append(f"Row {line_no}: Product '{product_code}' does not exist.")
                 continue 
+                
+            if product_code and sold_to_val:
+                pair = (str(sold_to_val).strip().lower(), str(product_code).strip().lower())
+                if pair not in valid_sales_pairs:
+                    errors.append(f"Row {line_no}: Product '{product_code}' has not been sold to the distributor '{sold_to_val}'.")
+                    continue
                 
             def get_float(key_options):
                 val = get_val(key_options)
@@ -473,7 +489,7 @@ def upload_stock(request):
                     return None
             
             valid_stocks.append(StockLevel(
-                sold_to=get_val(['Sold To', 'sold_to']),
+                sold_to=sold_to_val,
                 ship_to=get_val(['Ship To', 'ship_to']),
                 product_code=product_code,
                 product_desc=product_desc,
@@ -897,14 +913,8 @@ def primary_vs_secondary_analytics(request):
                 month_str = sm['month'].strftime('%Y-%m')
                 trend_map[month_str]['ss'] += sm['total']
 
-        # Intersection-based Global KPI Efficiency Calculation
-        shared_months = [m for m, v in trend_map.items() if v['ps'] > 0 and v['ss'] > 0]
-        if shared_months:
-            ps_shared_total = sum(trend_map[m]['ps'] for m in shared_months)
-            ss_shared_total = sum(trend_map[m]['ss'] for m in shared_months)
-            channel_efficiency = (ss_shared_total / ps_shared_total * 100) if ps_shared_total > 0 else 0
-        else:
-            channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
+        # Global KPI Efficiency Calculation matching the displayed KPI cards
+        channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
 
         # Build Trend Array intelligently
         trend_array = []
