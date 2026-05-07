@@ -750,25 +750,29 @@ def upload_primary_sales(request):
         for index, row in df.iterrows():
             line_no = header_row_idx + index + 2 
             
-            def get_val(key_name):
+            def get_val(key_options):
                 import re
-                lower_key = re.sub(r'[\s\n\r_]', '', key_name.lower())
-                for c in df.columns:
-                    header_str = re.sub(r'[\s\n\r_]', '', str(c).lower())
-                    if lower_key in header_str:
-                        val = row.get(c)
-                        if isinstance(val, pd.Series):
-                            val = val.iloc[0]
-                        if pd.isna(val) or str(val).strip() == 'nan' or val is None:
-                            return ''
-                        string_val = str(val).strip()
-                        if string_val.endswith('.0'):
-                            return string_val[:-2]
-                        return string_val
+                if isinstance(key_options, str):
+                    key_options = [key_options]
+                
+                for key_name in key_options:
+                    lower_key = re.sub(r'[\s\n\r_]', '', key_name.lower())
+                    for c in df.columns:
+                        header_str = re.sub(r'[\s\n\r_]', '', str(c).lower())
+                        if lower_key in header_str:
+                            val = row.get(c)
+                            if isinstance(val, pd.Series):
+                                val = val.iloc[0]
+                            if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                                return ''
+                            string_val = str(val).strip()
+                            if string_val.endswith('.0'):
+                                return string_val[:-2]
+                            return string_val
                 return ''
 
-            billing_no = get_val('Billing No')
-            material_code = get_val('Material Code')
+            billing_no = get_val(['Billing No', 'Invoice No'])
+            material_code = get_val(['Material Code', 'PPC'])
             
             if not billing_no and not material_code:
                 continue
@@ -795,8 +799,8 @@ def upload_primary_sales(request):
                     errors.append(f"Row {line_no}: Invalid Billing Date.")
                     continue
                     
-            def get_float(name):
-                val = get_val(name)
+            def get_float(key_options):
+                val = get_val(key_options)
                 if val:
                     try:
                         import re
@@ -811,17 +815,17 @@ def upload_primary_sales(request):
                 sales_order=get_val('Sales Order'),
                 so_creation_date=so_date,
                 division=get_val('Division'),
-                sold_to_party=get_val('Sold to party'),
+                sold_to_party=get_val(['Sold to party', 'Sold to party (NLZ)']),
                 sold_to_party_address=get_val('Sold to party Address'),
-                ship_to_party=get_val('Ship to Party'),
+                ship_to_party=get_val(['Ship to Party', 'Ship to party (NLZ)']),
                 ship_to_party_name=get_val('Ship to Party Name'),
                 material_code=material_code,
-                material_desc=get_val('Material Desc'),
+                material_desc=get_val(['Material Desc', 'Material Text']),
                 billing_date=bill_date,
                 plant=get_val('Plant'),
                 rate_per_unit=get_float('Rate Per Unit'),
-                billed_quantity=get_float('Billed Quantity'),
-                assessable_value=get_float('Assessable Value') or get_float('Assesable Value')
+                billed_quantity=get_float(['Billed Quantity', 'Inv Qty Kgs']),
+                assessable_value=get_float(['Assessable Value', 'Assesable Value', 'Inv Value INR'])
             ))
             
         if errors and not ignore_errors:
