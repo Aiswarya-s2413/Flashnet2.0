@@ -720,7 +720,7 @@ def upload_primary_sales(request):
             
             for i, r in raw_df.head(6).iterrows():
                 row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-                if any('billing no' in v or 'tax invoice' in v or 'assessable' in v for v in row_vals):
+                if any('billing no' in v or 'tax invoice' in v or 'assessable' in v or 'ppc' in v or 'ship to party' in v or 'inv qty' in v for v in row_vals):
                     header_row_idx = i
                     break
                     
