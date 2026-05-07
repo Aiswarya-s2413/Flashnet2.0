@@ -1017,3 +1017,159 @@ def primary_vs_secondary_analytics(request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def upload_csi_sales(request):
+    """
+    Upload a CSI (Customer Sales Intelligence) Excel file.
+    Format: rows = distributor × customer × product, columns = months (e.g. Oct-25, Nov-25)
+    Creates one Order record per (customer × product × month) with invoice_date = 1st of that month.
+    Feeds directly into the existing secondary sales analytics.
+    """
+    try:
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = file.name.lower()
+        if not filename.endswith(('.xls', '.xlsx')):
+            return Response({'error': 'Only .xlsx or .xls files are supported.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        import datetime
+        import re
+        import dateutil.parser
+
+        # Read first sheet (Sales to customers - FY26) with no header
+        raw_df = pd.read_excel(file, header=None, sheet_name=0)
+
+        # Detect header row: look for 'product name', 'customer name', 'distributor name'
+        header_row_idx = 0
+        for i, r in raw_df.head(8).iterrows():
+            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
+            if any('product name' in v or 'customer name' in v or 'distributor name' in v for v in row_vals):
+                header_row_idx = i
+                break
+
+        # Extract headers, converting date-like headers to YYYY-MM string
+        raw_headers = []
+        for v in raw_df.iloc[header_row_idx]:
+            if pd.isna(v):
+                raw_headers.append('')
+            elif isinstance(v, (pd.Timestamp, datetime.datetime)):
+                raw_headers.append(v.strftime('%Y-%m'))
+            else:
+                s = str(v).strip()
+                # Try parsing short month strings like "Oct-25", "Nov-25"
+                try:
+                    parsed = dateutil.parser.parse(s, default=datetime.datetime(2000, 1, 1))
+                    # Only treat as month if the string looks like a month label
+                    if re.search(r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)', s.lower()):
+                        raw_headers.append(parsed.strftime('%Y-%m'))
+                    else:
+                        raw_headers.append(s)
+                except Exception:
+                    raw_headers.append(s)
+
+        df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+        df.columns = raw_headers
+
+        # Identify month columns (YYYY-MM format)
+        month_col_pattern = re.compile(r'^\d{4}-\d{2}$')
+        month_cols = [c for c in df.columns if month_col_pattern.match(str(c))]
+
+        if not month_cols:
+            return Response({'error': 'No month columns (e.g. Oct-25, Nov-25) found in the file.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        def get_col(possible_names):
+            """Find the first column that matches any of the given names (case-insensitive)."""
+            for name in possible_names:
+                for c in df.columns:
+                    if name.lower() in str(c).lower():
+                        return c
+            return None
+
+        distributor_col = get_col(['Distributor Name', 'Distributor'])
+        ship_to_col     = get_col(['Ship To Code', 'Ship To'])
+        customer_col    = get_col(['Customer Name', 'Customer'])
+        product_col     = get_col(['Product Name', 'Product'])
+        product_code_col= get_col(['Product Code'])
+
+        if not customer_col or not product_col:
+            return Response({'error': 'Could not find Customer Name or Product Name columns.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        errors = []
+        valid_orders = []
+        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
+
+        valid_names = set(ProductMaster.objects.values_list('material_name', flat=True))
+
+        for index, row in df.iterrows():
+            line_no = header_row_idx + index + 2
+
+            def cell(col):
+                if col is None:
+                    return ''
+                val = row.get(col, '')
+                if pd.isna(val):
+                    return ''
+                s = str(val).strip()
+                return '' if s.lower() == 'nan' else s
+
+            customer    = cell(customer_col)
+            product     = cell(product_col)
+            sold_to     = cell(ship_to_col)   # Ship To Code used as sold_to identifier
+            distributor = cell(distributor_col)
+
+            # Skip empty/total rows
+            if not customer and not product:
+                continue
+
+            # Validate product name against Product Master (soft — warn but allow ignore)
+            if product and valid_names and product not in valid_names:
+                errors.append(f"Row {line_no}: Product '{product}' not in Product Master.")
+                if not ignore_errors:
+                    continue
+
+            # Create one Order per month column that has a non-zero quantity
+            for month_col in month_cols:
+                qty_raw = row.get(month_col, '')
+                if pd.isna(qty_raw) or str(qty_raw).strip() == '' or str(qty_raw).strip() == '0':
+                    continue
+                try:
+                    qty = int(float(str(qty_raw).replace(',', '')))
+                except (ValueError, TypeError):
+                    continue
+
+                if qty <= 0:
+                    continue
+
+                # invoice_date = 1st of the month
+                try:
+                    invoice_date = datetime.date(int(month_col[:4]), int(month_col[5:7]), 1)
+                except Exception:
+                    continue
+
+                valid_orders.append(Order(
+                    sold_to=sold_to,
+                    ship_to=distributor,
+                    invoice_no='',
+                    invoice_date=invoice_date,
+                    customer=customer,
+                    material_code=cell(product_code_col) if product_code_col else '',
+                    material_name=product,
+                    packsize=0,
+                    qty=qty
+                ))
+
+        if errors and not ignore_errors:
+            return Response({'message': 'Validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        Order.objects.bulk_create(valid_orders)
+        msg = f'Successfully uploaded {len(valid_orders)} CSI sales records as secondary sales.'
+        if errors and ignore_errors:
+            msg += f' (Ignored {len(errors)} product master mismatches.)'
+        return Response({'message': msg}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': f'CSI upload failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

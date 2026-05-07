@@ -7,6 +7,7 @@ import UploadOrdersPage from './pages/UploadOrdersPage'
 import UploadStockPage from './pages/UploadStockPage'
 import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
 import UploadPrimarySalesPage from './pages/UploadPrimarySalesPage'
+import UploadCSISalesPage from './pages/UploadCSISalesPage'
 import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
 import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
 import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle } from 'lucide-react'
@@ -45,6 +46,10 @@ function App() {
               <UploadCloud size={18} />
               Primary Sales Upload
             </NavLink>
+            <NavLink to="/upload-csi-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <UploadCloud size={18} />
+              CSI Sales Upload
+            </NavLink>
             <NavLink to="/invoices" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FileText size={18} />
               Distributor Invoices
@@ -71,6 +76,7 @@ function App() {
             <Route path="/upload-stock" element={<UploadStockPage />} />
             <Route path="/upload-monthly-sales" element={<UploadMonthlySalesPage />} />
             <Route path="/upload-primary-sales" element={<UploadPrimarySalesPage />} />
+            <Route path="/upload-csi-sales" element={<UploadCSISalesPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/exceptional-price-request" element={<ExceptionalPriceRequestPage />} />
