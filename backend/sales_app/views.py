@@ -1111,6 +1111,8 @@ def upload_csi_sales(request):
                 if col is None:
                     return ''
                 val = row.get(col, '')
+                if isinstance(val, pd.Series):
+                    val = val.iloc[0] if not val.empty else ''
                 if pd.isna(val):
                     return ''
                 s = str(val).strip()
@@ -1134,6 +1136,8 @@ def upload_csi_sales(request):
             # Create one Order per month column that has a non-zero quantity
             for month_col in month_cols:
                 qty_raw = row.get(month_col, '')
+                if isinstance(qty_raw, pd.Series):
+                    qty_raw = qty_raw.iloc[0] if not qty_raw.empty else ''
                 if pd.isna(qty_raw) or str(qty_raw).strip() == '' or str(qty_raw).strip() == '0':
                     continue
                 try:
