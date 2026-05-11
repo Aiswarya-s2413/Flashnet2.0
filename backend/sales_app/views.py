@@ -893,8 +893,9 @@ def primary_vs_secondary_analytics(request):
         from collections import defaultdict
         import datetime
 
-        # 1. KPI EXTRACTION (Strictly Volume based matching)
-        ps_agg = PrimarySales.objects.aggregate(total=Sum('billed_quantity'))
+        # 1. KPI EXTRACTION
+        # Primary Sales: sum assessable_value (INR), Secondary Sales: sum qty (KGs)
+        ps_agg = PrimarySales.objects.aggregate(total=Sum('assessable_value'))
         ss_agg = Order.objects.aggregate(total=Sum('qty'))
         
         total_ps = ps_agg['total'] or 0.0
@@ -903,8 +904,8 @@ def primary_vs_secondary_analytics(request):
         # 2. MONTHLY TRENDS MATCHING
         trend_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
         
-        # Primary Sales Months
-        ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('billed_quantity'))
+        # Primary Sales Months — using assessable_value (INR)
+        ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
         for pm in ps_months:
             if pm['month']:
                 month_str = pm['month'].strftime('%Y-%m')
@@ -958,7 +959,7 @@ def primary_vs_secondary_analytics(request):
             raw_name = ship if ship else sold
             if raw_name:
                 group = get_group_name(raw_name)
-                dist_map[group]['ps'] += (ps.billed_quantity or 0)
+                dist_map[group]['ps'] += (ps.assessable_value or 0)  # INR value
                 if ps.division: dist_map[group]['zone'] = ps.division
                 if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
                 if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
