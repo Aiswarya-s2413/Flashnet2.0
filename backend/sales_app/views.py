@@ -984,9 +984,10 @@ def primary_vs_secondary_analytics(request):
                 'efficiency': round(eff, 2)
             })
         
-        # Top 10 by Primary Sales
-        distributor_array.sort(key=lambda x: x['primary'], reverse=True)
-        
+        # Split into distributors (have primary sales) and customers (secondary only)
+        dist_only = sorted([r for r in distributor_array if r['primary'] > 0], key=lambda x: x['primary'], reverse=True)
+        cust_only = sorted([r for r in distributor_array if r['primary'] == 0], key=lambda x: x['secondary'], reverse=True)
+
         # 4. PRODUCT GROUP BREAKDOWN
         prod_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
         
@@ -1011,7 +1012,8 @@ def primary_vs_secondary_analytics(request):
                 'channel_efficiency': round(channel_efficiency, 2),
             },
             'monthly_trend': trend_array,
-            'distributor_performance': distributor_array[:50],
+            'distributor_performance': dist_only[:20],
+            'customer_performance': cust_only[:50],
             'product_group': product_array[:15]
         }, status=status.HTTP_200_OK)
 

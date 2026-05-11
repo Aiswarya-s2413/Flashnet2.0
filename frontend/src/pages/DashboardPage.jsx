@@ -110,7 +110,7 @@ const OverviewTab = ({ metrics }) => {
 const AnalyticsTab = ({ data }) => {
   if (!data) return <div style={{textAlign: 'center', padding: 40}}>Loading Analytics Pipeline...</div>
 
-  const { kpis, monthly_trend, distributor_performance, product_group } = data
+  const { kpis, monthly_trend, distributor_performance, customer_performance, product_group } = data
 
   const formatLakhs = (val) => val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : `₹${val.toLocaleString()}`
   const formatCrores = (val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)} Cr` : formatLakhs(val)
@@ -175,7 +175,7 @@ const AnalyticsTab = ({ data }) => {
                </tr>
              </thead>
              <tbody>
-               {(distributor_performance || []).filter(row => row.primary > 0).map((row, i) => (
+               {(distributor_performance || []).map((row, i) => (
                  <tr key={i}>
                    <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
                    <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
@@ -183,7 +183,7 @@ const AnalyticsTab = ({ data }) => {
                    <td style={{ fontWeight: 500 }}>{formatLakhs(row.primary)}</td>
                  </tr>
                ))}
-               {!((distributor_performance || []).filter(row => row.primary > 0).length > 0) && (
+               {!(distributor_performance?.length > 0) && (
                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
                )}
              </tbody>
@@ -197,7 +197,7 @@ const AnalyticsTab = ({ data }) => {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 32, marginBottom: 20 }}>
              <h3 style={{ margin: 0, fontSize: 16 }}>Customers</h3>
-             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Grouped by Network</span>
+             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Top 50 by Secondary Sales</span>
           </div>
           <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
              <thead>
@@ -209,7 +209,7 @@ const AnalyticsTab = ({ data }) => {
                </tr>
              </thead>
              <tbody>
-               {(distributor_performance || []).filter(row => row.primary === 0).map((row, i) => (
+               {(customer_performance || []).map((row, i) => (
                  <tr key={i}>
                    <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
                    <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
@@ -217,7 +217,7 @@ const AnalyticsTab = ({ data }) => {
                    <td style={{ fontWeight: 500 }}>{formatLakhs(row.secondary)}</td>
                  </tr>
                ))}
-               {!((distributor_performance || []).filter(row => row.primary === 0).length > 0) && (
+               {!(customer_performance?.length > 0) && (
                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No customer metrics extracted.</td></tr>
                )}
              </tbody>
