@@ -150,43 +150,65 @@ export default function PriceRequestApprovalsPage() {
               <button onClick={() => setSelectedEpr(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={24} color="#666" /></button>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
+              <div><strong>Legacy Org:</strong> {selectedEpr.legacy_organization || 'N/A'}</div>
               <div><strong>Sold-To:</strong> {selectedEpr.soldto_name} ({selectedEpr.soldto_code})</div>
               <div><strong>Ship-To:</strong> {selectedEpr.shipto_name} ({selectedEpr.shipto_code})</div>
               <div><strong>End Customer:</strong> {selectedEpr.end_customer_name || 'N/A'}</div>
               <div><strong>Status:</strong> {getStatusBadge(selectedEpr.status)}</div>
+              <div><strong>Submitted On:</strong> {new Date(selectedEpr.created_at).toLocaleString()}</div>
             </div>
 
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>Requested Line Items</h3>
-            <div style={{ overflowX: 'auto', marginBottom: '24px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+            <div style={{ overflowX: 'auto', marginBottom: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1400px' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={thStyle}>Material</th>
+                    <th style={thStyle}>Material Name</th>
+                    <th style={thStyle}>Proposal</th>
+                    <th style={thStyle}>Type</th>
                     <th style={thStyle}>Old ICP</th>
                     <th style={thStyle}>Req. ICP</th>
                     <th style={thStyle}>Old Dist Price</th>
                     <th style={thStyle}>Req. Dist Price</th>
-                    <th style={thStyle}>Vol (kg)</th>
-                    <th style={thStyle}>Comp. Name</th>
-                    <th style={thStyle}>Comp. Price</th>
+                    <th style={thStyle}>Old Vol</th>
+                    <th style={thStyle}>Prop. Vol</th>
+                    <th style={thStyle}>Freight</th>
+                    <th style={thStyle}>Dist Terms</th>
+                    <th style={thStyle}>Cust Terms</th>
+                    <th style={thStyle}>In Pkg?</th>
+                    <th style={thStyle}>Pkg Details</th>
+                    <th style={thStyle}>Comp Name</th>
+                    <th style={thStyle}>Comp Price</th>
+                    <th style={thStyle}>Comp Vol</th>
+                    <th style={thStyle}>Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedEpr.line_items && selectedEpr.line_items.map((item, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={tdStyle}>{item.material_name}</td>
-                      <td style={tdStyle}>{item.existing_icp}</td>
+                      <td style={tdStyle}>{item.business_proposal}</td>
+                      <td style={tdStyle}>{item.price_request_type}</td>
+                      <td style={tdStyle}>{item.existing_icp || '-'}</td>
                       <td style={{...tdStyle, fontWeight: 'bold', color: '#1d4ed8'}}>{item.requested_icp}</td>
-                      <td style={tdStyle}>{item.existing_dist_price}</td>
+                      <td style={tdStyle}>{item.existing_dist_price || '-'}</td>
                       <td style={{...tdStyle, fontWeight: 'bold', color: '#1d4ed8'}}>{item.requested_dist_price}</td>
-                      <td style={tdStyle}>{item.proposed_sale_volume}</td>
+                      <td style={tdStyle}>{item.existing_sale_volume || '-'}</td>
+                      <td style={tdStyle}>{item.proposed_sale_volume || '-'}</td>
+                      <td style={tdStyle}>{item.freight_charges}</td>
+                      <td style={tdStyle}>{item.distributor_payment_terms || '-'}</td>
+                      <td style={tdStyle}>{item.end_customer_payment_terms || '-'}</td>
+                      <td style={tdStyle}>{item.product_used_in_package}</td>
+                      <td style={tdStyle}>{item.other_products_details || '-'}</td>
                       <td style={tdStyle}>{item.competition_product_name || '-'}</td>
                       <td style={tdStyle}>{item.competition_price || '-'}</td>
+                      <td style={tdStyle}>{item.competition_volume || '-'}</td>
+                      <td style={tdStyle}>{item.remarks || '-'}</td>
                     </tr>
                   ))}
                   {(!selectedEpr.line_items || selectedEpr.line_items.length === 0) && (
-                    <tr><td colSpan="8" style={tdStyle}>No line items found.</td></tr>
+                    <tr><td colSpan="18" style={tdStyle}>No line items found.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -194,8 +216,8 @@ export default function PriceRequestApprovalsPage() {
 
             {selectedEpr.additional_remarks && (
                <div style={{ marginBottom: '24px' }}>
-                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>Additional Remarks</h3>
-                 <div style={{ background: '#f9fafb', padding: '12px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
+                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>Final Approval Remarks</h3>
+                 <div style={{ background: '#f9fafb', padding: '12px', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '14px', color: '#4b5563' }}>
                    {selectedEpr.additional_remarks}
                  </div>
                </div>
