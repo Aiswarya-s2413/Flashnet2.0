@@ -83,18 +83,8 @@ export default function UploadCSISalesPage() {
         </div>
       )}
 
-      {/* How it works */}
-      <div className="card" style={{ padding: '20px 24px', marginBottom: 24, backgroundColor: 'var(--surface)', borderLeft: '4px solid var(--primary)' }}>
-        <h4 style={{ margin: '0 0 10px', fontSize: 14 }}>How This Works</h4>
-        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.8 }}>
-          <li>Upload one CSI file per distributor (e.g. <strong>CSI_ME</strong> for Mikhail Enterprises, <strong>CSI_VTC</strong> for Vikram Trading)</li>
-          <li>Each monthly column (Oct-25, Nov-25…) becomes a separate secondary sales record</li>
-          <li><strong>Invoice date</strong> is automatically set to the <strong>1st of that month</strong></li>
-          <li>Records appear instantly in the Dashboard and Primary vs Secondary Analytics</li>
-        </ul>
-      </div>
 
-      <div className="card" style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
+<div className="card" style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
         <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
           <div style={{
             border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px',

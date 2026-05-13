@@ -18,6 +18,7 @@ class DistributorInvoice(models.Model):
     customer = models.CharField(max_length=255)
     ship_to = models.TextField()
     sold_to = models.TextField()
+    value = models.FloatField(default=0, blank=True, null=True)
 
     def __str__(self):
         return f"Invoice {self.invoice_no}: {self.material_name} ({self.qty})"
@@ -32,6 +33,7 @@ class Order(models.Model):
     customer = models.CharField(max_length=255, blank=True, default='')
     ship_to = models.TextField(blank=True, default='')
     sold_to = models.TextField(blank=True, default='')
+    value = models.FloatField(default=0, blank=True, null=True)
 
     def __str__(self):
         return f"Order {self.invoice_no}: {self.material_name} ({self.qty})"

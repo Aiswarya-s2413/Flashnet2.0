@@ -24,7 +24,7 @@ const OverviewTab = ({ metrics }) => {
               {top_products && top_products.length > 0 ? formatNumber(top_products[0].volume) : 0} <span style={{fontSize: 14, color: 'var(--text-dim)', fontWeight: 400}}>KGs</span>
             </p>
           </div>
-          <div style={{ padding: 12, backgroundColor: 'rgba(56, 189, 248, 0.1)', borderRadius: 12, color: 'var(--primary)' }}><Package size={24} /></div>
+          <div style={{ padding: 12, backgroundColor: 'var(--accent-soft)', borderRadius: 12, color: 'var(--primary)' }}><Package size={24} /></div>
         </div>
 
         <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -128,7 +128,7 @@ const AnalyticsTab = ({ data }) => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid #3b82f6' }}>
+        <div className="card" style={{ padding: 24, borderLeft: '4px solid var(--accent)' }}>
           <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Primary Sales (PS)</p>
           <h3 style={{ fontSize: 26, margin: '0 0 12px 0', lineHeight: 1.3 }}>{formatCrores(kpis?.total_primary || 0)}</h3>
         </div>
@@ -152,8 +152,8 @@ const AnalyticsTab = ({ data }) => {
              <YAxis yAxisId="right" orientation="right" tickFormatter={(val) => `${val}%`} tick={{fill: 'var(--text-dim)', fontSize: 12}} axisLine={false} tickLine={false} />
              <Tooltip cursor={{fill: 'var(--bg)'}} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} />
              <Legend wrapperStyle={{ paddingTop: 20 }} />
-             <Bar yAxisId="left" dataKey="Primary Sales" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-             <Bar yAxisId="left" dataKey="Secondary Sales" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+             <Bar yAxisId="left" dataKey="Primary Sales" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+             <Bar yAxisId="left" dataKey="Secondary Sales" fill="#8CC63F" radius={[4, 4, 0, 0]} maxBarSize={40} />
              <Line yAxisId="right" type="monotone" dataKey="Efficiency %" stroke="#f59e0b" strokeWidth={3} dot={{r: 4, fill: '#f59e0b'}} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -190,7 +190,7 @@ const AnalyticsTab = ({ data }) => {
              <tfoot>
                <tr style={{ backgroundColor: 'var(--surface)' }}>
                  <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL PRIMARY KPI:</td>
-                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#3b82f6', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_primary || 0)}</td>
+                 <td style={{ fontWeight: 'bold', fontSize: 15, color: 'var(--accent)', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_primary || 0)}</td>
                </tr>
              </tfoot>
           </table>
@@ -224,7 +224,7 @@ const AnalyticsTab = ({ data }) => {
              <tfoot>
                <tr style={{ backgroundColor: 'var(--surface)' }}>
                  <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL SECONDARY KPI:</td>
-                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#10b981', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
+                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#8CC63F', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
                </tr>
              </tfoot>
           </table>

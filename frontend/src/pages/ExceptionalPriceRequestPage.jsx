@@ -137,7 +137,7 @@ export default function ExceptionalPriceRequestPage() {
         {/* Header Section */}
         <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 'bold', borderBottom: '1px solid #eee', paddingBottom: '12px', marginBottom: '16px' }}>Organization Details</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
             <div>
               <label style={labelStyle}>Legacy Organization</label>
               <select style={inputStyle} name="legacy_organization" value={header.legacy_organization} onChange={handleHeaderChange}>
@@ -227,7 +227,7 @@ export default function ExceptionalPriceRequestPage() {
 
               {/* Group 2: Volume & Pricing Details */}
               <h4 style={sectionHeadingStyle}>Volume & Pricing Comparatives</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
                 <div>
                   <label style={labelStyle}>Old Dist. Price (INR)</label>
                   <input style={inputStyle} type="number" step="0.01" value={item.existing_dist_price} onChange={e => handleLineItemChange(index, 'existing_dist_price', e.target.value)} />
@@ -346,7 +346,7 @@ export default function ExceptionalPriceRequestPage() {
 }
 
 const labelStyle = { display: 'block', fontSize: '14px', fontWeight: '500', color: '#4b5563', marginBottom: '6px' }
-const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }
+const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', minHeight: '38px', transition: 'border-color 0.2s' }
 const thStyle = { padding: '12px', fontWeight: '600', color: '#475569', fontSize: '12px', whiteSpace: 'nowrap' }
 const tdStyle = { padding: '8px', verticalAlign: 'top' }
 const sectionHeadingStyle = { fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', color: '#64748b', marginBottom: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px' }
