@@ -1029,10 +1029,10 @@ def primary_vs_secondary_analytics(request):
             group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
             prod_map[group]['ps'] += (ps.assessable_value or 0)
 
-        for ms in Order.objects.all():
-            group = ms.material_name or 'Unknown Product'
+        for ms in MonthlySales.objects.all():
+            group = ms.product_name or 'Unknown Product'
             group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
-            prod_map[group]['ss'] += (ms.value or 0)
+            prod_map[group]['ss'] += (ms.total_value or 0)
 
         product_array = [{'group': k, 'Primary Sales': round(v['ps'], 2), 'Secondary Sales': round(v['ss'], 2)} 
                          for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
