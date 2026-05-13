@@ -137,8 +137,8 @@ export default function ExceptionalPriceRequestPage() {
         {/* Header Section */}
         <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 'bold', borderBottom: '1px solid #eee', paddingBottom: '12px', marginBottom: '16px' }}>Organization Details</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-            <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '20px' }}>
+            <div style={{ gridColumn: 'span 4' }}>
               <label style={labelStyle}>Legacy Organization</label>
               <select style={inputStyle} name="legacy_organization" value={header.legacy_organization} onChange={handleHeaderChange}>
                 <option value="">-- Select --</option>
@@ -146,23 +146,23 @@ export default function ExceptionalPriceRequestPage() {
                 <option value="inx2">inx2</option>
               </select>
             </div>
-            <div>
+            <div style={{ gridColumn: 'span 4' }}>
               <label style={labelStyle}>Sold-To Code</label>
               <input style={inputStyle} type="text" name="soldto_code" value={header.soldto_code} onChange={handleHeaderChange} />
             </div>
-            <div>
+            <div style={{ gridColumn: 'span 4' }}>
               <label style={labelStyle}>Sold-To Name</label>
               <input style={inputStyle} type="text" name="soldto_name" value={header.soldto_name} onChange={handleHeaderChange} />
             </div>
-            <div>
+            <div style={{ gridColumn: 'span 4' }}>
               <label style={labelStyle}>Ship-To Code *</label>
               <input style={inputStyle} type="text" name="shipto_code" value={header.shipto_code} onChange={handleHeaderChange} required />
             </div>
-            <div>
+            <div style={{ gridColumn: 'span 4' }}>
               <label style={labelStyle}>Ship-To Name</label>
               <input style={inputStyle} type="text" name="shipto_name" value={header.shipto_name} onChange={handleHeaderChange} />
             </div>
-            <div>
+            <div style={{ gridColumn: 'span 4' }}>
               <label style={labelStyle}>End Customer Name</label>
               <input style={inputStyle} type="text" name="end_customer_name" value={header.end_customer_name} onChange={handleHeaderChange} />
             </div>
@@ -194,8 +194,8 @@ export default function ExceptionalPriceRequestPage() {
 
               {/* Group 1: Product & Request Type */}
               <h4 style={sectionHeadingStyle}>Product & Request Details</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
-                <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Material Name *</label>
                   <select style={inputStyle} value={item.material_name} onChange={e => handleLineItemChange(index, 'material_name', e.target.value)} required>
                     <option value="">-- Select Material --</option>
@@ -204,18 +204,18 @@ export default function ExceptionalPriceRequestPage() {
                     ))}
                   </select>
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Material Code</label>
                   <input style={{...inputStyle, background: '#f8fafc', cursor: 'not-allowed'}} type="text" value={item.material_code} readOnly placeholder="Auto-filled" />
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Business Proposal</label>
                   <select style={inputStyle} value={item.business_proposal} onChange={(e) => handleLineItemChange(index, 'business_proposal', e.target.value)}>
                     <option>New</option>
                     <option>Existing Business</option>
                   </select>
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Request Type</label>
                   <select style={inputStyle} value={item.price_request_type} onChange={(e) => handleLineItemChange(index, 'price_request_type', e.target.value)}>
                     <option>New</option>
@@ -227,28 +227,28 @@ export default function ExceptionalPriceRequestPage() {
 
               {/* Group 2: Volume & Pricing Details */}
               <h4 style={sectionHeadingStyle}>Volume & Pricing Comparatives</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
-                <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Old Dist. Price (INR)</label>
                   <input style={inputStyle} type="number" step="0.01" value={item.existing_dist_price} onChange={e => handleLineItemChange(index, 'existing_dist_price', e.target.value)} />
                 </div>
-                <div>
-                  <label style={labelStyle}>Old ICP (INR)</label>
-                  <input style={inputStyle} type="number" step="0.01" value={item.existing_icp} onChange={e => handleLineItemChange(index, 'existing_icp', e.target.value)} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Old Vol. (kg/Ann)</label>
-                  <input style={inputStyle} type="number" step="0.01" value={item.existing_sale_volume} onChange={e => handleLineItemChange(index, 'existing_sale_volume', e.target.value)} />
-                </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Req. Dist. Price (INR) <span style={{color: '#ef4444'}}>*</span></label>
                   <input style={{...inputStyle, borderColor: '#bfdbfe', background: '#eff6ff'}} type="number" step="0.01" value={item.requested_dist_price} onChange={e => handleLineItemChange(index, 'requested_dist_price', e.target.value)} required />
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
+                  <label style={labelStyle}>Old ICP (INR)</label>
+                  <input style={inputStyle} type="number" step="0.01" value={item.existing_icp} onChange={e => handleLineItemChange(index, 'existing_icp', e.target.value)} />
+                </div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Req. ICP (INR) <span style={{color: '#ef4444'}}>*</span></label>
                   <input style={{...inputStyle, borderColor: '#fed7aa', background: '#fff7ed'}} type="number" step="0.01" value={item.requested_icp} onChange={e => handleLineItemChange(index, 'requested_icp', e.target.value)} required />
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
+                  <label style={labelStyle}>Old Vol. (kg/Ann)</label>
+                  <input style={inputStyle} type="number" step="0.01" value={item.existing_sale_volume} onChange={e => handleLineItemChange(index, 'existing_sale_volume', e.target.value)} />
+                </div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Proposed Vol. (kg/Mo)</label>
                   <input style={{...inputStyle, borderColor: '#bbf7d0', background: '#f0fdf4'}} type="number" step="0.01" value={item.proposed_sale_volume} onChange={e => handleLineItemChange(index, 'proposed_sale_volume', e.target.value)} />
                 </div>
@@ -256,30 +256,30 @@ export default function ExceptionalPriceRequestPage() {
 
               {/* Group 3: Logistics & Commercials */}
               <h4 style={sectionHeadingStyle}>Logistics & Commercials</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
-                <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Freight Charges</label>
                   <select style={inputStyle} value={item.freight_charges} onChange={e => handleLineItemChange(index, 'freight_charges', e.target.value)}>
                     <option>Paid By Distributor</option>
                     <option>FTL Order</option>
                   </select>
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Distributor Payment Terms</label>
                   <input style={inputStyle} type="text" value={item.distributor_payment_terms} onChange={e => handleLineItemChange(index, 'distributor_payment_terms', e.target.value)} placeholder="e.g. 30 Days" />
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>End Customer Payment Terms</label>
                   <input style={inputStyle} type="text" value={item.end_customer_payment_terms} onChange={e => handleLineItemChange(index, 'end_customer_payment_terms', e.target.value)} placeholder="e.g. 60 Days" />
                 </div>
-                <div>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Used in Package</label>
                   <select style={inputStyle} value={item.product_used_in_package} onChange={e => handleLineItemChange(index, 'product_used_in_package', e.target.value)}>
                     <option>No</option>
                     <option>Yes</option>
                   </select>
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ gridColumn: 'span 12' }}>
                   <label style={labelStyle}>Other Products Details (If used in package)</label>
                   <input style={inputStyle} type="text" value={item.other_products_details} onChange={e => handleLineItemChange(index, 'other_products_details', e.target.value)} placeholder="Describe package relationships..." />
                 </div>
@@ -287,8 +287,8 @@ export default function ExceptionalPriceRequestPage() {
 
               {/* Group 4: Competition & Remarks */}
               <h4 style={sectionHeadingStyle}>Competition Justification</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-                <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '20px' }}>
+                <div style={{ gridColumn: 'span 3' }}>
                   <label style={labelStyle}>Competition Running</label>
                   <select style={inputStyle} value={item.competition_running} onChange={e => handleLineItemChange(index, 'competition_running', e.target.value)}>
                     <option>No</option>
@@ -297,21 +297,21 @@ export default function ExceptionalPriceRequestPage() {
                 </div>
                 {item.competition_running === 'Yes' && (
                   <>
-                    <div>
+                    <div style={{ gridColumn: 'span 3' }}>
                       <label style={labelStyle}>Competition Product Name</label>
                       <input style={inputStyle} type="text" value={item.competition_product_name} onChange={e => handleLineItemChange(index, 'competition_product_name', e.target.value)} />
                     </div>
-                    <div>
+                    <div style={{ gridColumn: 'span 3' }}>
                       <label style={labelStyle}>Comp. Price (INR/kg)</label>
                       <input style={inputStyle} type="number" step="0.01" value={item.competition_price} onChange={e => handleLineItemChange(index, 'competition_price', e.target.value)} />
                     </div>
-                    <div>
+                    <div style={{ gridColumn: 'span 3' }}>
                       <label style={labelStyle}>Comp. Volume YTD</label>
                       <input style={inputStyle} type="number" step="0.01" value={item.competition_volume} onChange={e => handleLineItemChange(index, 'competition_volume', e.target.value)} />
                     </div>
                   </>
                 )}
-                <div style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
+                <div style={{ gridColumn: 'span 12', marginTop: '8px' }}>
                   <label style={labelStyle}>Line Item Remarks</label>
                   <input style={inputStyle} type="text" value={item.remarks} onChange={e => handleLineItemChange(index, 'remarks', e.target.value)} placeholder="Specific remarks for this request..." />
                 </div>
