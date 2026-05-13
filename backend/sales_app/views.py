@@ -5,6 +5,13 @@ from .models import ProductMaster, DistributorInvoice, Order, StockLevel, Monthl
 from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer, ExceptionalPriceRequestSerializer, TraderTemplateSerializer
 from django.db.models import Sum
 import pandas as pd
+import re
+
+def clean_prod_name(s):
+    if not s: return ""
+    # Replace all whitespace characters (including \xa0) with a standard space
+    return re.sub(r'[\s\xa0]+', ' ', str(s)).strip().upper()
+
 
 class ProductMasterViewSet(viewsets.ModelViewSet):
     queryset = ProductMaster.objects.all()
@@ -66,17 +73,24 @@ def extract_orders(request):
     errors = []
 
     for invoice in invoices:
-        product_exists = ProductMaster.objects.filter(material_name=invoice.material_name).exists()
+        product_obj = ProductMaster.objects.filter(material_name__iexact=str(invoice.material_name).strip()).first()
         
-        if product_exists:
+        # Also try nuclear match if exact/iexact fails
+        if not product_obj:
+            all_prods = ProductMaster.objects.all()
+            target = clean_prod_name(invoice.material_name)
+            product_obj = next((p for p in all_prods if clean_prod_name(p.material_name) == target), None)
+
+        if product_obj:
             Order.objects.update_or_create(
                 invoice_no=invoice.invoice_no,
                 material_code=invoice.material_code,
                 defaults={
                     'invoice_date': invoice.invoice_date,
-                    'material_name': invoice.material_name,
+                    'material_name': product_obj.material_name,
                     'packsize': invoice.packsize,
                     'qty': invoice.qty,
+                    'value': getattr(invoice, 'value', 0),
                     'customer': invoice.customer,
                     'ship_to': invoice.ship_to,
                     'sold_to': invoice.sold_to
@@ -249,17 +263,14 @@ def upload_orders(request):
                 # Validate against Product Master with robust fuzzy matching for Raw Sales
                 actual_material_name = name_val
                 if name_val:
-                    if name_val not in valid_names:
-                        # Try fuzzy matching: check if DB name starts with raw name or vice versa
-                        # Case insensitive match
-                        name_lower = name_val.lower()
-                        fuzzy_match = next((v for v in valid_names if v.lower().startswith(name_lower) or name_lower.startswith(v.lower())), None)
-                        
-                        if fuzzy_match:
-                            actual_material_name = fuzzy_match
-                        else:
-                            errors.append(f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master (even with fuzzy matching).")
-                            continue
+                    target = clean_prod_name(name_val)
+                    all_prods = ProductMaster.objects.all()
+                    product_obj = next((p for p in all_prods if clean_prod_name(p.material_name) == target), None)
+                    if product_obj:
+                        actual_material_name = product_obj.material_name
+                    else:
+                        errors.append(f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master.")
+                        continue
                 
                 valid_orders.append(Order(
                     sold_to='',
@@ -270,7 +281,8 @@ def upload_orders(request):
                     material_code=code_val,
                     material_name=actual_material_name,
                     packsize=0,
-                    qty=numeric_qty
+                    qty=numeric_qty,
+                    value=0 # Raw sales format typically doesn't have value, fallback to 0
                 ))
         else:
             # --- STANDARD FORMAT ---
@@ -297,12 +309,17 @@ def upload_orders(request):
 
                 material_name = get_val(['Material Name', 'Material', 'material_name'], 'material_name')
                 
-                if material_name and material_name not in valid_names:
+                # Robust case-insensitive lookup
+                target = clean_prod_name(material_name)
+                all_prods = ProductMaster.objects.all()
+                product_obj = next((p for p in all_prods if clean_prod_name(p.material_name) == target), None)
+                if not product_obj:
                     errors.append(f"Row {line_no}: Material '{material_name}' is not matching any Product Master name.")
                     continue
                     
                 qty = get_val(['qty(kg)', 'Qty(kg)', 'qty', 'Qty'], 'qty')
                 packsize = get_val(['Packsize(kg)', 'Packsize', 'packsize'], 'packsize')
+                value = get_val(['Value', 'Amount', 'Total Value', 'Assessable Value', 'Value (INR)', 'value', 'amount', 'Total Value (INR)'], 'value')
                 
                 try:
                     numeric_qty = int(float(qty)) if qty else 0
@@ -313,6 +330,11 @@ def upload_orders(request):
                     numeric_packsize = float(packsize) if packsize else 0
                 except ValueError:
                     numeric_packsize = 0
+                
+                try:
+                    numeric_value = float(str(value).replace(',', '')) if value else 0.0
+                except ValueError:
+                    numeric_value = 0.0
                     
                 invoice_date_key = [custom_mapping['invoice_date']] if custom_mapping.get('invoice_date') else ['Invoice Date', 'Date', 'invoice_date']
                 invoice_date = None
@@ -345,7 +367,8 @@ def upload_orders(request):
                     material_code=get_val(['Material Code', 'material_code'], 'material_code'),
                     material_name=material_name,
                     packsize=numeric_packsize,
-                    qty=numeric_qty
+                    qty=numeric_qty,
+                    value=numeric_value
                 ))
             
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
@@ -718,9 +741,9 @@ def upload_primary_sales(request):
             raw_df = pd.read_excel(file, header=None)
             header_row_idx = 0
             
-            for i, r in raw_df.head(6).iterrows():
+            for i, r in raw_df.head(20).iterrows():
                 row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-                if any('billing no' in v or 'tax invoice' in v or 'assessable' in v or 'ppc' in v or 'ship to party' in v or 'inv qty' in v for v in row_vals):
+                if any(k in v for v in row_vals for k in ['billing no', 'tax invoice', 'assessable', 'ppc', 'ship to party', 'inv qty', 'billing doc']):
                     header_row_idx = i
                     break
                     
@@ -756,9 +779,9 @@ def upload_primary_sales(request):
                     key_options = [key_options]
                 
                 for key_name in key_options:
-                    lower_key = re.sub(r'[\s\n\r_]', '', key_name.lower())
+                    lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
                     for c in df.columns:
-                        header_str = re.sub(r'[\s\n\r_]', '', str(c).lower())
+                        header_str = re.sub(r'[^a-z0-9]', '', str(c).lower())
                         if lower_key in header_str:
                             val = row.get(c)
                             if isinstance(val, pd.Series):
@@ -771,33 +794,40 @@ def upload_primary_sales(request):
                             return string_val
                 return ''
 
-            billing_no = get_val(['Billing No', 'Invoice No'])
-            material_code = get_val(['Material Code', 'PPC'])
+            def get_date(key_options):
+                val = get_val(key_options)
+                if val:
+                    try: return pd.to_datetime(val).date()
+                    except: return None
+                return None
+
+            billing_no = get_val(['Billing No', 'Invoice No', 'Billing Document'])
+            material_code = get_val(['Material Code', 'PPC', 'Material'])
             
             if not billing_no and not material_code:
                 continue
                 
             if material_code and material_code not in valid_codes:
-                errors.append(f"Row {line_no}: Material Code '{material_code}' not perfectly recognized in Product Master.")
+                errors.append(f"Row {line_no}: Material Code '{material_code}' not recognized in Product Master.")
                 continue
                 
-            so_date_raw = get_val('SO Creation Date')
-            so_date = None
-            if so_date_raw:
-                try:
-                    so_date = pd.to_datetime(so_date_raw).date()
-                except Exception:
-                    errors.append(f"Row {line_no}: Invalid SO Date.")
-                    continue
-                    
-            bill_date_raw = get_val('Billing Date')
-            bill_date = None
-            if bill_date_raw:
-                try:
-                    bill_date = pd.to_datetime(bill_date_raw).date()
-                except Exception:
-                    errors.append(f"Row {line_no}: Invalid Billing Date.")
-                    continue
+            # Improved aggressive date detection
+            def auto_get_date(keywords):
+                # 1. Try specified keywords first
+                d = get_date(keywords)
+                if d: return d
+                
+                # 2. Scan all columns for anything looking like a date
+                for col in df.columns:
+                    val = row.get(col)
+                    try:
+                        dt = pd.to_datetime(val).date()
+                        if dt and 2010 < dt.year < 2030: return dt
+                    except: pass
+                return None
+
+            billing_date = auto_get_date(['Billing Date', 'Billing date', 'Bill Date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
+            so_date = auto_get_date(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
                     
             def get_float(key_options):
                 val = get_val(key_options)
@@ -811,21 +841,21 @@ def upload_primary_sales(request):
 
             valid_records.append(PrimarySales(
                 billing_no=billing_no,
-                tax_invoice_no=get_val('Tax Invoice No'),
-                sales_order=get_val('Sales Order'),
+                tax_invoice_no=get_val(['Tax Invoice No', 'Tax Invoice']),
+                sales_order=get_val(['Sales Order', 'SO No']),
                 so_creation_date=so_date,
                 division=get_val('Division'),
-                sold_to_party=get_val(['Sold to party', 'Sold to party (NLZ)']),
-                sold_to_party_address=get_val('Sold to party Address'),
-                ship_to_party=get_val(['Ship to Party', 'Ship to party (NLZ)']),
-                ship_to_party_name=get_val('Ship to Party Name'),
+                sold_to_party=get_val(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party']),
+                sold_to_party_address=get_val(['Sold to party Address', 'Sold-to Party Address']),
+                ship_to_party=get_val(['Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party']),
+                ship_to_party_name=get_val(['Ship to Party Name', 'Ship-to Party Name']),
                 material_code=material_code,
-                material_desc=get_val(['Material Desc', 'Material Text']),
-                billing_date=bill_date,
+                material_desc=get_val(['Material Desc', 'Material Text', 'Description']),
+                billing_date=billing_date,
                 plant=get_val('Plant'),
-                rate_per_unit=get_float('Rate Per Unit'),
-                billed_quantity=get_float(['Billed Quantity', 'Inv Qty Kgs']),
-                assessable_value=get_float(['Assessable Value', 'Assesable Value', 'Inv Value INR'])
+                rate_per_unit=get_float(['Rate Per Unit', 'Rate']),
+                billed_quantity=get_float(['Billed Quantity', 'Inv Qty Kgs', 'Quantity']),
+                assessable_value=get_float(['Assessable Value', 'Assesable Value', 'Inv Value INR', 'Value'])
             ))
             
         if errors and not ignore_errors:
@@ -847,28 +877,29 @@ def dashboard_metrics(request):
         from django.db.models.functions import TruncMonth
 
         # Top 5 Products by Total Volume
-        top_products_qs = Order.objects.values('material_name')\
-                            .annotate(volume=Sum('qty'))\
+        top_products_qs = MonthlySales.objects.values('product_name')\
+                            .annotate(volume=Sum('total_volume'))\
                             .order_by('-volume')[:5]
-        top_products = [{'name': item['material_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_products_qs]
+        top_products = [{'name': item['product_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_products_qs]
 
         # Top 5 Customers by Total Volume
-        top_customers_qs = Order.objects.values('customer')\
-                            .annotate(volume=Sum('qty'))\
+        top_customers_qs = MonthlySales.objects.values('customer_name')\
+                            .annotate(volume=Sum('total_volume'))\
                             .order_by('-volume')[:5]
-        top_customers = [{'name': item['customer'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
+        top_customers = [{'name': item['customer_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
 
         # Monthly Progression extracted dynamically from genuine invoice dates
-        monthly_progression_qs = Order.objects.annotate(month=TruncMonth('invoice_date'))\
-                                    .values('month')\
-                                    .annotate(volume=Sum('qty'))\
-                                    .order_by('month')
+        from collections import defaultdict
+        monthly_vols = defaultdict(float)
+        for ms in MonthlySales.objects.all():
+            for m_str, vol in ms.volumes.items():
+                try:
+                    vol_float = float(vol)
+                    monthly_vols[m_str] += vol_float
+                except:
+                    pass
         
-        monthly_progression = []
-        for item in monthly_progression_qs:
-            if item['month']:
-                month_str = item['month'].strftime('%Y-%m')
-                monthly_progression.append({'name': month_str, 'volume': item['volume'] or 0})
+        monthly_progression = [{'name': k, 'volume': v} for k, v in sorted(monthly_vols.items())]
 
         # Top 5 Stock Levels by Month End Inventory
         stock_qs = StockLevel.objects.values('product_desc')\
@@ -893,10 +924,9 @@ def primary_vs_secondary_analytics(request):
         from collections import defaultdict
         import datetime
 
-        # 1. KPI EXTRACTION
-        # Primary Sales: sum assessable_value (INR), Secondary Sales: sum qty (KGs)
+        # 1. KPI EXTRACTION (Switching from Volume to Financial Value as requested)
         ps_agg = PrimarySales.objects.aggregate(total=Sum('assessable_value'))
-        ss_agg = Order.objects.aggregate(total=Sum('qty'))
+        ss_agg = MonthlySales.objects.aggregate(total=Sum('total_value'))
         
         total_ps = ps_agg['total'] or 0.0
         total_ss = ss_agg['total'] or 0.0
@@ -904,19 +934,21 @@ def primary_vs_secondary_analytics(request):
         # 2. MONTHLY TRENDS MATCHING
         trend_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
         
-        # Primary Sales Months — using assessable_value (INR)
+        # Primary Sales Months
         ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
         for pm in ps_months:
             if pm['month']:
                 month_str = pm['month'].strftime('%Y-%m')
                 trend_map[month_str]['ps'] += pm['total']
 
-        # Secondary Sales Months (Raw Invoice Dates mapped cleanly)
-        ss_months = Order.objects.annotate(month=TruncMonth('invoice_date')).values('month').annotate(total=Sum('qty'))
-        for sm in ss_months:
-            if sm['month']:
-                month_str = sm['month'].strftime('%Y-%m')
-                trend_map[month_str]['ss'] += sm['total']
+        # Secondary Sales Months (Financial Value mapping)
+        for ms in MonthlySales.objects.all():
+            for month_str, val in ms.values.items():
+                try:
+                    val_float = float(val)
+                    trend_map[month_str]['ss'] += val_float
+                except:
+                    pass
 
         # Global KPI Efficiency Calculation matching the displayed KPI cards
         channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
@@ -959,18 +991,18 @@ def primary_vs_secondary_analytics(request):
             raw_name = ship if ship else sold
             if raw_name:
                 group = get_group_name(raw_name)
-                dist_map[group]['ps'] += (ps.assessable_value or 0)  # INR value
+                dist_map[group]['ps'] += (ps.assessable_value or 0)
                 if ps.division: dist_map[group]['zone'] = ps.division
                 if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
                 if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
                 
-        for ms in Order.objects.all():
-            raw_name = str(ms.customer).strip() or str(ms.ship_to).strip() or str(ms.sold_to).strip()
-            if raw_name:
+        for ms in MonthlySales.objects.all():
+            raw_name = str(ms.customer_name or ms.ship_to_code or ms.distributor_name).strip()
+            if raw_name and raw_name != 'None':
                 group = get_group_name(raw_name)
-                dist_map[group]['ss'] += (ms.qty or 0)
-                if ms.sold_to: dist_map[group]['sold_to'].add(str(ms.sold_to).title())
-                if ms.ship_to: dist_map[group]['ship_to'].add(str(ms.ship_to).title())
+                dist_map[group]['ss'] += (ms.total_value or 0)
+                if ms.customer_name: dist_map[group]['sold_to'].add(str(ms.customer_name).title())
+                if ms.ship_to_code: dist_map[group]['ship_to'].add(str(ms.ship_to_code).title())
 
         distributor_array = []
         for k, v in dist_map.items():
@@ -995,12 +1027,12 @@ def primary_vs_secondary_analytics(request):
         for ps in PrimarySales.objects.all():
             group = ps.material_desc or 'Unknown Product'
             group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
-            prod_map[group]['ps'] += (ps.billed_quantity or 0)
+            prod_map[group]['ps'] += (ps.assessable_value or 0)
 
         for ms in Order.objects.all():
             group = ms.material_name or 'Unknown Product'
             group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
-            prod_map[group]['ss'] += (ms.qty or 0)
+            prod_map[group]['ss'] += (ms.value or 0)
 
         product_array = [{'group': k, 'Primary Sales': round(v['ps'], 2), 'Secondary Sales': round(v['ss'], 2)} 
                          for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
@@ -1097,6 +1129,7 @@ def upload_csi_sales(request):
         customer_col    = get_col(['Customer Name', 'Customer'])
         product_col     = get_col(['Product Name', 'Product'])
         product_code_col= get_col(['Product Code'])
+        value_col       = get_col(['Value', 'Amount', 'Total Value'])
 
         if not customer_col or not product_col:
             return Response({'error': 'Could not find Customer Name or Product Name columns.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1104,8 +1137,18 @@ def upload_csi_sales(request):
         errors = []
         valid_orders = []
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
-
-        valid_names = set(ProductMaster.objects.values_list('material_name', flat=True))
+        valid_names_map = {clean_prod_name(name): name for name in ProductMaster.objects.values_list('material_name', flat=True)}
+        
+        # Pre-fetch derived rates from Primary Sales to estimate CSI values (Derive from Value/Qty)
+        from django.db.models import Sum
+        rate_map = {}
+        ps_data = PrimarySales.objects.values('material_desc').annotate(
+            total_val=Sum('assessable_value'),
+            total_qty=Sum('billed_quantity')
+        )
+        for r in ps_data:
+            if r['total_qty'] and r['total_qty'] > 0:
+                rate_map[clean_prod_name(r['material_desc'])] = r['total_val'] / r['total_qty']
 
         for index, row in df.iterrows():
             line_no = header_row_idx + index + 2
@@ -1130,8 +1173,9 @@ def upload_csi_sales(request):
             if not customer and not product:
                 continue
 
-            # Validate product name against Product Master (soft — warn but allow ignore)
-            if product and valid_names and product not in valid_names:
+            # Validate product name against Product Master (Case-insensitive matching)
+            product_clean = clean_prod_name(product)
+            if product_clean and valid_names_map and product_clean not in valid_names_map:
                 errors.append(f"Row {line_no}: Product '{product}' not in Product Master.")
                 if not ignore_errors:
                     continue
@@ -1166,7 +1210,8 @@ def upload_csi_sales(request):
                     material_code=cell(product_code_col) if product_code_col else '',
                     material_name=product,
                     packsize=0,
-                    qty=qty
+                    qty=qty,
+                    value=qty * next((rate for name, rate in rate_map.items() if name in product_clean or product_clean in name), 0.0) # Smart substring matching for rates
                 ))
 
         if errors and not ignore_errors:
