@@ -11,19 +11,19 @@
   --primary: #10b981;
   --accent: #10b981;
   --accent-hover: #059669;
-  --accent-soft: rgba(16, 185, 129, 0.1);
+  --accent-soft: rgba(16, 185, 129, 0.12);
   --green: #10b981;
-  --green-soft: rgba(16, 185, 129, 0.1);
+  --green-soft: rgba(16, 185, 129, 0.12);
   --red: #ef4444;
-  --red-soft: rgba(239, 68, 68, 0.1);
+  --red-soft: rgba(239,68,68,0.12);
   --amber: #f59e0b;
-  --amber-soft: rgba(245, 158, 11, 0.1);
-  --text: #0f172a;
-  --text-muted: #475569;
-  --text-dim: #64748b;
+  --amber-soft: rgba(245,158,11,0.12);
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
   --radius: 8px;
   --radius-lg: 12px;
-  --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -44,23 +44,22 @@ body {
 }
 
 .sidebar {
-  width: 250px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  width: 220px;
+  background: #0f172a;
+  border-right: none;
   display: flex;
   flex-direction: column;
-  padding: 32px 20px;
+  padding: 24px 16px;
   gap: 32px;
   position: fixed;
   top: 0; left: 0; bottom: 0;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.01);
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--accent-hover);
+  color: #ffffff;
   font-size: 17px;
   font-weight: 700;
   padding: 0 8px;
@@ -78,18 +77,18 @@ body {
   gap: 10px;
   padding: 10px 12px;
   border-radius: var(--radius);
-  color: var(--text-muted);
+  color: #94a3b8;
   text-decoration: none;
   font-weight: 500;
   transition: all 0.18s ease;
 }
-.nav-item:hover { background: var(--surface2); color: var(--text); }
-.nav-item.active { background: var(--accent-soft); color: var(--accent-hover); }
+.nav-item:hover { background: #1e293b; color: #f8fafc; }
+.nav-item.active { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 
 .main-content {
-  margin-left: 250px;
+  margin-left: 220px;
   flex: 1;
-  padding: 40px 48px;
+  padding: 36px 40px;
   overflow-y: auto;
 }
 
@@ -154,9 +153,9 @@ body {
    ========================================= */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: var(--radius-lg);
-  padding: 28px;
+  padding: 24px;
   margin-bottom: 24px;
   box-shadow: var(--shadow);
 }
@@ -170,18 +169,13 @@ body {
 
 .stat-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.025);
 }
 .stat-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
 .stat-value { font-size: 28px; font-weight: 700; color: var(--text); }
@@ -195,28 +189,29 @@ body {
 .table-wrapper {
   overflow-x: auto;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(0,0,0,0.03);
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
 }
-thead { background: var(--surface2); }
+thead { background: #f8fafc; border-bottom: 1px solid var(--border); }
 th {
-  padding: 14px 16px;
+  padding: 12px 16px;
   text-align: left;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--text-dim);
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-  border-bottom: 1px solid var(--border);
 }
 td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 13px 16px;
+  border-top: 1px solid var(--border);
   color: var(--text);
   font-size: 13px;
 }
@@ -308,7 +303,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 textarea { resize: vertical; min-height: 80px; }
 
