@@ -160,58 +160,40 @@ export default function PriceRequestApprovalsPage() {
             </div>
 
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>Requested Line Items</h3>
-            <div style={{ overflowX: 'auto', marginBottom: '24px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1400px' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={thStyle}>Material Name</th>
-                    <th style={thStyle}>Proposal</th>
-                    <th style={thStyle}>Type</th>
-                    <th style={thStyle}>Old ICP</th>
-                    <th style={thStyle}>Req. ICP</th>
-                    <th style={thStyle}>Old Dist Price</th>
-                    <th style={thStyle}>Req. Dist Price</th>
-                    <th style={thStyle}>Old Vol</th>
-                    <th style={thStyle}>Prop. Vol</th>
-                    <th style={thStyle}>Freight</th>
-                    <th style={thStyle}>Dist Terms</th>
-                    <th style={thStyle}>Cust Terms</th>
-                    <th style={thStyle}>In Pkg?</th>
-                    <th style={thStyle}>Pkg Details</th>
-                    <th style={thStyle}>Comp Name</th>
-                    <th style={thStyle}>Comp Price</th>
-                    <th style={thStyle}>Comp Vol</th>
-                    <th style={thStyle}>Remarks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedEpr.line_items && selectedEpr.line_items.map((item, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={tdStyle}>{item.material_name}</td>
-                      <td style={tdStyle}>{item.business_proposal}</td>
-                      <td style={tdStyle}>{item.price_request_type}</td>
-                      <td style={tdStyle}>{item.existing_icp || '-'}</td>
-                      <td style={{...tdStyle, fontWeight: 'bold', color: '#1d4ed8'}}>{item.requested_icp}</td>
-                      <td style={tdStyle}>{item.existing_dist_price || '-'}</td>
-                      <td style={{...tdStyle, fontWeight: 'bold', color: '#1d4ed8'}}>{item.requested_dist_price}</td>
-                      <td style={tdStyle}>{item.existing_sale_volume || '-'}</td>
-                      <td style={tdStyle}>{item.proposed_sale_volume || '-'}</td>
-                      <td style={tdStyle}>{item.freight_charges}</td>
-                      <td style={tdStyle}>{item.distributor_payment_terms || '-'}</td>
-                      <td style={tdStyle}>{item.end_customer_payment_terms || '-'}</td>
-                      <td style={tdStyle}>{item.product_used_in_package}</td>
-                      <td style={tdStyle}>{item.other_products_details || '-'}</td>
-                      <td style={tdStyle}>{item.competition_product_name || '-'}</td>
-                      <td style={tdStyle}>{item.competition_price || '-'}</td>
-                      <td style={tdStyle}>{item.competition_volume || '-'}</td>
-                      <td style={tdStyle}>{item.remarks || '-'}</td>
-                    </tr>
-                  ))}
-                  {(!selectedEpr.line_items || selectedEpr.line_items.length === 0) && (
-                    <tr><td colSpan="18" style={tdStyle}>No line items found.</td></tr>
-                  )}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              {selectedEpr.line_items && selectedEpr.line_items.map((item, i) => (
+                <div key={i} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', background: '#f8fafc', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', background: '#e2e8f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#475569' }}>{i + 1}</div>
+                    {item.material_name || 'Unnamed Product'}
+                  </h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', fontSize: '14px' }}>
+                    <div><span style={detailLabelStyle}>Business Proposal</span><div style={detailValueStyle}>{item.business_proposal || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Request Type</span><div style={detailValueStyle}>{item.price_request_type || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Used in Package</span><div style={detailValueStyle}>{item.product_used_in_package || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Package Details</span><div style={detailValueStyle}>{item.other_products_details || '-'}</div></div>
+
+                    <div><span style={detailLabelStyle}>Old ICP</span><div style={detailValueStyle}>{item.existing_icp || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Req. ICP</span><div style={{...detailValueStyle, fontWeight: '700', color: '#1d4ed8'}}>{item.requested_icp || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Old Dist Price</span><div style={detailValueStyle}>{item.existing_dist_price || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Req. Dist Price</span><div style={{...detailValueStyle, fontWeight: '700', color: '#1d4ed8'}}>{item.requested_dist_price || '-'}</div></div>
+
+                    <div><span style={detailLabelStyle}>Old Vol (kg)</span><div style={detailValueStyle}>{item.existing_sale_volume || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Proposed Vol (kg)</span><div style={detailValueStyle}>{item.proposed_sale_volume || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Freight Charges</span><div style={detailValueStyle}>{item.freight_charges || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Remarks</span><div style={detailValueStyle}>{item.remarks || '-'}</div></div>
+
+                    <div><span style={detailLabelStyle}>Dist Payment Terms</span><div style={detailValueStyle}>{item.distributor_payment_terms || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>End Cust Payment Terms</span><div style={detailValueStyle}>{item.end_customer_payment_terms || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Comp. Name</span><div style={detailValueStyle}>{item.competition_product_name || '-'}</div></div>
+                    <div><span style={detailLabelStyle}>Comp. Price / Vol</span><div style={detailValueStyle}>{item.competition_price ? `${item.competition_price} INR/kg` : '-'} {item.competition_volume ? `(${item.competition_volume} YTD)` : ''}</div></div>
+                  </div>
+                </div>
+              ))}
+              {(!selectedEpr.line_items || selectedEpr.line_items.length === 0) && (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>No line items found.</div>
+              )}
             </div>
 
             {selectedEpr.additional_remarks && (
@@ -240,6 +222,9 @@ export default function PriceRequestApprovalsPage() {
 const thStyle = { padding: '12px', fontWeight: '600', color: '#475569', fontSize: '12px', whiteSpace: 'nowrap' }
 const tdStyle = { padding: '12px', fontSize: '14px', color: '#334155' }
 const badgeBase = { padding: '4px 8px', borderRadius: '9999px', fontSize: '12px', fontWeight: '500' }
+
+const detailLabelStyle = { display: 'block', fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }
+const detailValueStyle = { fontSize: '14px', color: '#0f172a', fontWeight: '500' }
 
 const btnViewStyle = { background: '#f1f5f9', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '500' }
 const btnApproveStyle = { background: '#16a34a', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }
