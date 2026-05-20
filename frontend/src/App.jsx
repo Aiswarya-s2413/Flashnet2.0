@@ -10,7 +10,7 @@ import UploadPrimarySalesPage from './pages/UploadPrimarySalesPage'
 import UploadCSISalesPage from './pages/UploadCSISalesPage'
 import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
 import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle } from 'lucide-react'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell } from 'lucide-react'
 
 function App() {
   return (
@@ -69,6 +69,28 @@ function App() {
           </nav>
         </aside>
         <main className="main-content">
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', paddingBottom: '24px', borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text)', margin: 0, letterSpacing: '-0.02em' }}>Welcome back, Team 👋</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0, marginTop: '4px' }}>Here's what's happening with your sales today.</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+              <div style={{ position: 'relative' }}>
+                <input type="text" placeholder="Search..." style={{ width: '280px', paddingLeft: '40px', borderRadius: '999px', background: '#ffffff', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }} />
+                <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+              </div>
+              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+                <Bell size={20} color="var(--text-muted)" />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', background: '#ffffff', padding: '6px 16px 6px 6px', borderRadius: '999px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>AS</div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', lineHeight: 1.2 }}>Aiswarya</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Admin</span>
+                </div>
+              </div>
+            </div>
+          </header>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/orders" element={<OrdersPage />} />
