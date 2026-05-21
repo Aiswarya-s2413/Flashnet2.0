@@ -6,13 +6,27 @@ import { useSortableData, SortHeader } from '../components/SortableTable'
 
 const ROWS_PER_PAGE = 25
 
+const getMonthName = (monthNum) => {
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  return months[monthNum - 1] || '-';
+};
+
 export default function UploadStockPage() {
   const [file, setFile] = useState(null)
+  const [month, setMonth] = useState('')
+  const [year, setYear] = useState('')
   const [loading, setLoading] = useState(false)
   const [alert, setAlert] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [stocks, setStocks] = useState([])
   const [fetching, setFetching] = useState(true)
+
+  const currentYear = new Date().getFullYear()
+  const yearsRange = Array.from({ length: 7 }, (_, i) => currentYear - 3 + i) // e.g. 2023 to 2029 if 2026
+
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(stocks)
 
   const fetchStocks = async () => {
@@ -48,6 +62,8 @@ export default function UploadStockPage() {
 
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('month', month)
+    formData.append('year', year)
     formData.append('ignore_errors', ignoreErrors)
     if (ignoreErrors) {
       formData.append('ignore_errors', 'true')
@@ -59,6 +75,8 @@ export default function UploadStockPage() {
       })
       setAlert({ type: 'success', title: 'Upload Successful', messages: [res.data.message] })
       setFile(null)
+      setMonth('')
+      setYear('')
       document.getElementById('file-upload').value = ''
       fetchStocks()
       setCurrentPage(1)
@@ -121,8 +139,50 @@ export default function UploadStockPage() {
             <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Supports Excel (.xlsx / .xls) or PDF files"}</small>
             <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} required />
           </label>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+            <div>
+              <label htmlFor="period-month" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Month</label>
+              <select
+                id="period-month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              >
+                <option value="">Select Month</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="period-year" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Year</label>
+              <select
+                id="period-year"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                required
+                style={{ width: '100%' }}
+              >
+                <option value="">Select Year</option>
+                {yearsRange.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           
-          <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
+          <button className="btn btn-primary" type="submit" disabled={!file || !month || !year || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
             {loading ? <span className="spinner" /> : <UploadCloud size={18} />}
             {loading ? 'Crunching Master Code Validations...' : 'Process Document Securely'}
           </button>
@@ -146,6 +206,7 @@ export default function UploadStockPage() {
               <SortHeader label="Ship To" sortKey="ship_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Product Code" sortKey="product_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Prod Desc" sortKey="product_desc" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Period" sortKey="year" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Avg 6M Sales" sortKey="avg_six_month_sales" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Month End Inv" sortKey="month_end_inventory" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Mid Month Inv" sortKey="mid_month_inventory" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
@@ -154,10 +215,10 @@ export default function UploadStockPage() {
           </thead>
           <tbody>
             {fetching ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Stock Data…</td></tr>
+              <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Stock Data…</td></tr>
             ) : stocks.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
                   <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
                   <div>Data mapping automatically dynamically binds and evaluates rows structurally.</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>"Product Code" properties are forcefully vetted aggressively avoiding unregistered Product Master data leaks.</div>
@@ -170,6 +231,7 @@ export default function UploadStockPage() {
                   <td>{s.ship_to}</td>
                   <td style={{ fontFamily: 'monospace' }}>{s.product_code}</td>
                   <td>{s.product_desc}</td>
+                  <td>{s.month && s.year ? `${getMonthName(s.month)} ${s.year}` : '-'}</td>
                   <td>{s.avg_six_month_sales?.toFixed(2) || '-'}</td>
                   <td>{s.month_end_inventory?.toFixed(2) || '-'}</td>
                   <td>{s.mid_month_inventory?.toFixed(2) || '-'}</td>

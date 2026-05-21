@@ -432,6 +432,20 @@ def upload_stock(request):
     file = request.FILES['file']
     filename = file.name.lower()
     
+    # Extract month and year from form data
+    month_val = request.data.get('month') or request.POST.get('month')
+    year_val = request.data.get('year') or request.POST.get('year')
+    
+    try:
+        month = int(month_val) if month_val else None
+    except ValueError:
+        month = None
+
+    try:
+        year = int(year_val) if year_val else None
+    except ValueError:
+        year = None
+        
     try:
         # Dynamically support PDF extraction as requested
         if filename.endswith('.pdf'):
@@ -519,7 +533,9 @@ def upload_stock(request):
                 avg_six_month_sales=get_float(['Avg Last six month sales in kg', 'Avg Last six month']),
                 month_end_inventory=get_float(['Month End Inventory', 'month_end_inventory']),
                 mid_month_inventory=get_float(['Mid Month Inventory', 'mid_month_inventory']),
-                remarks=get_val(['Remarks/Comments', 'Remarks', 'comments'])
+                remarks=get_val(['Remarks/Comments', 'Remarks', 'comments']),
+                month=month,
+                year=year
             ))
             
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'

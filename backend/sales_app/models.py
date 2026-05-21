@@ -47,6 +47,8 @@ class StockLevel(models.Model):
     month_end_inventory = models.FloatField(blank=True, null=True)
     mid_month_inventory = models.FloatField(blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
+    month = models.IntegerField(blank=True, null=True)
+    year = models.IntegerField(blank=True, null=True)
 
     def __str__(self):
         return f"Stock: {self.product_desc} ({self.month_end_inventory})"
