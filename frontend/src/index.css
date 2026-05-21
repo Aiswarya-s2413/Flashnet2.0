@@ -259,9 +259,14 @@ body {
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: var(--shadow-sm);
   text-decoration: none;
+}
+
+.btn:active {
+  transform: scale(0.96) translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary {
@@ -856,14 +861,14 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   font-size: 13px;
-  transition: all 0.25s ease;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: var(--shadow-sm);
 }
 
 .search-input:focus {
-  width: 290px;
+  width: 300px;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(11, 59, 44, 0.08);
+  box-shadow: 0 8px 24px rgba(11, 59, 44, 0.06), 0 0 0 4px rgba(11, 59, 44, 0.08);
 }
 
 .search-icon {
@@ -886,13 +891,18 @@ textarea {
   border: 1px solid var(--border);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: all 0.25s ease;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
 
 .notification-bell:hover {
-  transform: scale(1.05);
+  transform: scale(1.08) rotate(8deg);
   border-color: var(--text-dim);
+  box-shadow: var(--shadow-md);
+}
+
+.notification-bell:active {
+  transform: scale(0.95);
 }
 
 .notification-badge {
@@ -948,6 +958,39 @@ textarea {
   margin-bottom: 28px;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+/* Premium Custom Chart Tooltip Animation */
+.custom-chart-tooltip {
+  animation: tooltipScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  pointer-events: none;
+}
+
+@keyframes tooltipScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Premium Tab Transitions */
+.tab-content {
+  animation: tabFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 
