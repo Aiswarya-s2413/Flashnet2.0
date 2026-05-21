@@ -84,26 +84,22 @@ export default function UploadCSISalesPage() {
       )}
 
 
-<div className="card" style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
+      <div className="card" style={{ padding: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--surface)' }}>
         <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
-          <div style={{
-            border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--bg)', marginBottom: 24
-          }}>
-            <UploadCloud size={48} style={{ color: 'var(--primary)', marginBottom: 16 }} />
-            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select CSI Sales Document</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>
-              CSI_ME or CSI_VTC Excel files (.xlsx / .xls)
-            </p>
+          <label className="upload-area" style={{ display: 'block', marginBottom: 24 }}>
+            <div className="upload-area-icon">
+              <UploadCloud size={24} />
+            </div>
+            <p>{file ? file.name : "Select CSI Sales Document"}</p>
+            <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "CSI_ME or CSI_VTC Excel files (.xlsx / .xls)"}</small>
             <input
               id="csi-file-upload"
               type="file"
               accept=".xlsx,.xls"
               onChange={handleFileChange}
-              style={{ display: 'block', width: '100%', fontSize: 13 }}
               required
             />
-          </div>
+          </label>
 
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
             {loading ? <span className="spinner" /> : <FileSpreadsheet size={18} />}

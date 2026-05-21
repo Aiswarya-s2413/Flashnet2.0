@@ -107,17 +107,16 @@ export default function UploadPrimarySalesPage() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
+      <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--surface)' }}>
         <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
-          <div style={{ 
-              border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px', 
-              display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--bg)', marginBottom: 24 
-            }}>
-            <UploadCloud size={48} style={{ color: 'var(--primary)', marginBottom: 16 }} />
-            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Primary Sales Document</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Only explicitly formatted .xlsx or .xls files</p>
-            <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
-          </div>
+          <label className="upload-area" style={{ display: 'block', marginBottom: 24 }}>
+            <div className="upload-area-icon">
+              <UploadCloud size={24} />
+            </div>
+            <p>{file ? file.name : "Select Primary Sales Document"}</p>
+            <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Only explicitly formatted .xlsx or .xls files"}</small>
+            <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} required />
+          </label>
           
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
             {loading ? <span className="spinner" /> : <FileSpreadsheet size={18} />}

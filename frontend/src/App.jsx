@@ -21,73 +21,84 @@ function App() {
             <img src="/logo.png" alt="FlashNet" style={{ width: 32, height: 32, objectFit: 'contain' }} />
             <span>FlashNet</span>
           </div>
-          <nav className="sidebar-nav">
-            <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <LayoutDashboard size={18} />
-              Dashboard
-            </NavLink>
-            <NavLink to="/orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <ShoppingCart size={18} />
-              Orders
-            </NavLink>
-            <NavLink to="/upload-orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <UploadCloud size={18} />
-              Sales Register Upload
-            </NavLink>
-            <NavLink to="/upload-stock" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <Activity size={18} />
-              Upload Stock Report
-            </NavLink>
-            <NavLink to="/upload-monthly-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <Map size={18} />
-              Monthly Sales
-            </NavLink>
-            <NavLink to="/upload-primary-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <UploadCloud size={18} />
-              Primary Sales Upload
-            </NavLink>
-            <NavLink to="/upload-csi-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <UploadCloud size={18} />
-              CSI Sales Upload
-            </NavLink>
-            <NavLink to="/invoices" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <FileText size={18} />
-              Distributor Invoices
-            </NavLink>
-            <NavLink to="/products" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <Package size={18} />
-              Product Master
-            </NavLink>
-            <NavLink to="/exceptional-price-request" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <Edit3 size={18} />
-              Price Request
-            </NavLink>
-            <NavLink to="/epr-approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-              <CheckCircle size={18} />
-              EPR Approvals
-            </NavLink>
-          </nav>
+          <div className="sidebar-content">
+            <div className="sidebar-group">
+              <div className="sidebar-group-title">Core</div>
+              <nav className="sidebar-nav">
+                <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <LayoutDashboard size={18} />
+                  Dashboard
+                </NavLink>
+                <NavLink to="/orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <ShoppingCart size={18} />
+                  Orders
+                </NavLink>
+                <NavLink to="/invoices" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <FileText size={18} />
+                  Distributor Invoices
+                </NavLink>
+                <NavLink to="/products" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <Package size={18} />
+                  Product Master
+                </NavLink>
+              </nav>
+            </div>
+
+            <div className="sidebar-group">
+              <div className="sidebar-group-title">Uploads</div>
+              <nav className="sidebar-nav">
+                <NavLink to="/upload-orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <UploadCloud size={18} />
+                  Sales Register Upload
+                </NavLink>
+                <NavLink to="/upload-stock" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <Activity size={18} />
+                  Upload Stock Report
+                </NavLink>
+                <NavLink to="/upload-monthly-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <Map size={18} />
+                  Monthly Sales
+                </NavLink>
+                <NavLink to="/upload-primary-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <UploadCloud size={18} />
+                  Primary Sales Upload
+                </NavLink>
+                <NavLink to="/upload-csi-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <UploadCloud size={18} />
+                  CSI Sales Upload
+                </NavLink>
+              </nav>
+            </div>
+
+            <div className="sidebar-group">
+              <div className="sidebar-group-title">Pricing Requests</div>
+              <nav className="sidebar-nav">
+                <NavLink to="/exceptional-price-request" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <Edit3 size={18} />
+                  Price Request
+                </NavLink>
+                <NavLink to="/epr-approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <CheckCircle size={18} />
+                  EPR Approvals
+                </NavLink>
+              </nav>
+            </div>
+          </div>
         </aside>
         <main className="main-content">
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', paddingBottom: '24px', borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text)', margin: 0, letterSpacing: '-0.02em' }}>Welcome back, Team 👋</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0, marginTop: '4px' }}>Here's what's happening with your sales today.</p>
+          <header className="app-header">
+            <div className="app-header-title">
+              <h2>Welcome back, Team 👋</h2>
+              <p>Here's what's happening with your sales today.</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-              <div style={{ position: 'relative' }}>
-                <input type="text" placeholder="Search..." style={{ width: '280px', paddingLeft: '40px', borderRadius: '999px', background: '#ffffff', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }} />
-                <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+              <div className="search-container">
+                <input type="text" placeholder="Search..." className="search-input" />
+                <Search size={18} className="search-icon" />
               </div>
-              <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+              <div className="notification-bell">
                 <Bell size={20} color="var(--text-muted)" />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', background: '#ffffff', padding: '6px 16px 6px 6px', borderRadius: '999px', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px' }}>AS</div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text)', lineHeight: 1.2 }}>Aiswarya</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Admin</span>
-                </div>
+                <span className="notification-badge"></span>
               </div>
             </div>
           </header>

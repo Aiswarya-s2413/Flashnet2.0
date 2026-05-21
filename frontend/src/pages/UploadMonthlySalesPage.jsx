@@ -111,20 +111,16 @@ export default function UploadMonthlySalesPage() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
+      <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--surface)' }}>
         <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
-          <div style={{ 
-              border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px', 
-              display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--bg)', marginBottom: 24 
-            }}>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-               <FileSpreadsheet size={42} style={{ color: 'var(--primary)' }} />
-               <FileText size={42} style={{ color: 'var(--text-dim)' }} />
+          <label className="upload-area" style={{ display: 'block', marginBottom: 24 }}>
+            <div className="upload-area-icon">
+              <UploadCloud size={24} />
             </div>
-            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Monthly Sales Document</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Supports robust multi-format matching across .xlsx or .pdf files natively</p>
-            <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
-          </div>
+            <p>{file ? file.name : "Select Monthly Sales Document"}</p>
+            <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Supports Excel (.xlsx / .xls) or PDF files"}</small>
+            <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} required />
+          </label>
           
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
             {loading ? <span className="spinner" /> : <UploadCloud size={18} />}

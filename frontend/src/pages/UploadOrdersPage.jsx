@@ -224,13 +224,13 @@ export default function UploadOrdersPage() {
       <div style={{ display: 'grid', gridTemplateColumns: mappingMode ? '1fr 1fr' : '1fr', gap: 32, alignItems: 'start' }}>
         
         {/* Upload Card */}
-        <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', backgroundColor: 'var(--surface)' }}>
+        <div className="card" style={{ padding: 40, marginBottom: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--surface)' }}>
           <form onSubmit={handleUpload} style={{ width: '100%', maxWidth: 500 }}>
             
-            <div style={{ textAlign: 'left', width: '100%', marginBottom: 20 }}>
-              <label style={{ fontSize: 14, fontWeight: 600, color: '#334155', marginBottom: 6, display: 'block' }}>Document Format Template</label>
+            <div style={{ textAlign: 'left', width: '100%', marginBottom: 24 }}>
+              <label htmlFor="format-template" style={{ marginBottom: 8, display: 'block' }}>Document Format Template</label>
               <select 
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 6, backgroundColor: '#f8fafc' }}
+                id="format-template"
                 value={selectedTemplate}
                 onChange={(e) => {
                   setSelectedTemplate(e.target.value)
@@ -249,15 +249,14 @@ export default function UploadOrdersPage() {
               </select>
             </div>
 
-            <div style={{ 
-                border: '2px dashed var(--border)', borderRadius: 12, padding: '40px 20px', 
-                display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: 'var(--bg)', marginBottom: 24 
-              }}>
-              <UploadCloud size={48} style={{ color: 'var(--primary)', marginBottom: 16 }} />
-              <h3 style={{ fontSize: 16, marginBottom: 8 }}>Select Order Document</h3>
-              <p style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 24 }}>Only explicitly formatted .xlsx or .xls files</p>
-              <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} style={{ display: 'block', width: '100%', fontSize: 13 }} required />
-            </div>
+            <label className="upload-area" style={{ display: 'block', marginBottom: 24 }}>
+              <div className="upload-area-icon">
+                <UploadCloud size={24} />
+              </div>
+              <p>{file ? file.name : "Select Order Document"}</p>
+              <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Only explicitly formatted .xlsx or .xls files"}</small>
+              <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} required />
+            </label>
             
             {!mappingMode && (
               <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>

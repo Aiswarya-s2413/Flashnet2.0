@@ -28,10 +28,17 @@ export default function OrdersPage() {
   useEffect(() => { fetchOrders() }, [])
 
   return (
-    <div>
+    <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
       <div className="page-header">
-        <h1 className="page-title">Orders</h1>
-
+        <div>
+          <h1 className="page-title">Orders</h1>
+          <p className="page-subtitle">Track and query all customer orders generated from processed invoices.</p>
+        </div>
+        <div>
+          <button className="btn btn-outline" onClick={fetchOrders} disabled={loading}>
+            <RefreshCw size={15} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
+          </button>
+        </div>
       </div>
 
       {alert && (
@@ -48,7 +55,7 @@ export default function OrdersPage() {
         </div>
         <div className="stat-card">
           <span className="stat-label">Total Qty</span>
-          <span className="stat-value stat-green">{orders.reduce((s, o) => s + o.qty, 0)}</span>
+          <span className="stat-value stat-green">{new Intl.NumberFormat('en-IN').format(orders.reduce((s, o) => s + o.qty, 0))} <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 500 }}>KGs</span></span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Unique Customers</span>
@@ -58,12 +65,6 @@ export default function OrdersPage() {
           <span className="stat-label">Unique Products</span>
           <span className="stat-value">{new Set(orders.map(o => o.material_code)).size}</span>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-outline" onClick={fetchOrders}>
-          <RefreshCw size={15} /> Refresh
-        </button>
       </div>
 
       <div className="table-wrapper">

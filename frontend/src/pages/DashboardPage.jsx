@@ -3,81 +3,120 @@ import API from '../api'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart
 } from 'recharts'
-import { Activity, Package, Map, ShoppingCart, TrendingUp, TrendingDown, RefreshCcw } from 'lucide-react'
+import { Activity, Package, Map, ShoppingCart, RefreshCcw } from 'lucide-react'
 
-// Sub-component: Overview Tab (Original Dashboard)
+// Custom Premium Tooltip Component
+const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="custom-chart-tooltip" style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        boxShadow: 'var(--shadow-lg)'
+      }}>
+        {label && <p style={{ margin: '0 0 6px 0', fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>}
+        {payload.map((pld, idx) => (
+          <p key={idx} style={{ margin: '4px 0 0 0', fontSize: '13.5px', fontWeight: 700, color: pld.color || 'var(--primary)' }}>
+            {pld.name}: <span style={{ color: 'var(--text)' }}>{prefix}{new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(pld.value)}{suffix}</span>
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+// Sub-component: Overview Tab
 const OverviewTab = ({ metrics }) => {
-  if (!metrics) return <div style={{textAlign: 'center', padding: 40}}>Loading metrics securely...</div>
+  if (!metrics) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading metrics securely...</div>
   const { top_products, top_customers, monthly_progression, stock_levels } = metrics
 
-  const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
   const formatNumber = (val) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val)
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-        <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      {/* Top Cards Grid */}
+      <div className="stats-row">
+        <div className="stat-card" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Top Product</p>
-            <h3 style={{ fontSize: 20, margin: '0 0 4px 0', lineHeight: 1.3 }}>{top_products && top_products.length > 0 ? top_products[0].name : 'N/A'}</h3>
-            <p style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 18 }}>
-              {top_products && top_products.length > 0 ? formatNumber(top_products[0].volume) : 0} <span style={{fontSize: 14, color: 'var(--text-dim)', fontWeight: 400}}>KGs</span>
+            <span className="stat-label">Top Product</span>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '4px 0', color: 'var(--text)' }}>
+              {top_products && top_products.length > 0 ? top_products[0].name : 'N/A'}
+            </h3>
+            <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '20px', margin: 0 }}>
+              {top_products && top_products.length > 0 ? formatNumber(top_products[0].volume) : 0}{' '}
+              <span style={{fontSize: 13, color: 'var(--text-dim)', fontWeight: 500}}>KGs</span>
             </p>
           </div>
-          <div style={{ padding: 12, backgroundColor: 'var(--accent-soft)', borderRadius: 12, color: 'var(--primary)' }}><Package size={24} /></div>
+          <div style={{ padding: 12, backgroundColor: 'var(--accent-soft)', borderRadius: 12, color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Package size={24} />
+          </div>
         </div>
 
-        <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div className="stat-card" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Top Customer</p>
-             <h3 style={{ fontSize: 20, margin: '0 0 4px 0', lineHeight: 1.3 }}>{top_customers && top_customers.length > 0 ? top_customers[0].name : 'N/A'}</h3>
-            <p style={{ color: '#10b981', fontWeight: 600, fontSize: 18 }}>
-              {top_customers && top_customers.length > 0 ? formatNumber(top_customers[0].volume) : 0} <span style={{fontSize: 14, color: 'var(--text-dim)', fontWeight: 400}}>KGs</span>
+            <span className="stat-label">Top Customer</span>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '4px 0', color: 'var(--text)' }}>
+              {top_customers && top_customers.length > 0 ? top_customers[0].name : 'N/A'}
+            </h3>
+            <p style={{ color: 'var(--green)', fontWeight: 800, fontSize: '20px', margin: 0 }}>
+              {top_customers && top_customers.length > 0 ? formatNumber(top_customers[0].volume) : 0}{' '}
+              <span style={{fontSize: 13, color: 'var(--text-dim)', fontWeight: 500}}>KGs</span>
             </p>
           </div>
-          <div style={{ padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 12, color: '#10b981' }}><ShoppingCart size={24} /></div>
+          <div style={{ padding: 12, backgroundColor: 'var(--green-soft)', borderRadius: 12, color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShoppingCart size={24} />
+          </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginBottom: '24px' }}>
-        <div className="card" style={{ padding: 24, height: 400 }}>
-          <div style={{ marginBottom: 20 }}>
-            <h3 style={{ margin: 0, fontSize: 18 }}>Monthly Progression Overview</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 14, margin: '4px 0 0 0' }}>Volume fluctuations extracted from monthly sales</p>
-          </div>
-          {monthly_progression && monthly_progression.length > 0 ? (
-            <ResponsiveContainer width="100%" height="80%">
-              <AreaChart data={monthly_progression} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorProg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} tickFormatter={(val) => val ? String(val).substring(0, 10) : ''} />
-                <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(value) => [formatNumber(value) + ' KGs', 'Volume']} labelFormatter={(label) => label ? String(label).substring(0, 10) : ''} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} itemStyle={{ color: 'var(--text)' }} />
-                <Area type="monotone" dataKey="volume" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>No monthly sales data found natively.</div>
-          )}
+      {/* Progression Area Chart */}
+      <div className="card" style={{ padding: 24, height: 420 }}>
+        <div style={{ marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Monthly Progression Overview</h3>
+          <p style={{ color: 'var(--text-dim)', fontSize: 13.5, margin: '4px 0 0 0' }}>Volume fluctuations extracted from monthly sales</p>
         </div>
+        {monthly_progression && monthly_progression.length > 0 ? (
+          <ResponsiveContainer width="100%" height="80%">
+            <AreaChart data={monthly_progression} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorProg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => val ? String(val).substring(0, 10) : ''} />
+              <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip suffix=" KGs" />} />
+              <Area type="monotone" dataKey="volume" name="Volume" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>No monthly sales data found natively.</div>
+        )}
       </div>
 
+      {/* Split Bars Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
-        <div className="card" style={{ padding: 24, height: 350 }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: 16 }}>Top Products by Volume</h3>
+        <div className="card" style={{ padding: 24, height: 380 }}>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: '800' }}>Top Products by Volume</h3>
           {top_products && top_products.length > 0 ? (
             <ResponsiveContainer width="100%" height="85%">
-              <BarChart layout="vertical" data={top_products} margin={{ top: 5, right: 30, left: 60, bottom: 5 }}>
+              <BarChart layout="vertical" data={top_products} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorPrimaryBar" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={1}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-                <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-dim)', fontSize: 11}} width={120} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(value) => [formatNumber(value) + ' KGs', 'Volume']} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} cursor={{fill: 'var(--bg)'}} />
-                <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={40} />
+                <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-muted)', fontSize: 11}} width={100} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip suffix=" KGs" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
+                <Bar dataKey="volume" name="Volume" fill="url(#colorPrimaryBar)" radius={[0, 6, 6, 0]} maxBarSize={20} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -85,16 +124,22 @@ const OverviewTab = ({ metrics }) => {
           )}
         </div>
 
-        <div className="card" style={{ padding: 24, height: 350 }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: 16 }}>Top Current Monthly Stock Levels</h3>
+        <div className="card" style={{ padding: 24, height: 380 }}>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: '800' }}>Top Current Monthly Stock Levels</h3>
           {stock_levels && stock_levels.length > 0 ? (
             <ResponsiveContainer width="100%" height="85%">
-              <BarChart data={stock_levels.slice(0, 5)} margin={{ top: 5, right: 30, left: 0, bottom: 30 }}>
+              <BarChart data={stock_levels.slice(0, 5)} margin={{ top: 5, right: 10, left: -20, bottom: 20 }}>
+                <defs>
+                  <linearGradient id="colorStockBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#c084fc" stopOpacity={0.7}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 11}} angle={-45} textAnchor="end" height={60} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)'}} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(value) => [formatNumber(value) + ' KGs', 'Inventory']} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} cursor={{fill: 'var(--bg)'}} />
-                <Bar dataKey="stock" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 10}} angle={-30} textAnchor="end" height={50} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip suffix=" KGs" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
+                <Bar dataKey="stock" name="Stock" fill="url(#colorStockBar)" radius={[6, 6, 0, 0]} maxBarSize={30} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -108,126 +153,145 @@ const OverviewTab = ({ metrics }) => {
 
 // Sub-component: Analytics Tab
 const AnalyticsTab = ({ data }) => {
-  if (!data) return <div style={{textAlign: 'center', padding: 40}}>Loading Analytics Pipeline...</div>
+  if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading Analytics Pipeline...</div>
 
-  const { kpis, monthly_trend, distributor_performance, customer_performance, product_group } = data
+  const { kpis, monthly_trend, distributor_performance, customer_performance } = data
 
   const formatLakhs = (val) => val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : `₹${val.toLocaleString()}`
   const formatCrores = (val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)} Cr` : formatLakhs(val)
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <button className="btn btn-secondary" style={{ backgroundColor: 'var(--bg)', color: 'var(--text-dim)' }}>MTD</button>
-        <button className="btn btn-secondary" style={{ backgroundColor: 'var(--bg)', color: 'var(--text-dim)' }}>QTD</button>
-        <button className="btn btn-primary">YTD</button>
-        <button className="btn btn-secondary" style={{ backgroundColor: 'var(--bg)', color: 'var(--text-dim)' }}>Last Year</button>
+      {/* Time filters */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn btn-secondary" style={{ padding: '8px 18px' }}>MTD</button>
+        <button className="btn btn-secondary" style={{ padding: '8px 18px' }}>QTD</button>
+        <button className="btn btn-primary" style={{ padding: '8px 18px' }}>YTD</button>
+        <button className="btn btn-secondary" style={{ padding: '8px 18px' }}>Last Year</button>
         <div style={{ flex: 1 }}></div>
-        <select className="form-control" style={{ width: 140, display: 'inline-block' }}><option>All Zones</option></select>
-        <select className="form-control" style={{ width: 140, display: 'inline-block' }}><option>All Distributors</option></select>
+        <select className="form-control" style={{ width: 150, padding: '8px 12px' }}><option>All Zones</option></select>
+        <select className="form-control" style={{ width: 180, padding: '8px 12px' }}><option>All Distributors</option></select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid var(--accent)' }}>
-          <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Primary Sales (PS)</p>
-          <h3 style={{ fontSize: 26, margin: '0 0 12px 0', lineHeight: 1.3 }}>{formatCrores(kpis?.total_primary || 0)}</h3>
+      {/* KPI Cards */}
+      <div className="stats-row">
+        <div className="stat-card" style={{ borderLeft: '4px solid var(--primary)' }}>
+          <span className="stat-label">Primary Sales (PS)</span>
+          <span className="stat-value stat-accent">{formatCrores(kpis?.total_primary || 0)}</span>
         </div>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid #10b981' }}>
-          <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Secondary Sales (SS)</p>
-          <h3 style={{ fontSize: 26, margin: '0 0 12px 0', lineHeight: 1.3 }}>{formatCrores(kpis?.total_secondary || 0)}</h3>
+        <div className="stat-card" style={{ borderLeft: '4px solid var(--green)' }}>
+          <span className="stat-label">Secondary Sales (SS)</span>
+          <span className="stat-value stat-green">{formatCrores(kpis?.total_secondary || 0)}</span>
         </div>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid #f59e0b' }}>
-          <p style={{ color: 'var(--text-dim)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 600 }}>Channel Efficiency (SS/PS)</p>
-          <h3 style={{ fontSize: 26, margin: '0 0 12px 0', lineHeight: 1.3 }}>{kpis?.channel_efficiency || 0}%</h3>
+        <div className="stat-card" style={{ borderLeft: '4px solid var(--amber)' }}>
+          <span className="stat-label">Channel Efficiency (SS/PS)</span>
+          <span className="stat-value" style={{ color: 'var(--amber)' }}>{kpis?.channel_efficiency || 0}%</span>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 24, height: 400, marginBottom: '24px' }}>
-        <h3 style={{ margin: '0 0 20px 0', fontSize: 16 }}>Monthly Primary vs Secondary Sales Trend</h3>
+      {/* Composed Chart */}
+      <div className="card" style={{ padding: 24, height: 420, marginBottom: '32px' }}>
+        <h3 style={{ margin: '0 0 20px 0', fontSize: 17, fontWeight: '800' }}>Monthly Primary vs Secondary Sales Trend</h3>
         <ResponsiveContainer width="100%" height="85%">
-          <ComposedChart data={monthly_trend} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-             <XAxis dataKey="month" tick={{fill: 'var(--text-dim)', fontSize: 12}} axisLine={false} tickLine={false} />
-             <YAxis yAxisId="left" tickFormatter={(val) => `₹${(val/100000).toFixed(0)}L`} tick={{fill: 'var(--text-dim)', fontSize: 12}} axisLine={false} tickLine={false} />
-             <YAxis yAxisId="right" orientation="right" tickFormatter={(val) => `${val}%`} tick={{fill: 'var(--text-dim)', fontSize: 12}} axisLine={false} tickLine={false} />
-             <Tooltip cursor={{fill: 'var(--bg)'}} contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: 8, color: 'var(--text)' }} />
-             <Legend wrapperStyle={{ paddingTop: 20 }} />
-             <Bar yAxisId="left" dataKey="Primary Sales" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-             <Bar yAxisId="left" dataKey="Secondary Sales" fill="#8CC63F" radius={[4, 4, 0, 0]} maxBarSize={40} />
-             <Line yAxisId="right" type="monotone" dataKey="Efficiency %" stroke="#f59e0b" strokeWidth={3} dot={{r: 4, fill: '#f59e0b'}} />
+          <ComposedChart data={monthly_trend} margin={{ top: 20, right: -10, bottom: 20, left: -10 }}>
+            <defs>
+              <linearGradient id="colorPrimarySales" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--primary)" stopOpacity={1}/>
+                <stop offset="100%" stopColor="#125c45" stopOpacity={0.7}/>
+              </linearGradient>
+              <linearGradient id="colorSecondarySales" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
+                <stop offset="100%" stopColor="#34d399" stopOpacity={0.7}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+            <XAxis dataKey="month" tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="left" tickFormatter={(val) => `₹${(val/100000).toFixed(0)}L`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+            <YAxis yAxisId="right" orientation="right" tickFormatter={(val) => `${val}%`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip prefix="₹" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
+            <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
+            <Bar yAxisId="left" name="Primary Sales" dataKey="Primary Sales" fill="url(#colorPrimarySales)" radius={[4, 4, 0, 0]} maxBarSize={30} />
+            <Bar yAxisId="left" name="Secondary Sales" dataKey="Secondary Sales" fill="url(#colorSecondarySales)" radius={[4, 4, 0, 0]} maxBarSize={30} />
+            <Line yAxisId="right" name="Efficiency %" type="monotone" dataKey="Efficiency %" stroke="#f59e0b" strokeWidth={3} dot={{r: 4, fill: '#f59e0b'}} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Floating tables */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
-        <div className="card" style={{ padding: 24, overflowX: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-             <h3 style={{ margin: 0, fontSize: 16 }}>Distributors</h3>
-             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Grouped by Network</span>
+        <div className="card" style={{ padding: '32px' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+             <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Distributors Performance</h3>
+             <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Grouped by Network</span>
           </div>
-          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
-             <thead>
-               <tr>
-                 <th>Group</th>
-                 <th>Sold To</th>
-                 <th>Ship To</th>
-                 <th>Primary Sales</th>
-               </tr>
-             </thead>
-             <tbody>
-               {(distributor_performance || []).map((row, i) => (
-                 <tr key={i}>
-                   <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
-                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
-                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
-                   <td style={{ fontWeight: 500 }}>{formatLakhs(row.primary)}</td>
+          <div className="table-wrapper" style={{ marginBottom: 32 }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
+               <thead>
+                 <tr>
+                   <th>Group</th>
+                   <th>Sold To</th>
+                   <th>Ship To</th>
+                   <th>Primary Sales</th>
                  </tr>
-               ))}
-               {!(distributor_performance?.length > 0) && (
-                 <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
-               )}
-             </tbody>
-             <tfoot>
-               <tr style={{ backgroundColor: 'var(--surface)' }}>
-                 <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL PRIMARY KPI:</td>
-                 <td style={{ fontWeight: 'bold', fontSize: 15, color: 'var(--accent)', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_primary || 0)}</td>
-               </tr>
-             </tfoot>
-          </table>
+               </thead>
+               <tbody>
+                 {(distributor_performance || []).map((row, i) => (
+                   <tr key={i}>
+                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.group}</td>
+                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
+                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
+                     <td style={{ fontWeight: 700 }}>{formatLakhs(row.primary)}</td>
+                   </tr>
+                 ))}
+                 {!(distributor_performance?.length > 0) && (
+                   <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
+                 )}
+               </tbody>
+               <tfoot>
+                 <tr style={{ backgroundColor: 'transparent' }}>
+                   <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px', border: 'none' }}>TOTAL PRIMARY KPI:</td>
+                   <td style={{ fontWeight: '800', fontSize: 16, color: 'var(--primary)', border: 'none', padding: '16px' }}>{formatCrores(kpis?.total_primary || 0)}</td>
+                 </tr>
+               </tfoot>
+            </table>
+          </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 32, marginBottom: 20 }}>
-             <h3 style={{ margin: 0, fontSize: 16 }}>Customers</h3>
-             <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>Top 50 by Secondary Sales</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+             <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Customers Performance</h3>
+             <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Top 50 by Secondary Sales</span>
           </div>
-          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
-             <thead>
-               <tr>
-                 <th>Group</th>
-                 <th>Sold To</th>
-                 <th>Ship To</th>
-                 <th>Secondary Sales</th>
-               </tr>
-             </thead>
-             <tbody>
-               {(customer_performance || []).map((row, i) => (
-                 <tr key={i}>
-                   <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{row.group}</td>
-                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
-                   <td style={{ color: 'var(--text-dim)', fontSize: 13, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
-                   <td style={{ fontWeight: 500 }}>{formatLakhs(row.secondary)}</td>
+          <div className="table-wrapper">
+            <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
+               <thead>
+                 <tr>
+                   <th>Group</th>
+                   <th>Sold To</th>
+                   <th>Ship To</th>
+                   <th>Secondary Sales</th>
                  </tr>
-               ))}
-               {!(customer_performance?.length > 0) && (
-                 <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No customer metrics extracted.</td></tr>
-               )}
-             </tbody>
-             <tfoot>
-               <tr style={{ backgroundColor: 'var(--surface)' }}>
-                 <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px' }}>TOTAL SECONDARY KPI:</td>
-                 <td style={{ fontWeight: 'bold', fontSize: 15, color: '#8CC63F', borderTop: '2px solid var(--border)' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
-               </tr>
-             </tfoot>
-          </table>
+               </thead>
+               <tbody>
+                 {(customer_performance || []).map((row, i) => (
+                   <tr key={i}>
+                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.group}</td>
+                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
+                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
+                     <td style={{ fontWeight: 700 }}>{formatLakhs(row.secondary)}</td>
+                   </tr>
+                 ))}
+                 {!(customer_performance?.length > 0) && (
+                   <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No customer metrics extracted.</td></tr>
+                 )}
+               </tbody>
+               <tfoot>
+                 <tr style={{ backgroundColor: 'transparent' }}>
+                   <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px', border: 'none' }}>TOTAL SECONDARY KPI:</td>
+                   <td style={{ fontWeight: '800', fontSize: 16, color: 'var(--green)', border: 'none', padding: '16px' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
+                 </tr>
+               </tfoot>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -264,35 +328,33 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column' }}>
-         <span className="spinner" style={{ width: 40, height: 40, borderBottomColor: 'var(--primary)', marginBottom: 16 }} />
-         <p style={{ color: 'var(--text-dim)' }}>Aggregating dynamic matrices natively...</p>
+         <span className="spinner" style={{ width: 40, height: 40, marginBottom: 16 }} />
+         <p style={{ color: 'var(--text-muted)' }}>Aggregating dynamic matrices natively...</p>
       </div>
     )
   }
 
   return (
     <div>
-      <div className="page-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end'}}>
+      <div className="page-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '20px', marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end'}}>
         <div>
           <h1 className="page-title" style={{ marginBottom: '16px' }}>Executive Analytics</h1>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
               className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveTab('overview')}
-              style={activeTab !== 'overview' ? { backgroundColor: 'var(--surface)', color: 'var(--text-dim)' } : {}}
             >
               Overview
             </button>
             <button 
               className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveTab('analytics')}
-              style={activeTab !== 'analytics' ? { backgroundColor: 'var(--surface)', color: 'var(--text-dim)' } : {}}
             >
               Primary vs Secondary Analytics
             </button>
           </div>
         </div>
-        <div style={{ color: 'var(--text-dim)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ color: 'var(--text-dim)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
            <RefreshCcw size={14} /> Last synced freshly via endpoints
         </div>
       </div>

@@ -41,20 +41,21 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <button className="btn btn-outline" onClick={fetchProducts}>
-          <RefreshCw size={15} /> Refresh
-        </button>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 350 }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-dim)' }} />
+      <div className="page-actions">
+        <div className="search-container" style={{ flex: 1, maxWidth: 350 }}>
+          <Search className="search-icon" size={16} />
           <input 
             type="text" 
+            className="search-input"
             placeholder="Search material code or name..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%', padding: '10px 10px 10px 36px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface)', fontSize: 14 }}
+            style={{ width: '100%' }}
           />
         </div>
+        <button className="btn btn-outline" onClick={fetchProducts}>
+          <RefreshCw size={15} /> Refresh
+        </button>
       </div>
 
       <div className="stats-row">
