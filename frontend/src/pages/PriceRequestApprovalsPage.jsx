@@ -95,10 +95,10 @@ export default function PriceRequestApprovalsPage() {
   }
 
   const getStatusBadge = (status) => {
-    if (status === 'Approved') return <span className="badge badge-green">Approved</span>
-    if (status === 'Rejected') return <span className="badge badge-red">Rejected</span>
-    if (status === 'Draft') return <span className="badge badge-accent">Draft</span>
-    return <span className="badge badge-accent" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>{status}</span>
+    if (status === 'Approved') return <span className="badge badge-status badge-green">Approved</span>
+    if (status === 'Rejected') return <span className="badge badge-status badge-red">Rejected</span>
+    if (status === 'Draft') return <span className="badge badge-status badge-accent">Draft</span>
+    return <span className="badge badge-status badge-amber">{status}</span>
   }
 
   return (
