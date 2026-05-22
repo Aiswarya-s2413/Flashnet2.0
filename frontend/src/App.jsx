@@ -17,9 +17,12 @@ function App() {
     <BrowserRouter>
       <div className="app-shell">
         <aside className="sidebar">
-          <div className="sidebar-brand">
-            <img src="/logo.png" alt="FlashNet" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-            <span>FlashNet</span>
+          <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src="/logo.png" alt="FlashNet 2.0" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text)', lineHeight: '1.2' }}>FlashNet 2.0</span>
+              <span style={{ fontSize: '8px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '600', marginTop: '2px' }}>Archroma Network</span>
+            </div>
           </div>
           <div className="sidebar-content">
             <div className="sidebar-group">
