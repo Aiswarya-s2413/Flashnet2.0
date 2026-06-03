@@ -3,7 +3,7 @@ import API from '../api'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Cell
 } from 'recharts'
-import { Activity, Package, Map, ShoppingCart, RefreshCcw, X } from 'lucide-react'
+import { Activity, Package, Map, ShoppingCart, RefreshCcw, X, Search } from 'lucide-react'
 
 // Custom Premium Tooltip Component
 const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }) => {
@@ -152,6 +152,14 @@ const OverviewTab = ({ metrics }) => {
 // Sub-component: Analytics Tab
 const AnalyticsTab = ({ data }) => {
   const [selectedRow, setSelectedRow] = useState(null)
+  const [prodSearch, setProdSearch] = useState('')
+
+  useEffect(() => {
+    if (!selectedRow) {
+      setProdSearch('')
+    }
+  }, [selectedRow])
+
   if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading Analytics Pipeline...</div>
 
   const { kpis, monthly_trend, distributor_performance, customer_performance } = data
@@ -330,7 +338,29 @@ const AnalyticsTab = ({ data }) => {
 
             {selectedRow.products && selectedRow.products.length > 0 && (
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px', color: 'var(--primary)' }}>Products Sold</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--primary)' }}>Products Sold</h3>
+                  <div style={{ position: 'relative', width: '220px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Search products..." 
+                      value={prodSearch}
+                      onChange={e => setProdSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 12px 6px 30px',
+                        fontSize: '13px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
+                        color: 'var(--text)',
+                        outline: 'none'
+                      }}
+                    />
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                  </div>
+                </div>
+
                 <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
                   <table className="data-table" style={{ width: '100%', minWidth: 'auto', fontSize: '13px', margin: 0 }}>
                     <thead style={{ background: 'var(--bg)' }}>
@@ -341,17 +371,26 @@ const AnalyticsTab = ({ data }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedRow.products.map((p, idx) => (
-                        <tr key={idx} style={{ borderBottom: idx === selectedRow.products.length - 1 ? 'none' : '1px solid var(--border)', background: 'transparent' }}>
-                          <td style={{ padding: '8px 12px', color: 'var(--text)', fontWeight: '600' }}>{p.name}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                            {p.primary_val > 0 ? `₹${p.primary_val.toLocaleString('en-IN')}` : '-'}
-                          </td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                            {p.secondary_val > 0 ? `₹${p.secondary_val.toLocaleString('en-IN')}` : '-'}
+                      {selectedRow.products
+                        .filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase()))
+                        .map((p, idx, arr) => (
+                          <tr key={idx} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border)', background: 'transparent' }}>
+                            <td style={{ padding: '8px 12px', color: 'var(--text)', fontWeight: '600' }}>{p.name}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                              {p.primary_val > 0 ? `₹${p.primary_val.toLocaleString('en-IN')}` : '-'}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                              {p.secondary_val > 0 ? `₹${p.secondary_val.toLocaleString('en-IN')}` : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      {selectedRow.products.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase())).length === 0 && (
+                        <tr>
+                          <td colSpan="3" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                            No matching products found.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
