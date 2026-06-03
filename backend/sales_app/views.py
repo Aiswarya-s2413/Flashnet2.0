@@ -1007,7 +1007,14 @@ def primary_vs_secondary_analytics(request):
         trend_array.sort(key=lambda x: parse_my(x['month']))
 
         # 3. DISTRIBUTOR COMPARISONS
-        dist_map = defaultdict(lambda: {'ps': 0, 'ss': 0, 'zone': 'All', 'sold_to': set(), 'ship_to': set()})
+        dist_map = defaultdict(lambda: {
+            'ps': 0, 
+            'ss': 0, 
+            'zone': 'All', 
+            'sold_to': set(), 
+            'ship_to': set(),
+            'products': defaultdict(lambda: {'ps_val': 0.0, 'ss_val': 0.0})
+        })
         
         import re
         def get_group_name(raw_name):
@@ -1023,30 +1030,48 @@ def primary_vs_secondary_analytics(request):
             raw_name = ship if ship else sold
             if raw_name:
                 group = get_group_name(raw_name)
-                dist_map[group]['ps'] += (ps.assessable_value or 0)
+                val = ps.assessable_value or 0
+                dist_map[group]['ps'] += val
                 if ps.division: dist_map[group]['zone'] = ps.division
                 if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
                 if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
+                prod_name = ps.material_desc or 'Unknown Product'
+                dist_map[group]['products'][prod_name]['ps_val'] += val
                 
         for ms in MonthlySales.objects.all():
             raw_name = str(ms.customer_name or ms.ship_to_code or ms.distributor_name).strip()
             if raw_name and raw_name != 'None':
                 group = get_group_name(raw_name)
-                dist_map[group]['ss'] += (ms.total_value or 0)
+                val = ms.total_value or 0
+                dist_map[group]['ss'] += val
                 if ms.customer_name: dist_map[group]['sold_to'].add(str(ms.customer_name).title())
                 if ms.ship_to_code: dist_map[group]['ship_to'].add(str(ms.ship_to_code).title())
+                prod_name = ms.product_name or 'Unknown Product'
+                dist_map[group]['products'][prod_name]['ss_val'] += val
 
         distributor_array = []
         for k, v in dist_map.items():
             if v['ps'] == 0 and v['ss'] == 0: continue
             eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+            
+            # Map products list
+            prod_list = []
+            for p_name, p_data in v['products'].items():
+                prod_list.append({
+                    'name': p_name,
+                    'primary_val': round(p_data['ps_val'], 2),
+                    'secondary_val': round(p_data['ss_val'], 2)
+                })
+            prod_list.sort(key=lambda x: x['primary_val'] + x['secondary_val'], reverse=True)
+            
             distributor_array.append({
                 'group': k,
                 'sold_to': ', '.join(list(v['sold_to']))[:100],
                 'ship_to': ', '.join(list(v['ship_to']))[:100],
                 'primary': round(v['ps'], 2),
                 'secondary': round(v['ss'], 2),
-                'efficiency': round(eff, 2)
+                'efficiency': round(eff, 2),
+                'products': prod_list
             })
         
         # Split into distributors (have primary sales) and customers (secondary only)

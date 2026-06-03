@@ -300,24 +300,63 @@ const AnalyticsTab = ({ data }) => {
       </div>
       {selectedRow && (
         <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
-          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '700px' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
               <h2 className="modal-title" style={{ margin: 0 }}>Performance details</h2>
               <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
                 <X size={18} />
               </button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '450px', overflowY: 'auto' }}>
-              {Object.entries(selectedRow).map(([key, val]) => {
-                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                return (
-                  <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
-                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>{String(val ?? '-')}</span>
-                  </div>
-                );
-              })}
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              {Object.entries(selectedRow)
+                .filter(([key]) => key !== 'products')
+                .map(([key, val]) => {
+                  const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                  return (
+                    <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                      <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
+                      <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>
+                        {key === 'primary' || key === 'secondary' 
+                          ? `₹${Number(val).toLocaleString('en-IN')}` 
+                          : key === 'efficiency'
+                            ? `${val}%`
+                            : String(val ?? '-')}
+                      </span>
+                    </div>
+                  );
+                })}
             </div>
+
+            {selectedRow.products && selectedRow.products.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px', color: 'var(--primary)' }}>Products Sold</h3>
+                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <table className="data-table" style={{ width: '100%', minWidth: 'auto', fontSize: '13px', margin: 0 }}>
+                    <thead style={{ background: 'var(--bg)' }}>
+                      <tr>
+                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Product Name</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Primary Sales</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Secondary Sales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedRow.products.map((p, idx) => (
+                        <tr key={idx} style={{ borderBottom: idx === selectedRow.products.length - 1 ? 'none' : '1px solid var(--border)', background: 'transparent' }}>
+                          <td style={{ padding: '8px 12px', color: 'var(--text)', fontWeight: '600' }}>{p.name}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                            {p.primary_val > 0 ? `₹${p.primary_val.toLocaleString('en-IN')}` : '-'}
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                            {p.secondary_val > 0 ? `₹${p.secondary_val.toLocaleString('en-IN')}` : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
