@@ -16,6 +16,7 @@ export default function InvoicesPage() {
   const [saving, setSaving] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [alert, setAlert] = useState(null)
+  const [selectedRow, setSelectedRow] = useState(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -166,15 +167,15 @@ export default function InvoicesPage() {
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Total Invoices</span>
-          <span className="stat-value stat-accent">{invoices.length}</span>
+          <span className="stat-value stat-accent">{loading ? '-' : invoices.length}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Total Qty</span>
-          <span className="stat-value stat-green">{invoices.reduce((s, i) => s + i.qty, 0)}</span>
+          <span className="stat-value stat-green">{loading ? '-' : invoices.reduce((s, i) => s + i.qty, 0)}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Unique Customers</span>
-          <span className="stat-value">{new Set(invoices.map(i => i.customer)).size}</span>
+          <span className="stat-value">{loading ? '-' : new Set(invoices.map(i => i.customer)).size}</span>
         </div>
       </div>
 
@@ -201,7 +202,7 @@ export default function InvoicesPage() {
                 <div className="empty-state"><FileText size={40} /><p>No invoices yet. Add your first distributor invoice.</p></div>
               </td></tr>
             ) : invoices.map(inv => (
-              <tr key={inv.id}>
+              <tr key={inv.id} onClick={() => setSelectedRow(inv)} style={{ cursor: 'pointer' }}>
                 <td>{inv.sold_to}</td>
                 <td>{inv.ship_to}</td>
                 <td><span className="badge badge-accent">{inv.invoice_no}</span></td>
@@ -277,6 +278,29 @@ export default function InvoicesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {selectedRow && (
+        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Invoice details</h2>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '450px', overflowY: 'auto' }}>
+              {Object.entries(selectedRow).map(([key, val]) => {
+                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>{String(val ?? '-')}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

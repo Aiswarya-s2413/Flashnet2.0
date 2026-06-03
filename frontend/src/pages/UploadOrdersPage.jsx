@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw, Layers } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw, Layers, X } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import { useSortableData, SortHeader } from '../components/SortableTable'
 
@@ -14,6 +14,7 @@ export default function UploadOrdersPage() {
   const [orders, setOrders] = useState([])
   const [fetching, setFetching] = useState(true)
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(orders)
+  const [selectedRow, setSelectedRow] = useState(null)
 
   const [traderTemplates, setTraderTemplates] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState('')
@@ -317,15 +318,15 @@ export default function UploadOrdersPage() {
       <div className="table-wrapper" style={{ overflowX: 'hidden' }}>
         <table style={{ tableLayout: 'fixed', width: '100%' }}>
           <colgroup>
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
             <col style={{ width: '10%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '17%' }} />
             <col style={{ width: '10%' }} />
             <col style={{ width: '18%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '18%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
           </colgroup>
           <thead style={{ backgroundColor: 'var(--surface)' }}>
             <tr>
@@ -333,11 +334,11 @@ export default function UploadOrdersPage() {
               <SortHeader label="Ship To" sortKey="ship_to" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Invoice No." sortKey="invoice_no" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Invoice Date" sortKey="invoice_date" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-              <SortHeader label="Customer Name" sortKey="customer" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-              <SortHeader label="Material Code" sortKey="material_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-              <SortHeader label="Material Name" sortKey="material_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-              <SortHeader label="Packsize(kg)" sortKey="packsize" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-              <SortHeader label="qty(kg)" sortKey="qty" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Customer" sortKey="customer" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Mat. Code" sortKey="material_code" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Material" sortKey="material_name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Pack" sortKey="packsize" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Qty" sortKey="qty" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
             </tr>
           </thead>
           <tbody>
@@ -353,7 +354,7 @@ export default function UploadOrdersPage() {
               </tr>
             ) : (
               sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((o, i) => (
-                <tr key={o.id || i}>
+                <tr key={o.id || i} onClick={() => setSelectedRow(o)} style={{ cursor: 'pointer' }}>
                   <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.sold_to}>{o.sold_to}</td>
                   <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.ship_to}>{o.ship_to}</td>
                   <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={o.invoice_no}><span className="badge badge-accent">{o.invoice_no}</span></td>
@@ -370,6 +371,29 @@ export default function UploadOrdersPage() {
         </table>
         <Pagination currentPage={currentPage} totalPages={Math.ceil(orders.length / ROWS_PER_PAGE)} onPageChange={setCurrentPage} />
       </div>
+      {selectedRow && (
+        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Sales Register details</h2>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '450px', overflowY: 'auto' }}>
+              {Object.entries(selectedRow).map(([key, val]) => {
+                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>{String(val ?? '-')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw, X } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import { useSortableData, SortHeader } from '../components/SortableTable'
 
@@ -28,6 +28,7 @@ export default function UploadStockPage() {
   const yearsRange = Array.from({ length: 7 }, (_, i) => currentYear - 3 + i) // e.g. 2023 to 2029 if 2026
 
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(stocks)
+  const [selectedRow, setSelectedRow] = useState(null)
 
   const fetchStocks = async () => {
     setFetching(true)
@@ -226,7 +227,7 @@ export default function UploadStockPage() {
               </tr>
             ) : (
               sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
-                <tr key={s.id || i}>
+                <tr key={s.id || i} onClick={() => setSelectedRow(s)} style={{ cursor: 'pointer' }}>
                   <td>{s.sold_to}</td>
                   <td>{s.ship_to}</td>
                   <td style={{ fontFamily: 'monospace' }}>{s.product_code}</td>
@@ -243,6 +244,29 @@ export default function UploadStockPage() {
         </table>
         <Pagination currentPage={currentPage} totalPages={Math.ceil(stocks.length / ROWS_PER_PAGE)} onPageChange={setCurrentPage} />
       </div>
+      {selectedRow && (
+        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Stock record details</h2>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '450px', overflowY: 'auto' }}>
+              {Object.entries(selectedRow).map(([key, val]) => {
+                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>{String(val ?? '-')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

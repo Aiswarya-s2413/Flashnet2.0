@@ -182,9 +182,6 @@ export default function ExceptionalPriceRequestPage() {
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text)' }}>Requested Products</h2>
-            <button type="button" onClick={addLineItem} className="btn btn-primary">
-              <Plus size={16} /> Add Product
-            </button>
           </div>
 
           {lineItems.map((item, index) => (
@@ -328,6 +325,12 @@ export default function ExceptionalPriceRequestPage() {
 
             </div>
           ))}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '16px', marginBottom: '16px' }}>
+            <button type="button" onClick={addLineItem} className="btn btn-primary">
+              <Plus size={16} /> Add Product
+            </button>
+          </div>
         </div>
 
         {/* Additional Remarks Section */}

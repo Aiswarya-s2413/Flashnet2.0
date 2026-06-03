@@ -60,7 +60,7 @@ function App() {
                 </NavLink>
                 <NavLink to="/upload-monthly-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                   <Map size={18} />
-                  Monthly Sales
+                  Monthly Secondary Sales
                 </NavLink>
                 <NavLink to="/upload-primary-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                   <UploadCloud size={18} />

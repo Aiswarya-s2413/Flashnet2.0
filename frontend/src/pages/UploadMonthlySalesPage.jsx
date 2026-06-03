@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, FileText, CheckCircle, AlertTriangle, RefreshCw, X } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import { useSortableData, SortHeader } from '../components/SortableTable'
 
@@ -14,6 +14,7 @@ export default function UploadMonthlySalesPage() {
   const [sales, setSales] = useState([])
   const [fetching, setFetching] = useState(true)
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(sales)
+  const [selectedRow, setSelectedRow] = useState(null)
 
   const fetchSales = async () => {
     setFetching(true)
@@ -82,7 +83,7 @@ export default function UploadMonthlySalesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Monthly Sales to Customers Validation</h1>
+        <h1 className="page-title">Monthly Secondary Sales to Customers Validation</h1>
 
       </div>
 
@@ -117,20 +118,20 @@ export default function UploadMonthlySalesPage() {
             <div className="upload-area-icon">
               <UploadCloud size={24} />
             </div>
-            <p>{file ? file.name : "Select Monthly Sales Document"}</p>
+            <p>{file ? file.name : "Select Monthly Secondary Sales Document"}</p>
             <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Supports Excel (.xlsx / .xls) or PDF files"}</small>
             <input id="file-upload" type="file" accept=".xlsx, .xls, .pdf" onChange={handleFileChange} required />
           </label>
           
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
             {loading ? <span className="spinner" /> : <UploadCloud size={18} />}
-            {loading ? 'Crunching Nested Matrix Mapping...' : 'Process Monthly Sales Document'}
+            {loading ? 'Crunching Nested Matrix Mapping...' : 'Process Monthly Secondary Sales Document'}
           </button>
         </form>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>{sales.length > 0 ? `Uploaded Monthly Sales Records (${sales.length})` : 'Required Document Structure'}</h3>
+        <h3 style={{ margin: 0 }}>{sales.length > 0 ? `Uploaded Monthly Secondary Sales Records (${sales.length})` : 'Required Document Structure'}</h3>
         {sales.length > 0 && (
           <button className="btn btn-outline" onClick={fetchSales} style={{ fontSize: 13, padding: '4px 12px' }}>
             <RefreshCw size={13} /> Refresh List
@@ -192,7 +193,7 @@ export default function UploadMonthlySalesPage() {
               </tr>
             ) : (
               sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
-                <tr key={s.id || i}>
+                <tr key={s.id || i} onClick={() => setSelectedRow(s)} style={{ cursor: 'pointer' }}>
                   <td>{s.distributor_name}</td>
                   <td>{s.ship_to_code}</td>
                   <td>{s.customer_name}</td>
@@ -208,6 +209,29 @@ export default function UploadMonthlySalesPage() {
         </table>
         <Pagination currentPage={currentPage} totalPages={Math.ceil(sales.length / ROWS_PER_PAGE)} onPageChange={setCurrentPage} />
       </div>
+      {selectedRow && (
+        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Sales record details</h2>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '450px', overflowY: 'auto' }}>
+              {Object.entries(selectedRow).map(([key, val]) => {
+                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>{String(val ?? '-')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

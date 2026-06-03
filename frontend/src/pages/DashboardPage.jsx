@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Cell
 } from 'recharts'
-import { Activity, Package, Map, ShoppingCart, RefreshCcw } from 'lucide-react'
+import { Activity, Package, Map, ShoppingCart, RefreshCcw, X } from 'lucide-react'
 
 // Custom Premium Tooltip Component
 const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }) => {
@@ -61,12 +61,12 @@ const OverviewTab = ({ metrics }) => {
             <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '4px 0', color: 'var(--text)' }}>
               {top_customers && top_customers.length > 0 ? top_customers[0].name : 'N/A'}
             </h3>
-            <p style={{ color: 'var(--green)', fontWeight: 800, fontSize: '20px', margin: 0 }}>
+            <p style={{ color: '#2F7A60', fontWeight: 800, fontSize: '20px', margin: 0 }}>
               {top_customers && top_customers.length > 0 ? formatNumber(top_customers[0].volume) : 0}{' '}
               <span style={{fontSize: 13, color: 'var(--text-dim)', fontWeight: 500}}>KGs</span>
             </p>
           </div>
-          <div style={{ padding: 12, backgroundColor: 'var(--green-soft)', borderRadius: 12, color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ padding: 12, backgroundColor: 'rgba(47, 122, 96, 0.1)', borderRadius: 12, color: '#2F7A60', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ShoppingCart size={24} />
           </div>
         </div>
@@ -83,15 +83,15 @@ const OverviewTab = ({ metrics }) => {
             <AreaChart data={monthly_progression} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorProg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.0}/>
+                  <stop offset="5%" stopColor="#0B3B2C" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#0B3B2C" stopOpacity={0.0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
               <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => val ? String(val).substring(0, 10) : ''} />
               <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip suffix=" KGs" />} />
-              <Area type="monotone" dataKey="volume" name="Volume" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
+              <Area type="monotone" dataKey="volume" name="Volume" stroke="#0B3B2C" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
@@ -106,17 +106,16 @@ const OverviewTab = ({ metrics }) => {
           {top_products && top_products.length > 0 ? (
             <ResponsiveContainer width="100%" height="85%">
               <BarChart layout="vertical" data={top_products} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorPrimaryBar" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
-                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={1}/>
-                  </linearGradient>
-                </defs>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
                 <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
                 <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-muted)', fontSize: 11}} width={100} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip suffix=" KGs" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
-                <Bar dataKey="volume" name="Volume" fill="url(#colorPrimaryBar)" radius={[0, 6, 6, 0]} maxBarSize={20} />
+                <Bar dataKey="volume" name="Volume" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                  {(top_products || []).map((entry, index) => {
+                    const colors = ['#0B3B2C', '#2F7A60', '#5BA28A', '#3D6A8A'];
+                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                  })}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -128,18 +127,17 @@ const OverviewTab = ({ metrics }) => {
           <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: '800' }}>Top Current Monthly Stock Levels</h3>
           {stock_levels && stock_levels.length > 0 ? (
             <ResponsiveContainer width="100%" height="85%">
-              <BarChart data={stock_levels.slice(0, 5)} margin={{ top: 5, right: 10, left: -20, bottom: 20 }}>
-                <defs>
-                  <linearGradient id="colorStockBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="#c084fc" stopOpacity={0.7}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 10}} angle={-30} textAnchor="end" height={50} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+              <BarChart layout="vertical" data={stock_levels.slice(0, 5)} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
+                <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-muted)', fontSize: 11}} width={110} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip suffix=" KGs" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
-                <Bar dataKey="stock" name="Stock" fill="url(#colorStockBar)" radius={[6, 6, 0, 0]} maxBarSize={30} />
+                <Bar dataKey="stock" name="Stock" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                  {(stock_levels || []).slice(0, 5).map((entry, index) => {
+                    const colors = ['#0B3B2C', '#2F7A60', '#5BA28A', '#3D6A8A'];
+                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                  })}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -153,6 +151,7 @@ const OverviewTab = ({ metrics }) => {
 
 // Sub-component: Analytics Tab
 const AnalyticsTab = ({ data }) => {
+  const [selectedRow, setSelectedRow] = useState(null)
   if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading Analytics Pipeline...</div>
 
   const { kpis, monthly_trend, distributor_performance, customer_performance } = data
@@ -175,33 +174,38 @@ const AnalyticsTab = ({ data }) => {
 
       {/* KPI Cards */}
       <div className="stats-row">
-        <div className="stat-card" style={{ borderLeft: '4px solid var(--primary)' }}>
+        <div className="stat-card" style={{ borderLeft: '4px solid #0B3B2C' }}>
           <span className="stat-label">Primary Sales (PS)</span>
-          <span className="stat-value stat-accent">{formatCrores(kpis?.total_primary || 0)}</span>
+          <span className="stat-value" style={{ color: '#0B3B2C' }}>{formatCrores(kpis?.total_primary || 0)}</span>
         </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid var(--green)' }}>
+        <div className="stat-card" style={{ borderLeft: '4px solid #2F7A60' }}>
           <span className="stat-label">Secondary Sales (SS)</span>
-          <span className="stat-value stat-green">{formatCrores(kpis?.total_secondary || 0)}</span>
+          <span className="stat-value" style={{ color: '#2F7A60' }}>{formatCrores(kpis?.total_secondary || 0)}</span>
         </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid var(--amber)' }}>
+        <div className="stat-card" style={{ borderLeft: '4px solid #3D6A8A' }}>
           <span className="stat-label">Channel Efficiency (SS/PS)</span>
-          <span className="stat-value" style={{ color: 'var(--amber)' }}>{kpis?.channel_efficiency || 0}%</span>
+          <span className="stat-value" style={{ color: '#3D6A8A' }}>{kpis?.channel_efficiency || 0}%</span>
         </div>
       </div>
 
       {/* Composed Chart */}
       <div className="card" style={{ padding: 24, height: 420, marginBottom: '32px' }}>
-        <h3 style={{ margin: '0 0 20px 0', fontSize: 17, fontWeight: '800' }}>Monthly Primary vs Secondary Sales Trend</h3>
-        <ResponsiveContainer width="100%" height="85%">
-          <ComposedChart data={monthly_trend} margin={{ top: 20, right: -10, bottom: 20, left: -10 }}>
+        <div style={{ marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Monthly Primary vs Secondary Sales Trend</h3>
+          <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>
+            Primary & Secondary Sales (Left Axis, INR Lakhs) vs. Channel Efficiency (Right Axis, %)
+          </p>
+        </div>
+        <ResponsiveContainer width="100%" height="78%">
+          <ComposedChart data={monthly_trend} margin={{ top: 10, right: -10, bottom: 20, left: -10 }}>
             <defs>
               <linearGradient id="colorPrimarySales" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity={1}/>
-                <stop offset="100%" stopColor="#125c45" stopOpacity={0.7}/>
+                <stop offset="0%" stopColor="#0B3B2C" stopOpacity={1}/>
+                <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.7}/>
               </linearGradient>
               <linearGradient id="colorSecondarySales" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
-                <stop offset="100%" stopColor="#34d399" stopOpacity={0.7}/>
+                <stop offset="0%" stopColor="#2F7A60" stopOpacity={1}/>
+                <stop offset="100%" stopColor="#2F7A60" stopOpacity={0.7}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
@@ -212,7 +216,7 @@ const AnalyticsTab = ({ data }) => {
             <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
             <Bar yAxisId="left" name="Primary Sales" dataKey="Primary Sales" fill="url(#colorPrimarySales)" radius={[4, 4, 0, 0]} maxBarSize={30} />
             <Bar yAxisId="left" name="Secondary Sales" dataKey="Secondary Sales" fill="url(#colorSecondarySales)" radius={[4, 4, 0, 0]} maxBarSize={30} />
-            <Line yAxisId="right" name="Efficiency %" type="monotone" dataKey="Efficiency %" stroke="#f59e0b" strokeWidth={3} dot={{r: 4, fill: '#f59e0b'}} />
+            <Line yAxisId="right" name="Efficiency %" type="monotone" dataKey="Efficiency %" stroke="#3D6A8A" strokeWidth={3} dot={{r: 4, fill: '#3D6A8A'}} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -229,7 +233,7 @@ const AnalyticsTab = ({ data }) => {
             <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
                <thead>
                  <tr>
-                   <th>Group</th>
+                   <th>Distributor Name</th>
                    <th>Sold To</th>
                    <th>Ship To</th>
                    <th>Primary Sales</th>
@@ -237,7 +241,7 @@ const AnalyticsTab = ({ data }) => {
                </thead>
                <tbody>
                  {(distributor_performance || []).map((row, i) => (
-                   <tr key={i}>
+                   <tr key={i} onClick={() => setSelectedRow(row)} style={{ cursor: 'pointer' }}>
                      <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.group}</td>
                      <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
                      <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
@@ -265,7 +269,7 @@ const AnalyticsTab = ({ data }) => {
             <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
                <thead>
                  <tr>
-                   <th>Group</th>
+                   <th>Customer Name</th>
                    <th>Sold To</th>
                    <th>Ship To</th>
                    <th>Secondary Sales</th>
@@ -273,7 +277,7 @@ const AnalyticsTab = ({ data }) => {
                </thead>
                <tbody>
                  {(customer_performance || []).map((row, i) => (
-                   <tr key={i}>
+                   <tr key={i} onClick={() => setSelectedRow(row)} style={{ cursor: 'pointer' }}>
                      <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.group}</td>
                      <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
                      <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
@@ -294,12 +298,35 @@ const AnalyticsTab = ({ data }) => {
           </div>
         </div>
       </div>
+      {selectedRow && (
+        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Performance details</h2>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxHeight: '450px', overflowY: 'auto' }}>
+              {Object.entries(selectedRow).map(([key, val]) => {
+                const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return (
+                  <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>{String(val ?? '-')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('analytics')
   const [metrics, setMetrics] = useState(null)
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -341,16 +368,16 @@ export default function DashboardPage() {
           <h1 className="page-title" style={{ marginBottom: '16px' }}>Executive Analytics</h1>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
-              className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Overview
-            </button>
-            <button 
               className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveTab('analytics')}
             >
               Primary vs Secondary Analytics
+            </button>
+            <button 
+              className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Overview
             </button>
           </div>
         </div>

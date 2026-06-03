@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales, ExceptionalPriceRequest, EPRLineItem, TraderTemplate
 from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer, ExceptionalPriceRequestSerializer, TraderTemplateSerializer
-from django.db.models import Sum
+from django.db.models import Sum, Q
 import pandas as pd
 import re
 
@@ -24,6 +24,22 @@ class DistributorInvoiceViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        # Retroactive lookup: dynamically populate missing material codes from ProductMaster
+        blank_orders = Order.objects.filter(Q(material_code='') | Q(material_code__isnull=True))
+        if blank_orders.exists():
+            prod_map = {clean_prod_name(p.material_name): p.material_code for p in ProductMaster.objects.all()}
+            updates = []
+            for order in blank_orders:
+                clean_name = clean_prod_name(order.material_name)
+                code = prod_map.get(clean_name)
+                if code:
+                    order.material_code = code
+                    updates.append(order)
+            if updates:
+                Order.objects.bulk_update(updates, ['material_code'])
+        return Order.objects.all()
 
 class StockLevelViewSet(viewsets.ModelViewSet):
     queryset = StockLevel.objects.all()
@@ -84,7 +100,7 @@ def extract_orders(request):
         if product_obj:
             Order.objects.update_or_create(
                 invoice_no=invoice.invoice_no,
-                material_code=invoice.material_code,
+                material_code=invoice.material_code or (product_obj.material_code if product_obj else ''),
                 defaults={
                     'invoice_date': invoice.invoice_date,
                     'material_name': product_obj.material_name,
@@ -278,7 +294,7 @@ def upload_orders(request):
                     invoice_no='',
                     invoice_date=extracted_date,
                     customer=current_customer,
-                    material_code=code_val,
+                    material_code=code_val or (product_obj.material_code if product_obj else ''),
                     material_name=actual_material_name,
                     packsize=0,
                     qty=numeric_qty,
@@ -364,7 +380,7 @@ def upload_orders(request):
                     invoice_no=get_val(['Invoice No.', 'Invoice No', 'invoice_no'], 'invoice_no'),
                     invoice_date=invoice_date,
                     customer=get_val(['Customer', 'Customer Name', 'customer_name'], 'customer'),
-                    material_code=get_val(['Material Code', 'material_code'], 'material_code'),
+                    material_code=get_val(['Material Code', 'material_code'], 'material_code') or (product_obj.material_code if product_obj else ''),
                     material_name=material_name,
                     packsize=numeric_packsize,
                     qty=numeric_qty,
@@ -1154,6 +1170,7 @@ def upload_csi_sales(request):
         valid_orders = []
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
         valid_names_map = {clean_prod_name(name): name for name in ProductMaster.objects.values_list('material_name', flat=True)}
+        prod_code_map = {clean_prod_name(p.material_name): p.material_code for p in ProductMaster.objects.all()}
         
         # Pre-fetch derived rates from Primary Sales to estimate CSI values (Derive from Value/Qty)
         from django.db.models import Sum
@@ -1223,7 +1240,7 @@ def upload_csi_sales(request):
                     invoice_no='',
                     invoice_date=invoice_date,
                     customer=customer,
-                    material_code=cell(product_code_col) if product_code_col else '',
+                    material_code=cell(product_code_col) if product_code_col else prod_code_map.get(product_clean, ''),
                     material_name=product,
                     packsize=0,
                     qty=qty,
