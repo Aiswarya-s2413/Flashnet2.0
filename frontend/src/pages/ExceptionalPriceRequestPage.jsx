@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Trash2, Save } from 'lucide-react'
 import API from '../api'
+import SearchableSelect from '../components/SearchableSelect'
 
 const DEFAULT_LINE_ITEM = {
   business_proposal: 'New',
@@ -203,12 +204,15 @@ export default function ExceptionalPriceRequestPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
                 <div className="form-group">
                   <label>Material Name *</label>
-                  <select value={item.material_name} onChange={e => handleLineItemChange(index, 'material_name', e.target.value)} required>
-                    <option value="">-- Select Material --</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.material_name}>{p.material_name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect 
+                    options={products}
+                    value={item.material_name}
+                    onChange={val => handleLineItemChange(index, 'material_name', val)}
+                    placeholder="-- Select Material --"
+                    labelKey="material_name"
+                    valueKey="material_name"
+                    required
+                  />
                 </div>
                 <div className="form-group">
                   <label>Material Code</label>

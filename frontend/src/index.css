@@ -995,4 +995,11 @@ textarea {
   }
 }
 
+.searchable-select-option:hover {
+  background: var(--bg) !important;
+  color: var(--primary) !important;
+}
 
+.hover-opacity:hover {
+  opacity: 0.7;
+}

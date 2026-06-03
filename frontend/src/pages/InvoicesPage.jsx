@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
 import { Plus, FileText, X, ArrowUpCircle, RefreshCw } from 'lucide-react'
+import SearchableSelect from '../components/SearchableSelect'
 
 const EMPTY_FORM = {
   invoice_no: '', invoice_date: '', material_code: '', material_name: '',
@@ -36,8 +37,7 @@ export default function InvoicesPage() {
 
   useEffect(() => { fetchData() }, [])
 
-  const handleProductChange = (e) => {
-    const selectedName = e.target.value;
+  const handleProductChange = (selectedName) => {
     const matchedProduct = products.find(p => p.material_name === selectedName);
     setForm(f => ({
       ...f,
@@ -255,12 +255,15 @@ export default function InvoicesPage() {
                 </div>
                 <div className="form-group">
                   <label htmlFor="material_name">Material Name</label>
-                  <select id="material_name" name="material_name" value={form.material_name} onChange={handleProductChange} required>
-                    <option value="">Select a product...</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.material_name}>{p.material_name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect 
+                    options={products}
+                    value={form.material_name}
+                    onChange={handleProductChange}
+                    placeholder="Select a product..."
+                    labelKey="material_name"
+                    valueKey="material_name"
+                    required
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="packsize">Packsize(kg)</label>
