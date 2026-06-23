@@ -9,12 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@azure/msal-browser": "^4.30.0",
+    "@azure/msal-react": "^3.0.29",
     "axios": "^1.6.0",
     "lucide-react": "^0.343.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hook-form": "^7.72.0",
     "react-router-dom": "^6.22.0",
-    "recharts": "^3.8.0"
+    "recharts": "^3.8.0",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

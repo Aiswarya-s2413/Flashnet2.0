@@ -12,6 +12,12 @@ def clean_prod_name(s):
     # Replace all whitespace characters (including \xa0) with a standard space
     return re.sub(r'[\s\xa0]+', ' ', str(s)).strip().upper()
 
+def is_distributor(user):
+    if not user or not user.is_authenticated:
+        return False
+    is_staff = getattr(user, 'is_staff', False)
+    is_superuser = getattr(user, 'is_superuser', False)
+    return not (is_staff or is_superuser)
 
 class ProductMasterViewSet(viewsets.ModelViewSet):
     queryset = ProductMaster.objects.all()
@@ -20,6 +26,13 @@ class ProductMasterViewSet(viewsets.ModelViewSet):
 class DistributorInvoiceViewSet(viewsets.ModelViewSet):
     queryset = DistributorInvoice.objects.all()
     serializer_class = DistributorInvoiceSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            return DistributorInvoice.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        return DistributorInvoice.objects.all()
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
@@ -39,23 +52,56 @@ class OrderViewSet(viewsets.ModelViewSet):
                     updates.append(order)
             if updates:
                 Order.objects.bulk_update(updates, ['material_code'])
+        
+        user = self.request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            return Order.objects.filter(Q(sold_to=code) | Q(ship_to=code))
         return Order.objects.all()
 
 class StockLevelViewSet(viewsets.ModelViewSet):
     queryset = StockLevel.objects.all()
     serializer_class = StockLevelSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            return StockLevel.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        return StockLevel.objects.all()
+
 class MonthlySalesViewSet(viewsets.ModelViewSet):
     queryset = MonthlySales.objects.all()
     serializer_class = MonthlySalesSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            return MonthlySales.objects.filter(Q(ship_to_code=code) | Q(distributor_name=code))
+        return MonthlySales.objects.all()
 
 class PrimarySalesViewSet(viewsets.ModelViewSet):
     queryset = PrimarySales.objects.all()
     serializer_class = PrimarySalesSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            return PrimarySales.objects.filter(Q(sold_to_party=code) | Q(ship_to_party=code))
+        return PrimarySales.objects.all()
+
 class EPRViewSet(viewsets.ModelViewSet):
     queryset = ExceptionalPriceRequest.objects.all()
     serializer_class = ExceptionalPriceRequestSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            return ExceptionalPriceRequest.objects.filter(Q(soldto_code=code) | Q(shipto_code=code))
+        return ExceptionalPriceRequest.objects.all()
 
 class TraderTemplateViewSet(viewsets.ModelViewSet):
     queryset = TraderTemplate.objects.all()
@@ -908,14 +954,23 @@ def dashboard_metrics(request):
         from django.db.models import Sum
         from django.db.models.functions import TruncMonth
 
+        user = request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=code) | Q(distributor_name=code))
+            stock_level_qs = StockLevel.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        else:
+            monthly_sales_qs = MonthlySales.objects.all()
+            stock_level_qs = StockLevel.objects.all()
+
         # Top 5 Products by Total Volume
-        top_products_qs = MonthlySales.objects.values('product_name')\
+        top_products_qs = monthly_sales_qs.values('product_name')\
                             .annotate(volume=Sum('total_volume'))\
                             .order_by('-volume')[:5]
         top_products = [{'name': item['product_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_products_qs]
 
         # Top 5 Customers by Total Volume
-        top_customers_qs = MonthlySales.objects.values('customer_name')\
+        top_customers_qs = monthly_sales_qs.values('customer_name')\
                             .annotate(volume=Sum('total_volume'))\
                             .order_by('-volume')[:5]
         top_customers = [{'name': item['customer_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
@@ -923,7 +978,7 @@ def dashboard_metrics(request):
         # Monthly Progression extracted dynamically from genuine invoice dates
         from collections import defaultdict
         monthly_vols = defaultdict(float)
-        for ms in MonthlySales.objects.all():
+        for ms in monthly_sales_qs:
             for m_str, vol in ms.volumes.items():
                 try:
                     vol_float = float(vol)
@@ -934,7 +989,7 @@ def dashboard_metrics(request):
         monthly_progression = [{'name': k, 'volume': v} for k, v in sorted(monthly_vols.items())]
 
         # Top 5 Stock Levels by Month End Inventory
-        stock_qs = StockLevel.objects.values('product_desc')\
+        stock_qs = stock_level_qs.values('product_desc')\
                     .annotate(stock=Sum('month_end_inventory'))\
                     .order_by('-stock')[:5]
         stock_levels = [{'name': item['product_desc'] or 'Unknown', 'stock': item['stock'] or 0} for item in stock_qs]
@@ -956,31 +1011,41 @@ def primary_vs_secondary_analytics(request):
         from collections import defaultdict
         import datetime
 
-        # 1. KPI EXTRACTION (Switching from Volume to Financial Value as requested)
-        ps_agg = PrimarySales.objects.aggregate(total=Sum('assessable_value'))
-        ss_agg = MonthlySales.objects.aggregate(total=Sum('total_value'))
-        
-        total_ps = ps_agg['total'] or 0.0
-        total_ss = ss_agg['total'] or 0.0
+        user = request.user
+        if is_distributor(user):
+            code = getattr(user, 'distributor_code', '')
+            primary_sales_qs = PrimarySales.objects.filter(Q(sold_to_party=code) | Q(ship_to_party=code))
+            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=code) | Q(distributor_name=code))
+        else:
+            primary_sales_qs = PrimarySales.objects.all()
+            monthly_sales_qs = MonthlySales.objects.all()
 
-        # 2. MONTHLY TRENDS MATCHING
-        trend_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
+        # 1. MONTHLY TRENDS MATCHING (Compute first to filter KPI totals)
+        trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
         
         # Primary Sales Months
-        ps_months = PrimarySales.objects.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
+        ps_months = primary_sales_qs.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
         for pm in ps_months:
             if pm['month']:
                 month_str = pm['month'].strftime('%Y-%m')
-                trend_map[month_str]['ps'] += pm['total']
+                trend_map[month_str]['ps'] += pm['total'] or 0.0
 
         # Secondary Sales Months (Financial Value mapping)
-        for ms in MonthlySales.objects.all():
+        for ms in monthly_sales_qs:
             for month_str, val in ms.values.items():
                 try:
                     val_float = float(val)
                     trend_map[month_str]['ss'] += val_float
                 except:
                     pass
+
+        # 2. KPI EXTRACTION (Totals summed only for months where both primary and secondary sales exist)
+        total_ps = 0.0
+        total_ss = 0.0
+        for k, v in trend_map.items():
+            if v['ps'] > 0 and v['ss'] > 0:
+                total_ps += v['ps']
+                total_ss += v['ss']
 
         # Global KPI Efficiency Calculation matching the displayed KPI cards
         channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
@@ -1024,7 +1089,7 @@ def primary_vs_secondary_analytics(request):
             n = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
             return n
 
-        for ps in PrimarySales.objects.all():
+        for ps in primary_sales_qs:
             sold = ps.sold_to_party_address or ps.sold_to_party or ''
             ship = ps.ship_to_party_name or ps.ship_to_party or ''
             raw_name = ship if ship else sold
@@ -1038,7 +1103,7 @@ def primary_vs_secondary_analytics(request):
                 prod_name = ps.material_desc or 'Unknown Product'
                 dist_map[group]['products'][prod_name]['ps_val'] += val
                 
-        for ms in MonthlySales.objects.all():
+        for ms in monthly_sales_qs:
             raw_name = str(ms.customer_name or ms.ship_to_code or ms.distributor_name).strip()
             if raw_name and raw_name != 'None':
                 group = get_group_name(raw_name)

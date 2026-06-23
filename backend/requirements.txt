@@ -12,3 +12,10 @@ python-dateutil==2.9.0.post0
 six==1.17.0
 sqlparse==0.5.5
 gunicorn
+djangorestframework_simplejwt==5.5.1
+msal==1.35.1
+PyJWT==2.12.1
+cryptography==46.0.5
+requests==2.32.5
+celery==5.6.2
+redis==7.3.0
