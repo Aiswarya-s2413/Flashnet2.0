@@ -1022,6 +1022,7 @@ def primary_vs_secondary_analytics(request):
 
         # 1. MONTHLY TRENDS MATCHING (Compute first to filter KPI totals)
         trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
+        month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0}))
         
         # Primary Sales Months
         ps_months = primary_sales_qs.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
@@ -1030,12 +1031,22 @@ def primary_vs_secondary_analytics(request):
                 month_str = pm['month'].strftime('%Y-%m')
                 trend_map[month_str]['ps'] += pm['total'] or 0.0
 
+        # Track products from Primary Sales
+        for ps in primary_sales_qs:
+            if ps.billing_date:
+                month_str = ps.billing_date.strftime('%Y-%m')
+                prod_name = ps.material_desc or 'Unknown Product'
+                val = ps.assessable_value or 0.0
+                month_products_map[month_str][prod_name]['ps'] += val
+
         # Secondary Sales Months (Financial Value mapping)
         for ms in monthly_sales_qs:
+            prod_name = ms.product_name or 'Unknown Product'
             for month_str, val in ms.values.items():
                 try:
                     val_float = float(val)
                     trend_map[month_str]['ss'] += val_float
+                    month_products_map[month_str][prod_name]['ss'] += val_float
                 except:
                     pass
 
@@ -1170,13 +1181,31 @@ def primary_vs_secondary_analytics(request):
                 raw_total_ps += v['ps']
                 raw_total_ss += v['ss']
                 eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+                
+                # Get products for this month
+                month_prods = []
+                for p_name, p_vals in month_products_map[k].items():
+                    p_ps = p_vals['ps']
+                    p_ss = p_vals['ss']
+                    if p_ps > 0 or p_ss > 0:
+                        p_eff = (p_ss / p_ps * 100) if p_ps > 0 else 0
+                        month_prods.append({
+                            'name': p_name,
+                            'ps': round(p_ps, 2),
+                            'ss': round(p_ss, 2),
+                            'efficiency': round(p_eff, 2),
+                            'difference': round(p_ss - p_ps, 2)
+                        })
+                month_prods.sort(key=lambda x: x['ps'] + x['ss'], reverse=True)
+
                 all_months_comparison.append({
                     'month': k,
                     'ps': round(v['ps'], 2),
                     'ss': round(v['ss'], 2),
                     'efficiency': round(eff, 2),
                     'difference': round(v['ss'] - v['ps'], 2),
-                    'included': v['ps'] > 0 and v['ss'] > 0
+                    'included': v['ps'] > 0 and v['ss'] > 0,
+                    'products': month_prods
                 })
         
         all_months_comparison.sort(key=lambda x: parse_my(x['month']))

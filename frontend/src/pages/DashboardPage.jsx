@@ -405,6 +405,15 @@ const AnalyticsTab = ({ data }) => {
 
 // Sub-component: Asymmetric Tab for mismatch details
 const AsymmetricTab = ({ data }) => {
+  const [selectedMonth, setSelectedMonth] = useState(null)
+  const [prodSearch, setProdSearch] = useState('')
+
+  useEffect(() => {
+    if (!selectedMonth) {
+      setProdSearch('')
+    }
+  }, [selectedMonth])
+
   if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading asymmetry details...</div>
 
   const { kpis, raw_kpis, monthly_comparison } = data
@@ -483,7 +492,7 @@ const AsymmetricTab = ({ data }) => {
       <div className="card" style={{ padding: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Asymmetric Month-by-Month Details</h3>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Comparing Primary vs Secondary Sales</span>
+          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Comparing Primary vs Secondary Sales (Click row for details)</span>
         </div>
 
         <div className="table-wrapper">
@@ -500,7 +509,7 @@ const AsymmetricTab = ({ data }) => {
             </thead>
             <tbody>
               {(monthly_comparison || []).filter(row => row.included).map((row, i) => (
-                <tr key={i} style={{ transition: 'all 0.2s' }}>
+                <tr key={i} onClick={() => setSelectedMonth(row)} style={{ transition: 'all 0.2s', cursor: 'pointer' }}>
                   <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.month}</td>
                   <td>{formatLakhs(row.ps)}</td>
                   <td>{row.ss > 0 ? formatLakhs(row.ss) : '₹0.0'}</td>
@@ -514,33 +523,18 @@ const AsymmetricTab = ({ data }) => {
                     {row.difference !== 0 ? `${row.difference > 0 ? '+' : ''}${formatLakhs(row.difference)}` : '₹0.0'}
                   </td>
                   <td>
-                    {row.included ? (
-                      <span style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        padding: '4px 10px', 
-                        borderRadius: '12px', 
-                        fontSize: '12px', 
-                        fontWeight: '700', 
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                        color: '#10B981' 
-                      }}>
-                        Included (Matched)
-                      </span>
-                    ) : (
-                      <span style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        padding: '4px 10px', 
-                        borderRadius: '12px', 
-                        fontSize: '12px', 
-                        fontWeight: '700', 
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                        color: '#EF4444' 
-                      }}>
-                        Mismatched
-                      </span>
-                    )}
+                    <span style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      padding: '4px 10px', 
+                      borderRadius: '12px', 
+                      fontSize: '12px', 
+                      fontWeight: '700', 
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                      color: '#10B981' 
+                    }}>
+                      Included (Matched)
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -572,6 +566,125 @@ const AsymmetricTab = ({ data }) => {
           </table>
         </div>
       </div>
+
+      {/* Selected Month Details Modal */}
+      {selectedMonth && (
+        <div className="modal-overlay" onClick={() => setSelectedMonth(null)}>
+          <div className="modal" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
+              <h2 className="modal-title" style={{ margin: 0 }}>Sales Details for {selectedMonth.month}</h2>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedMonth(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Metrics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Primary Sales</span>
+                <span style={{ fontSize: '16px', color: 'var(--primary)', fontWeight: '700' }}>{formatCrores(selectedMonth.ps)}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Secondary Sales</span>
+                <span style={{ fontSize: '16px', color: '#10B981', fontWeight: '700' }}>{formatCrores(selectedMonth.ss)}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Channel Efficiency</span>
+                <span style={{ fontSize: '16px', color: 'var(--text)', fontWeight: '700' }}>{selectedMonth.efficiency}%</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Difference (SS - PS)</span>
+                <span style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  color: selectedMonth.difference > 0 ? '#10B981' : selectedMonth.difference < 0 ? '#EF4444' : 'var(--text-muted)'
+                }}>
+                  {selectedMonth.difference !== 0 ? `${selectedMonth.difference > 0 ? '+' : ''}${formatCrores(selectedMonth.difference)}` : '₹0.0'}
+                </span>
+              </div>
+            </div>
+
+            {/* Product-Wise Details */}
+            {selectedMonth.products && selectedMonth.products.length > 0 ? (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--primary)' }}>Product Performance breakdown</h3>
+                  <div style={{ position: 'relative', width: '240px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Search products..." 
+                      value={prodSearch}
+                      onChange={e => setProdSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 12px 6px 30px',
+                        fontSize: '13px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
+                        color: 'var(--text)',
+                        outline: 'none'
+                      }}
+                    />
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', maxHeight: '350px', overflowY: 'auto' }}>
+                  <table className="data-table" style={{ width: '100%', minWidth: 'auto', fontSize: '13px', margin: 0 }}>
+                    <thead style={{ background: 'var(--bg)', position: 'sticky', top: 0, zIndex: 1 }}>
+                      <tr>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Product Name</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Primary Sales (PS)</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Secondary Sales (SS)</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Efficiency %</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Difference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedMonth.products
+                        .filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase()))
+                        .map((p, idx, arr) => (
+                          <tr key={idx} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border)', background: 'transparent' }}>
+                            <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: '600' }}>{p.name}</td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                              {p.ps > 0 ? formatLakhs(p.ps) : '-'}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                              {p.ss > 0 ? formatLakhs(p.ss) : '-'}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600', color: p.efficiency > 0 ? 'var(--primary)' : 'var(--text-dim)' }}>
+                              {p.efficiency > 0 ? `${p.efficiency}%` : '-'}
+                            </td>
+                            <td style={{ 
+                              padding: '10px 12px', 
+                              textAlign: 'right', 
+                              fontWeight: '600', 
+                              color: p.difference > 0 ? '#10B981' : p.difference < 0 ? '#EF4444' : 'var(--text-muted)'
+                            }}>
+                              {p.difference !== 0 ? `${p.difference > 0 ? '+' : ''}${formatLakhs(p.difference)}` : '₹0.0'}
+                            </td>
+                          </tr>
+                        ))}
+                      {selectedMonth.products.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase())).length === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                            No matching products found in this month.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>
+                No product-wise breakdown available for this month.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
