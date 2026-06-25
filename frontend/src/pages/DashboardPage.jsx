@@ -493,7 +493,7 @@ const AsymmetricTab = ({ data }) => {
               </tr>
             </thead>
             <tbody>
-              {(monthly_comparison || []).map((row, i) => (
+              {(monthly_comparison || []).filter(row => row.included).map((row, i) => (
                 <tr key={i} style={{ transition: 'all 0.2s' }}>
                   <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.month}</td>
                   <td>{formatLakhs(row.ps)}</td>
