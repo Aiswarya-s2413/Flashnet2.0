@@ -403,6 +403,156 @@ const AnalyticsTab = ({ data }) => {
   )
 }
 
+// Sub-component: Asymmetric Tab for mismatch details
+const AsymmetricTab = ({ data }) => {
+  if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading asymmetry details...</div>
+
+  const { kpis, raw_kpis, monthly_comparison } = data
+
+  const formatLakhs = (val) => val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : `₹${val.toLocaleString()}`
+  const formatCrores = (val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)} Cr` : formatLakhs(val)
+
+  const diffPrimary = (raw_kpis?.total_primary || 0) - (kpis?.total_primary || 0)
+
+  return (
+    <div>
+      {/* Informative Alert Banner */}
+      <div className="card" style={{ padding: 20, marginBottom: 28, background: 'rgba(235, 140, 10, 0.05)', border: '1px solid rgba(235, 140, 10, 0.2)' }}>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: 16, color: '#D97706', fontWeight: '800', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Activity size={18} /> Asymmetric Data & Mismatch Overview
+        </h3>
+        <p style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>
+          The matched channel efficiency is <strong>{kpis?.channel_efficiency || 0}%</strong> when only summing months where both datasets are present (Oct 2025 to Feb 2026).
+          However, primary sales records exist from Oct 2024 to Mar 2026, while secondary sales are missing/empty in those periods.
+          This leads to an unmatched gap of <strong>{formatCrores(diffPrimary)}</strong> in Primary Sales.
+        </p>
+      </div>
+
+      {/* Comparison KPI Cards */}
+      <div className="stats-row" style={{ marginBottom: 32 }}>
+        <div className="stat-card" style={{ borderLeft: '4px solid #0B3B2C', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <span className="stat-label" style={{ display: 'block', marginBottom: 4 }}>Filtered KPI (Matched Months)</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>PS: <strong>{formatCrores(kpis?.total_primary || 0)}</strong></span>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>SS: <strong>{formatCrores(kpis?.total_secondary || 0)}</strong></span>
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <span className="stat-value" style={{ color: '#0B3B2C', fontSize: 24 }}>{kpis?.channel_efficiency || 0}%</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>Oct 25 - Feb 26 (Shared)</span>
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ borderLeft: '4px solid #3D6A8A', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <span className="stat-label" style={{ display: 'block', marginBottom: 4 }}>Raw Totals (Unfiltered)</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>PS: <strong>{formatCrores(raw_kpis?.total_primary || 0)}</strong></span>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>SS: <strong>{formatCrores(raw_kpis?.total_secondary || 0)}</strong></span>
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <span className="stat-value" style={{ color: '#3D6A8A', fontSize: 24 }}>{raw_kpis?.channel_efficiency || 0}%</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>All periods in Database</span>
+          </div>
+        </div>
+
+        <div className="stat-card" style={{ borderLeft: '4px solid #B45309', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <span className="stat-label" style={{ display: 'block', marginBottom: 4 }}>Excluded Mismatched Gap</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>PS Gap: <strong>{formatCrores(diffPrimary)}</strong></span>
+              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>SS Gap: <strong>₹0.00</strong></span>
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <span className="stat-value" style={{ color: '#B45309', fontSize: 24 }}>0.00%</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>Mismatched months excluded</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly Breakdown Table */}
+      <div className="card" style={{ padding: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Asymmetric Month-by-Month Details</h3>
+          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Comparing Primary vs Secondary Sales</span>
+        </div>
+
+        <div className="table-wrapper">
+          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Primary Sales (PS)</th>
+                <th>Secondary Sales (SS)</th>
+                <th>Efficiency %</th>
+                <th>Difference (SS - PS)</th>
+                <th>Inclusion Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(monthly_comparison || []).map((row, i) => (
+                <tr key={i} style={{ transition: 'all 0.2s' }}>
+                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.month}</td>
+                  <td>{formatLakhs(row.ps)}</td>
+                  <td>{row.ss > 0 ? formatLakhs(row.ss) : '₹0.0'}</td>
+                  <td style={{ fontWeight: 700, color: row.efficiency > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>
+                    {row.efficiency > 0 ? `${row.efficiency}%` : '0%'}
+                  </td>
+                  <td style={{ 
+                    fontWeight: 600, 
+                    color: row.difference > 0 ? '#10B981' : row.difference < 0 ? '#EF4444' : 'var(--text-muted)'
+                  }}>
+                    {row.difference !== 0 ? `${row.difference > 0 ? '+' : ''}${formatLakhs(row.difference)}` : '₹0.0'}
+                  </td>
+                  <td>
+                    {row.included ? (
+                      <span style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        padding: '4px 10px', 
+                        borderRadius: '12px', 
+                        fontSize: '12px', 
+                        fontWeight: '700', 
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                        color: '#10B981' 
+                      }}>
+                        Included (Matched)
+                      </span>
+                    ) : (
+                      <span style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        padding: '4px 10px', 
+                        borderRadius: '12px', 
+                        fontSize: '12px', 
+                        fontWeight: '700', 
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                        color: '#EF4444' 
+                      }}>
+                        Mismatched
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!(monthly_comparison?.length > 0) && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>
+                    No comparison data available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('analytics')
   const [metrics, setMetrics] = useState(null)
@@ -452,6 +602,12 @@ export default function DashboardPage() {
               Primary vs Secondary Analytics
             </button>
             <button 
+              className={`btn ${activeTab === 'asymmetric' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('asymmetric')}
+            >
+              Asymmetric Table
+            </button>
+            <button 
               className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setActiveTab('overview')}
             >
@@ -465,7 +621,13 @@ export default function DashboardPage() {
       </div>
 
       <div className="tab-content" style={{ animation: 'fadeIn 0.3s' }}>
-        {activeTab === 'overview' ? <OverviewTab metrics={metrics} /> : <AnalyticsTab data={analytics} />}
+        {activeTab === 'overview' ? (
+          <OverviewTab metrics={metrics} />
+        ) : activeTab === 'asymmetric' ? (
+          <AsymmetricTab data={analytics} />
+        ) : (
+          <AnalyticsTab data={analytics} />
+        )}
       </div>
     </div>
   )

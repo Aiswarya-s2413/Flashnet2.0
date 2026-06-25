@@ -1160,13 +1160,41 @@ def primary_vs_secondary_analytics(request):
                          for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
         product_array.sort(key=lambda x: x['Primary Sales'] + x['Secondary Sales'], reverse=True)
 
+        # Build All Months Comparison intelligently for the Asymmetric Table mismatch details
+        all_months_comparison = []
+        raw_total_ps = 0.0
+        raw_total_ss = 0.0
+
+        for k, v in trend_map.items():
+            if v['ps'] > 0 or v['ss'] > 0:
+                raw_total_ps += v['ps']
+                raw_total_ss += v['ss']
+                eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+                all_months_comparison.append({
+                    'month': k,
+                    'ps': round(v['ps'], 2),
+                    'ss': round(v['ss'], 2),
+                    'efficiency': round(eff, 2),
+                    'difference': round(v['ss'] - v['ps'], 2),
+                    'included': v['ps'] > 0 and v['ss'] > 0
+                })
+        
+        all_months_comparison.sort(key=lambda x: parse_my(x['month']))
+        raw_channel_efficiency = (raw_total_ss / raw_total_ps * 100) if raw_total_ps > 0 else 0
+
         return Response({
             'kpis': {
                 'total_primary': round(total_ps, 2),
                 'total_secondary': round(total_ss, 2),
                 'channel_efficiency': round(channel_efficiency, 2),
             },
+            'raw_kpis': {
+                'total_primary': round(raw_total_ps, 2),
+                'total_secondary': round(raw_total_ss, 2),
+                'channel_efficiency': round(raw_channel_efficiency, 2),
+            },
             'monthly_trend': trend_array,
+            'monthly_comparison': all_months_comparison,
             'distributor_performance': dist_only[:20],
             'customer_performance': cust_only[:50],
             'product_group': product_array[:15]
