@@ -414,6 +414,12 @@ const AsymmetricTab = ({ data }) => {
 
   const diffPrimary = (raw_kpis?.total_primary || 0) - (kpis?.total_primary || 0)
 
+  // Calculate matched months totals for table footer
+  const matchedMonths = (monthly_comparison || []).filter(row => row.included)
+  const totalPSMatched = matchedMonths.reduce((sum, row) => sum + row.ps, 0)
+  const totalSSMatched = matchedMonths.reduce((sum, row) => sum + row.ss, 0)
+  const totalDiffMatched = totalSSMatched - totalPSMatched
+
   return (
     <div>
       {/* Informative Alert Banner */}
@@ -546,6 +552,23 @@ const AsymmetricTab = ({ data }) => {
                 </tr>
               )}
             </tbody>
+            <tfoot>
+              <tr style={{ backgroundColor: 'var(--surface-alt)', borderTop: '2px solid var(--border)', fontWeight: '800' }}>
+                <td style={{ padding: '16px 12px', color: 'var(--text)' }}>TOTALS:</td>
+                <td style={{ padding: '16px 12px', color: 'var(--text)' }}>{formatLakhs(totalPSMatched)}</td>
+                <td style={{ padding: '16px 12px', color: 'var(--text)' }}>{formatLakhs(totalSSMatched)}</td>
+                <td style={{ padding: '16px 12px', color: 'var(--primary)' }}>
+                  {totalPSMatched > 0 ? `${((totalSSMatched / totalPSMatched) * 100).toFixed(2)}%` : '0%'}
+                </td>
+                <td style={{ 
+                  padding: '16px 12px', 
+                  color: totalDiffMatched > 0 ? '#10B981' : totalDiffMatched < 0 ? '#EF4444' : 'var(--text-muted)'
+                }}>
+                  {totalDiffMatched !== 0 ? `${totalDiffMatched > 0 ? '+' : ''}${formatLakhs(totalDiffMatched)}` : '₹0.0'}
+                </td>
+                <td style={{ padding: '16px 12px' }}></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
