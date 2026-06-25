@@ -431,18 +431,6 @@ const AsymmetricTab = ({ data }) => {
 
   return (
     <div>
-      {/* Informative Alert Banner */}
-      <div className="card" style={{ padding: 20, marginBottom: 28, background: 'rgba(235, 140, 10, 0.05)', border: '1px solid rgba(235, 140, 10, 0.2)' }}>
-        <h3 style={{ margin: '0 0 8px 0', fontSize: 16, color: '#D97706', fontWeight: '800', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Activity size={18} /> Asymmetric Data & Mismatch Overview
-        </h3>
-        <p style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>
-          The matched channel efficiency is <strong>{kpis?.channel_efficiency || 0}%</strong> when only summing months where both datasets are present (Oct 2025 to Feb 2026).
-          However, primary sales records exist from Oct 2024 to Mar 2026, while secondary sales are missing/empty in those periods.
-          This leads to an unmatched gap of <strong>{formatCrores(diffPrimary)}</strong> in Primary Sales.
-        </p>
-      </div>
-
       {/* Comparison KPI Cards */}
       <div className="stats-row" style={{ marginBottom: 32 }}>
         <div className="stat-card" style={{ borderLeft: '4px solid #0B3B2C', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -456,34 +444,6 @@ const AsymmetricTab = ({ data }) => {
           <div style={{ marginTop: 12 }}>
             <span className="stat-value" style={{ color: '#0B3B2C', fontSize: 24 }}>{kpis?.channel_efficiency || 0}%</span>
             <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>Oct 25 - Feb 26 (Shared)</span>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: '4px solid #3D6A8A', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <span className="stat-label" style={{ display: 'block', marginBottom: 4 }}>Raw Totals (Unfiltered)</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>PS: <strong>{formatCrores(raw_kpis?.total_primary || 0)}</strong></span>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>SS: <strong>{formatCrores(raw_kpis?.total_secondary || 0)}</strong></span>
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <span className="stat-value" style={{ color: '#3D6A8A', fontSize: 24 }}>{raw_kpis?.channel_efficiency || 0}%</span>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>All periods in Database</span>
-          </div>
-        </div>
-
-        <div className="stat-card" style={{ borderLeft: '4px solid #B45309', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <span className="stat-label" style={{ display: 'block', marginBottom: 4 }}>Excluded Mismatched Gap</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>PS Gap: <strong>{formatCrores(diffPrimary)}</strong></span>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>SS Gap: <strong>₹0.00</strong></span>
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <span className="stat-value" style={{ color: '#B45309', fontSize: 24 }}>0.00%</span>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>Mismatched months excluded</span>
           </div>
         </div>
       </div>
