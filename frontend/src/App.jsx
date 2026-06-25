@@ -12,19 +12,10 @@ import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
 import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
 import OnboardingApprovalsPage from './pages/OnboardingApprovalsPage'
 
-import AuthProvider from './auth/AuthProvider'
-import ProtectedRoute from './components/ProtectedRoute'
-import LoginPage from './pages/LoginPage'
-import OnboardingPage from './pages/OnboardingPage'
-import PendingApprovalPage from './pages/PendingApprovalPage'
-import useAuthStore from './auth/useAuth'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, Users } from 'lucide-react'
 
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, LogOut, Users } from 'lucide-react'
-
-// AppShell holds the sidebar layout, top header and profile sign out
+// AppShell holds the sidebar layout and top header
 function AppShell({ children }) {
-  const { logout, user } = useAuthStore()
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -102,22 +93,11 @@ function AppShell({ children }) {
             </nav>
           </div>
         </div>
-
-        {user && (
-          <div style={{ padding: '16px 8px 0 8px', borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>User Session</div>
-            <div style={{ color: 'var(--text)', fontSize: '13px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-            <div style={{ color: 'var(--text-dim)', fontSize: '11px', marginBottom: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.upn}</div>
-            <button className="btn btn-outline" style={{ width: '100%', borderColor: 'var(--red)', color: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 16px' }} onClick={() => { logout(); window.location.href='/login'; }}>
-              <LogOut size={14} /> Sign out
-            </button>
-          </div>
-        )}
       </aside>
       <main className="main-content">
         <header className="app-header">
           <div className="app-header-title">
-            <h2>Welcome back, {user ? user.name.split(' ')[0] : 'Team'} 👋</h2>
+            <h2>Welcome back, Team 👋</h2>
             <p>Here's what's happening with your sales today.</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -139,35 +119,23 @@ function AppShell({ children }) {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Authentication Pipelines */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/pending" element={<PendingApprovalPage />} />
-
-          {/* Secure Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<AppShell><DashboardPage /></AppShell>} />
-            <Route path="/orders" element={<AppShell><OrdersPage /></AppShell>} />
-            <Route path="/upload-orders" element={<AppShell><UploadOrdersPage /></AppShell>} />
-            <Route path="/upload-stock" element={<AppShell><UploadStockPage /></AppShell>} />
-            <Route path="/upload-monthly-sales" element={<AppShell><UploadMonthlySalesPage /></AppShell>} />
-            <Route path="/upload-primary-sales" element={<AppShell><UploadPrimarySalesPage /></AppShell>} />
-            <Route path="/upload-csi-sales" element={<AppShell><UploadCSISalesPage /></AppShell>} />
-            <Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
-            <Route path="/products" element={<AppShell><ProductsPage /></AppShell>} />
-            <Route path="/exceptional-price-request" element={<AppShell><ExceptionalPriceRequestPage /></AppShell>} />
-            <Route path="/epr-approvals" element={<AppShell><PriceRequestApprovalsPage /></AppShell>} />
-            <Route path="/onboarding-approvals" element={<AppShell><OnboardingApprovalsPage /></AppShell>} />
-          </Route>
-
-          {/* Catch-all redirects to Dashboard */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<AppShell><DashboardPage /></AppShell>} />
+        <Route path="/orders" element={<AppShell><OrdersPage /></AppShell>} />
+        <Route path="/upload-orders" element={<AppShell><UploadOrdersPage /></AppShell>} />
+        <Route path="/upload-stock" element={<AppShell><UploadStockPage /></AppShell>} />
+        <Route path="/upload-monthly-sales" element={<AppShell><UploadMonthlySalesPage /></AppShell>} />
+        <Route path="/upload-primary-sales" element={<AppShell><UploadPrimarySalesPage /></AppShell>} />
+        <Route path="/upload-csi-sales" element={<AppShell><UploadCSISalesPage /></AppShell>} />
+        <Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
+        <Route path="/products" element={<AppShell><ProductsPage /></AppShell>} />
+        <Route path="/exceptional-price-request" element={<AppShell><ExceptionalPriceRequestPage /></AppShell>} />
+        <Route path="/epr-approvals" element={<AppShell><PriceRequestApprovalsPage /></AppShell>} />
+        <Route path="/onboarding-approvals" element={<AppShell><OnboardingApprovalsPage /></AppShell>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
