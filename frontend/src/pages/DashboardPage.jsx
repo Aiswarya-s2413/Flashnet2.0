@@ -403,8 +403,8 @@ const AnalyticsTab = ({ data }) => {
   )
 }
 
-// Sub-component: Asymmetric Tab for mismatch details
-const AsymmetricTab = ({ data }) => {
+// Sub-component: Variance Tab for mismatch details
+const VarianceTab = ({ data }) => {
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [prodSearch, setProdSearch] = useState('')
   const [oversoldMonthFilter, setOversoldMonthFilter] = useState('All')
@@ -485,7 +485,7 @@ const AsymmetricTab = ({ data }) => {
       {/* Monthly Breakdown Table */}
       <div className="card" style={{ padding: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Asymmetric Month-by-Month Details</h3>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Variance Month-by-Month Details</h3>
           <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Comparing Primary vs Secondary Sales (Click row for details)</span>
         </div>
 
@@ -836,10 +836,10 @@ export default function DashboardPage() {
               Primary vs Secondary Analytics
             </button>
             <button 
-              className={`btn ${activeTab === 'asymmetric' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('asymmetric')}
+              className={`btn ${activeTab === 'variance' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveTab('variance')}
             >
-              Asymmetric Table
+              Variance Table
             </button>
             <button 
               className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
@@ -857,8 +857,8 @@ export default function DashboardPage() {
       <div className="tab-content" style={{ animation: 'fadeIn 0.3s' }}>
         {activeTab === 'overview' ? (
           <OverviewTab metrics={metrics} />
-        ) : activeTab === 'asymmetric' ? (
-          <AsymmetricTab data={analytics} />
+        ) : activeTab === 'variance' ? (
+          <VarianceTab data={analytics} />
         ) : (
           <AnalyticsTab data={analytics} />
         )}

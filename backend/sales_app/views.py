@@ -1209,7 +1209,7 @@ def primary_vs_secondary_analytics(request):
                          for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
         product_array.sort(key=lambda x: x['Primary Sales'] + x['Secondary Sales'], reverse=True)
 
-        # Build All Months Comparison intelligently for the Asymmetric Table mismatch details
+        # Build All Months Comparison intelligently for the Variance Table mismatch details
         all_months_comparison = []
         raw_total_ps = 0.0
         raw_total_ss = 0.0
