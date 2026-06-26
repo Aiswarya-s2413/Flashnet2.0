@@ -1024,6 +1024,44 @@ def primary_vs_secondary_analytics(request):
         trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
         month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0}))
         
+        # Build product code to clean name map
+        code_to_name = {p.material_code: clean_prod_name(p.material_name) for p in ProductMaster.objects.all() if p.material_code}
+        name_to_clean_name = {clean_prod_name(p.material_name): clean_prod_name(p.material_name) for p in ProductMaster.objects.all()}
+
+        def get_canonical_name(name):
+            if not name:
+                return ""
+            name = str(name).strip().upper()
+            name = re.sub(r'[\s\xa0]+', ' ', name)
+            name = re.sub(r'\b\d{4,}\b$', '', name).strip()
+            name = re.sub(r'\b\d+\s*(KG|KGS)\b', '', name, flags=re.IGNORECASE)
+            name = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', name, flags=re.IGNORECASE)
+            name = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b', '', name, flags=re.IGNORECASE)
+            name = name.replace('-', ' ').replace('.', ' ')
+            name = re.sub(r'[^A-Z0-9\s%]', '', name)
+            name = re.sub(r'\s+', ' ', name).strip()
+            return name
+
+        def get_clean_ps_product(ps):
+            if ps.material_code and ps.material_code in code_to_name:
+                return get_canonical_name(code_to_name[ps.material_code])
+            desc_clean = clean_prod_name(ps.material_desc)
+            if desc_clean in name_to_clean_name:
+                return get_canonical_name(name_to_clean_name[desc_clean])
+            for clean_m_name in name_to_clean_name:
+                if desc_clean.startswith(clean_m_name) or clean_m_name in desc_clean:
+                    return get_canonical_name(clean_m_name)
+            return get_canonical_name(desc_clean)
+
+        def get_clean_ms_product(ms):
+            prod_clean = clean_prod_name(ms.product_name)
+            if prod_clean in name_to_clean_name:
+                return get_canonical_name(name_to_clean_name[prod_clean])
+            for clean_m_name in name_to_clean_name:
+                if prod_clean.startswith(clean_m_name) or clean_m_name in prod_clean:
+                    return get_canonical_name(clean_m_name)
+            return get_canonical_name(prod_clean)
+
         # Primary Sales Months
         ps_months = primary_sales_qs.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
         for pm in ps_months:
@@ -1035,13 +1073,13 @@ def primary_vs_secondary_analytics(request):
         for ps in primary_sales_qs:
             if ps.billing_date:
                 month_str = ps.billing_date.strftime('%Y-%m')
-                prod_name = ps.material_desc or 'Unknown Product'
+                prod_name = get_clean_ps_product(ps) or 'Unknown Product'
                 val = ps.assessable_value or 0.0
                 month_products_map[month_str][prod_name]['ps'] += val
 
         # Secondary Sales Months (Financial Value mapping)
         for ms in monthly_sales_qs:
-            prod_name = ms.product_name or 'Unknown Product'
+            prod_name = get_clean_ms_product(ms) or 'Unknown Product'
             for month_str, val in ms.values.items():
                 try:
                     val_float = float(val)
@@ -1111,7 +1149,7 @@ def primary_vs_secondary_analytics(request):
                 if ps.division: dist_map[group]['zone'] = ps.division
                 if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
                 if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
-                prod_name = ps.material_desc or 'Unknown Product'
+                prod_name = get_clean_ps_product(ps) or 'Unknown Product'
                 dist_map[group]['products'][prod_name]['ps_val'] += val
                 
         for ms in monthly_sales_qs:
@@ -1122,7 +1160,7 @@ def primary_vs_secondary_analytics(request):
                 dist_map[group]['ss'] += val
                 if ms.customer_name: dist_map[group]['sold_to'].add(str(ms.customer_name).title())
                 if ms.ship_to_code: dist_map[group]['ship_to'].add(str(ms.ship_to_code).title())
-                prod_name = ms.product_name or 'Unknown Product'
+                prod_name = get_clean_ms_product(ms) or 'Unknown Product'
                 dist_map[group]['products'][prod_name]['ss_val'] += val
 
         distributor_array = []
@@ -1158,13 +1196,13 @@ def primary_vs_secondary_analytics(request):
         prod_map = defaultdict(lambda: {'ps': 0, 'ss': 0})
         
         for ps in PrimarySales.objects.all():
-            group = ps.material_desc or 'Unknown Product'
-            group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
+            prod_name = get_clean_ps_product(ps) or 'Unknown Product'
+            group = prod_name.split(' ')[0] if prod_name != 'Unknown Product' else 'Unknown Product'
             prod_map[group]['ps'] += (ps.assessable_value or 0)
 
         for ms in MonthlySales.objects.all():
-            group = ms.product_name or 'Unknown Product'
-            group = group.split(' ')[0] if group != 'Unknown Product' else 'Unknown Product'
+            prod_name = get_clean_ms_product(ms) or 'Unknown Product'
+            group = prod_name.split(' ')[0] if prod_name != 'Unknown Product' else 'Unknown Product'
             prod_map[group]['ss'] += (ms.total_value or 0)
 
         product_array = [{'group': k, 'Primary Sales': round(v['ps'], 2), 'Secondary Sales': round(v['ss'], 2)} 

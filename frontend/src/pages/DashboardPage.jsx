@@ -407,6 +407,9 @@ const AnalyticsTab = ({ data }) => {
 const AsymmetricTab = ({ data }) => {
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [prodSearch, setProdSearch] = useState('')
+  const [oversoldMonthFilter, setOversoldMonthFilter] = useState('All')
+  const [oversoldSearch, setOversoldSearch] = useState('')
+  const [minOversoldVal, setMinOversoldVal] = useState(0)
 
   useEffect(() => {
     if (!selectedMonth) {
@@ -428,6 +431,37 @@ const AsymmetricTab = ({ data }) => {
   const totalPSMatched = matchedMonths.reduce((sum, row) => sum + row.ps, 0)
   const totalSSMatched = matchedMonths.reduce((sum, row) => sum + row.ss, 0)
   const totalDiffMatched = totalSSMatched - totalPSMatched
+
+  // Extract all product records across all months
+  const allProductMonths = [];
+  (monthly_comparison || []).forEach(m => {
+    if (m.products) {
+      m.products.forEach(p => {
+        if (p.ss > p.ps) {
+          allProductMonths.push({
+            month: m.month,
+            name: p.name,
+            ps: p.ps,
+            ss: p.ss,
+            efficiency: p.efficiency,
+            difference: p.difference
+          });
+        }
+      });
+    }
+  });
+
+  // Sort by difference descending
+  allProductMonths.sort((a, b) => b.difference - a.difference)
+
+  const uniqueMonths = Array.from(new Set(allProductMonths.map(p => p.month))).sort()
+
+  const filteredOversold = allProductMonths.filter(p => {
+    const matchesMonth = oversoldMonthFilter === 'All' || p.month === oversoldMonthFilter;
+    const matchesSearch = p.name.toLowerCase().includes(oversoldSearch.toLowerCase());
+    const matchesVal = p.difference >= minOversoldVal;
+    return matchesMonth && matchesSearch && matchesVal;
+  })
 
   return (
     <div>
@@ -523,6 +557,110 @@ const AsymmetricTab = ({ data }) => {
                 <td style={{ padding: '16px 12px' }}></td>
               </tr>
             </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Oversold Products Section */}
+      <div className="card" style={{ padding: '32px', marginTop: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Oversold Products Analysis (All Months)</h3>
+            <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>Products where Secondary Sales (SS) exceed Primary Sales (PS)</p>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Filter Month</span>
+              <select 
+                className="form-control" 
+                value={oversoldMonthFilter} 
+                onChange={e => setOversoldMonthFilter(e.target.value)}
+                style={{ padding: '6px 12px', fontSize: '13px', minWidth: '120px' }}
+              >
+                <option value="All">All Months</option>
+                {uniqueMonths.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Search Product</span>
+              <div style={{ position: 'relative', width: '200px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Search..." 
+                  value={oversoldSearch}
+                  onChange={e => setOversoldSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 12px 6px 30px',
+                    fontSize: '13px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    outline: 'none'
+                  }}
+                />
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Min Difference</span>
+              <select 
+                className="form-control" 
+                value={minOversoldVal} 
+                onChange={e => setMinOversoldVal(Number(e.target.value))}
+                style={{ padding: '6px 12px', fontSize: '13px', minWidth: '130px' }}
+              >
+                <option value={0}>Show All</option>
+                <option value={100000}>&ge; ₹1 Lakh</option>
+                <option value={500000}>&ge; ₹5 Lakhs</option>
+                <option value={1000000}>&ge; ₹10 Lakhs</option>
+                <option value={2000000}>&ge; ₹20 Lakhs</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+              <tr>
+                <th>Product Name</th>
+                <th>Month</th>
+                <th>Primary Sales (PS)</th>
+                <th>Secondary Sales (SS)</th>
+                <th>Oversold Difference</th>
+                <th>Efficiency %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOversold.map((row, i) => (
+                <tr key={i} style={{ transition: 'all 0.2s' }}>
+                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.name}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{row.month}</td>
+                  <td>{row.ps > 0 ? formatLakhs(row.ps) : '-'}</td>
+                  <td>{row.ss > 0 ? formatLakhs(row.ss) : '₹0.0'}</td>
+                  <td style={{ fontWeight: 700, color: '#10B981' }}>
+                    +{formatLakhs(row.difference)}
+                  </td>
+                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                    {row.ps > 0 ? `${row.efficiency.toFixed(1)}%` : 'SS Only'}
+                  </td>
+                </tr>
+              ))}
+              {filteredOversold.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
+                    No oversold products found matching the criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
           </table>
         </div>
       </div>
