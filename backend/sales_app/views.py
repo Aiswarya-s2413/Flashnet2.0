@@ -1130,7 +1130,7 @@ def primary_vs_secondary_analytics(request):
             'products': defaultdict(lambda: {'ps_val': 0.0, 'ss_val': 0.0})
         })
         
-        import re
+        # Use global re import
         def get_group_name(raw_name):
             n = raw_name.upper()
             if 'VIKRAM' in n: return 'VIKRAM TRADING'
