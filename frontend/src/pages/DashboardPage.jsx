@@ -423,6 +423,7 @@ const VarianceTab = ({ data }) => {
 
   const formatLakhs = (val) => val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : `₹${val.toLocaleString()}`
   const formatCrores = (val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)} Cr` : formatLakhs(val)
+  const formatKG = (val) => val !== undefined && val !== null ? `${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val)} KG` : '0 KG'
 
   const diffPrimary = (raw_kpis?.total_primary || 0) - (kpis?.total_primary || 0)
 
@@ -437,14 +438,16 @@ const VarianceTab = ({ data }) => {
   (monthly_comparison || []).forEach(m => {
     if (m.products) {
       m.products.forEach(p => {
-        if (p.ss > p.ps) {
+        const psQty = p.ps_qty !== undefined ? p.ps_qty : 0;
+        const ssQty = p.ss_qty !== undefined ? p.ss_qty : 0;
+        if (ssQty > psQty) {
           allProductMonths.push({
             month: m.month,
             name: p.name,
-            ps: p.ps,
-            ss: p.ss,
-            efficiency: p.efficiency,
-            difference: p.difference
+            ps: psQty,
+            ss: ssQty,
+            efficiency: p.qty_efficiency !== undefined ? p.qty_efficiency : (psQty > 0 ? (ssQty / psQty * 100) : 0),
+            difference: p.qty_difference !== undefined ? p.qty_difference : (ssQty - psQty)
           });
         }
       });
@@ -566,7 +569,7 @@ const VarianceTab = ({ data }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Oversold Products Analysis (All Months)</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>Products where Secondary Sales (SS) exceed Primary Sales (PS)</p>
+            <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>Products where Secondary Sales (SS) Volume exceeds Primary Sales (PS) Volume</p>
           </div>
           
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -617,10 +620,10 @@ const VarianceTab = ({ data }) => {
                 style={{ padding: '6px 12px', fontSize: '13px', minWidth: '130px' }}
               >
                 <option value={0}>Show All</option>
-                <option value={100000}>&ge; ₹1 Lakh</option>
-                <option value={500000}>&ge; ₹5 Lakhs</option>
-                <option value={1000000}>&ge; ₹10 Lakhs</option>
-                <option value={2000000}>&ge; ₹20 Lakhs</option>
+                <option value={500}>&ge; 500 KG</option>
+                <option value={1000}>&ge; 1,000 KG</option>
+                <option value={5000}>&ge; 5,000 KG</option>
+                <option value={10000}>&ge; 10,000 KG</option>
               </select>
             </div>
           </div>
@@ -632,9 +635,9 @@ const VarianceTab = ({ data }) => {
               <tr>
                 <th>Product Name</th>
                 <th>Month</th>
-                <th>Primary Sales (PS)</th>
-                <th>Secondary Sales (SS)</th>
-                <th>Oversold Difference</th>
+                <th>Primary Sales Volume (PS)</th>
+                <th>Secondary Sales Volume (SS)</th>
+                <th>Oversold Difference (Volume)</th>
                 <th>Efficiency %</th>
               </tr>
             </thead>
@@ -643,10 +646,10 @@ const VarianceTab = ({ data }) => {
                 <tr key={i} style={{ transition: 'all 0.2s' }}>
                   <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.name}</td>
                   <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{row.month}</td>
-                  <td>{row.ps > 0 ? formatLakhs(row.ps) : '-'}</td>
-                  <td>{row.ss > 0 ? formatLakhs(row.ss) : '₹0.0'}</td>
+                  <td>{row.ps > 0 ? formatKG(row.ps) : '-'}</td>
+                  <td>{row.ss > 0 ? formatKG(row.ss) : '0 KG'}</td>
                   <td style={{ fontWeight: 700, color: '#10B981' }}>
-                    +{formatLakhs(row.difference)}
+                    +{formatKG(row.difference)}
                   </td>
                   <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
                     {row.ps > 0 ? `${row.efficiency.toFixed(1)}%` : 'SS Only'}

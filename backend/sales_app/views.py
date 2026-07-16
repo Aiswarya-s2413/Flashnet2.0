@@ -1022,7 +1022,7 @@ def primary_vs_secondary_analytics(request):
 
         # 1. MONTHLY TRENDS MATCHING (Compute first to filter KPI totals)
         trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
-        month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0}))
+        month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0, 'ps_qty': 0.0, 'ss_qty': 0.0}))
         
         # Build product code to clean name map
         code_to_name = {p.material_code: clean_prod_name(p.material_name) for p in ProductMaster.objects.all() if p.material_code}
@@ -1075,7 +1075,9 @@ def primary_vs_secondary_analytics(request):
                 month_str = ps.billing_date.strftime('%Y-%m')
                 prod_name = get_clean_ps_product(ps) or 'Unknown Product'
                 val = ps.assessable_value or 0.0
+                qty = ps.billed_quantity or 0.0
                 month_products_map[month_str][prod_name]['ps'] += val
+                month_products_map[month_str][prod_name]['ps_qty'] += qty
 
         # Secondary Sales Months (Financial Value mapping)
         for ms in monthly_sales_qs:
@@ -1085,6 +1087,12 @@ def primary_vs_secondary_analytics(request):
                     val_float = float(val)
                     trend_map[month_str]['ss'] += val_float
                     month_products_map[month_str][prod_name]['ss'] += val_float
+                except:
+                    pass
+            for month_str, vol in ms.volumes.items():
+                try:
+                    vol_float = float(vol)
+                    month_products_map[month_str][prod_name]['ss_qty'] += vol_float
                 except:
                     pass
 
@@ -1225,14 +1233,21 @@ def primary_vs_secondary_analytics(request):
                 for p_name, p_vals in month_products_map[k].items():
                     p_ps = p_vals['ps']
                     p_ss = p_vals['ss']
-                    if p_ps > 0 or p_ss > 0:
+                    p_ps_qty = p_vals.get('ps_qty', 0.0)
+                    p_ss_qty = p_vals.get('ss_qty', 0.0)
+                    if p_ps > 0 or p_ss > 0 or p_ps_qty > 0 or p_ss_qty > 0:
                         p_eff = (p_ss / p_ps * 100) if p_ps > 0 else 0
+                        p_qty_eff = (p_ss_qty / p_ps_qty * 100) if p_ps_qty > 0 else 0
                         month_prods.append({
                             'name': p_name,
                             'ps': round(p_ps, 2),
                             'ss': round(p_ss, 2),
                             'efficiency': round(p_eff, 2),
-                            'difference': round(p_ss - p_ps, 2)
+                            'difference': round(p_ss - p_ps, 2),
+                            'ps_qty': round(p_ps_qty, 2),
+                            'ss_qty': round(p_ss_qty, 2),
+                            'qty_efficiency': round(p_qty_eff, 2),
+                            'qty_difference': round(p_ss_qty - p_ps_qty, 2)
                         })
                 month_prods.sort(key=lambda x: x['ps'] + x['ss'], reverse=True)
 
