@@ -26,6 +26,17 @@ class DistributorUser(AbstractBaseUser):
     is_onboarded = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # New SAP Attribute Fields
+    partner_function = models.CharField(max_length=50, blank=True, default='')
+    division = models.CharField(max_length=50, blank=True, default='')
+    sub_code = models.CharField(max_length=100, blank=True, default='')
+    transporter_code = models.CharField(max_length=100, blank=True, default='')
+    price_type = models.CharField(max_length=50, blank=True, default='')
+    city = models.CharField(max_length=200, blank=True, default='')
+    region_code = models.CharField(max_length=50, blank=True, default='')
+    trade_code = models.CharField(max_length=100, blank=True, default='')
+    trade_code2 = models.CharField(max_length=100, blank=True, default='')
+
     objects = DistributorUserManager()
 
     USERNAME_FIELD = 'upn'
