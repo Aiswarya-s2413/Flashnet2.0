@@ -5,6 +5,15 @@ class ProductMaster(models.Model):
     material_name = models.CharField(max_length=255)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # New fields
+    mat_div = models.CharField(max_length=50, blank=True, default='')
+    prod_hierracy_code = models.CharField(max_length=100, blank=True, default='')
+    pack_size = models.CharField(max_length=50, blank=True, default='')
+    special_price = models.FloatField(blank=True, null=True)
+    end_customer_code = models.CharField(max_length=100, blank=True, default='')
+    from_date = models.DateField(blank=True, null=True)
+    to_date = models.DateField(blank=True, null=True)
+
     def __str__(self):
         return f"{self.material_code} - {self.material_name}"
 
