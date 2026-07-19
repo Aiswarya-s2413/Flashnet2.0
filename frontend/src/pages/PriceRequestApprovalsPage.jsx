@@ -29,9 +29,34 @@ export default function PriceRequestApprovalsPage() {
     fetchEPRs()
   }, [])
 
+  const isPending = selectedEpr && (
+    selectedEpr.status === 'Pending Sales Exec Review' ||
+    selectedEpr.status === 'Pending Pricing & BD Teams' ||
+    selectedEpr.status === 'Pending Sales Director'
+  );
+
+  const handleLineItemChange = (i, field, value) => {
+    const updatedLineItems = [...selectedEpr.line_items]
+    updatedLineItems[i] = { ...updatedLineItems[i], [field]: value }
+    setSelectedEpr({ ...selectedEpr, line_items: updatedLineItems })
+  }
+
   const updateStatus = async (eprId, newStatus) => {
     try {
-      const response = await API.patch(`/epr/${eprId}/`, { status: newStatus })
+      const payload = {
+        status: newStatus,
+        additional_remarks: selectedEpr.additional_remarks,
+        line_items: selectedEpr.line_items.map(item => ({
+          id: item.id,
+          freight_charges: item.freight_charges,
+          distributor_payment_terms: item.distributor_payment_terms,
+          end_customer_payment_terms: item.end_customer_payment_terms,
+          product_used_in_package: item.product_used_in_package,
+          other_products_details: item.other_products_details,
+          remarks: item.remarks
+        }))
+      }
+      const response = await API.patch(`/epr/${eprId}/`, payload)
 
       if (response.status === 200 || response.status === 204) {
         setSelectedEpr(null)
@@ -177,8 +202,37 @@ export default function PriceRequestApprovalsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
                     <div><span style={detailLabelStyle}>Proposal</span><div style={detailValueStyle}>{item.business_proposal || '-'}</div></div>
                     <div><span style={detailLabelStyle}>Req Type</span><div style={detailValueStyle}>{item.price_request_type || '-'}</div></div>
-                    <div><span style={detailLabelStyle}>Used in Pkg</span><div style={detailValueStyle}>{item.product_used_in_package || '-'}</div></div>
-                    <div><span style={detailLabelStyle}>Pkg Details</span><div style={detailValueStyle}>{item.other_products_details || '-'}</div></div>
+                    <div>
+                      <span style={detailLabelStyle}>Used in Pkg</span>
+                      {isPending ? (
+                        <select 
+                          value={item.product_used_in_package || 'No'} 
+                          onChange={e => handleLineItemChange(i, 'product_used_in_package', e.target.value)}
+                          className="form-control"
+                          style={{ padding: '4px 8px', fontSize: '12px', minHeight: '30px' }}
+                        >
+                          <option value="No">No</option>
+                          <option value="Yes">Yes</option>
+                        </select>
+                      ) : (
+                        <div style={detailValueStyle}>{item.product_used_in_package || '-'}</div>
+                      )}
+                    </div>
+                    <div>
+                      <span style={detailLabelStyle}>Pkg Details</span>
+                      {isPending ? (
+                        <input 
+                          type="text" 
+                          value={item.other_products_details || ''} 
+                          onChange={e => handleLineItemChange(i, 'other_products_details', e.target.value)}
+                          className="form-control"
+                          style={{ padding: '4px 8px', fontSize: '12px', minHeight: '30px' }}
+                          placeholder="Pkg details..."
+                        />
+                      ) : (
+                        <div style={detailValueStyle}>{item.other_products_details || '-'}</div>
+                      )}
+                    </div>
 
                     <div><span style={detailLabelStyle}>Old ICP</span><div style={detailValueStyle}>{item.existing_icp || '-'}</div></div>
                     <div><span style={detailLabelStyle}>Req. ICP</span><div style={{...detailValueStyle, fontWeight: '800', color: 'var(--primary)'}}>{item.requested_icp || '-'}</div></div>
@@ -187,11 +241,68 @@ export default function PriceRequestApprovalsPage() {
 
                     <div><span style={detailLabelStyle}>Old Vol</span><div style={detailValueStyle}>{item.existing_sale_volume || '-'}</div></div>
                     <div><span style={detailLabelStyle}>Proposed Vol</span><div style={detailValueStyle}>{item.proposed_sale_volume || '-'}</div></div>
-                    <div><span style={detailLabelStyle}>Freight</span><div style={detailValueStyle}>{item.freight_charges || '-'}</div></div>
-                    <div><span style={detailLabelStyle}>Remarks</span><div style={detailValueStyle}>{item.remarks || '-'}</div></div>
+                    <div>
+                      <span style={detailLabelStyle}>Freight</span>
+                      {isPending ? (
+                        <select 
+                          value={item.freight_charges || 'Paid By Distributor'} 
+                          onChange={e => handleLineItemChange(i, 'freight_charges', e.target.value)}
+                          className="form-control"
+                          style={{ padding: '4px 8px', fontSize: '12px', minHeight: '30px' }}
+                        >
+                          <option value="Paid By Distributor">Paid By Distributor</option>
+                          <option value="FTL Order">FTL Order</option>
+                        </select>
+                      ) : (
+                        <div style={detailValueStyle}>{item.freight_charges || '-'}</div>
+                      )}
+                    </div>
+                    <div>
+                      <span style={detailLabelStyle}>Remarks</span>
+                      {isPending ? (
+                        <input 
+                          type="text" 
+                          value={item.remarks || ''} 
+                          onChange={e => handleLineItemChange(i, 'remarks', e.target.value)}
+                          className="form-control"
+                          style={{ padding: '4px 8px', fontSize: '12px', minHeight: '30px' }}
+                          placeholder="Line remarks..."
+                        />
+                      ) : (
+                        <div style={detailValueStyle}>{item.remarks || '-'}</div>
+                      )}
+                    </div>
 
-                    <div><span style={detailLabelStyle}>Dist Terms</span><div style={detailValueStyle}>{item.distributor_payment_terms || '-'}</div></div>
-                    <div><span style={detailLabelStyle}>End Cust Terms</span><div style={detailValueStyle}>{item.end_customer_payment_terms || '-'}</div></div>
+                    <div>
+                      <span style={detailLabelStyle}>Dist Terms</span>
+                      {isPending ? (
+                        <input 
+                          type="text" 
+                          value={item.distributor_payment_terms || ''} 
+                          onChange={e => handleLineItemChange(i, 'distributor_payment_terms', e.target.value)}
+                          className="form-control"
+                          style={{ padding: '4px 8px', fontSize: '12px', minHeight: '30px' }}
+                          placeholder="e.g. 30 Days"
+                        />
+                      ) : (
+                        <div style={detailValueStyle}>{item.distributor_payment_terms || '-'}</div>
+                      )}
+                    </div>
+                    <div>
+                      <span style={detailLabelStyle}>End Cust Terms</span>
+                      {isPending ? (
+                        <input 
+                          type="text" 
+                          value={item.end_customer_payment_terms || ''} 
+                          onChange={e => handleLineItemChange(i, 'end_customer_payment_terms', e.target.value)}
+                          className="form-control"
+                          style={{ padding: '4px 8px', fontSize: '12px', minHeight: '30px' }}
+                          placeholder="e.g. 60 Days"
+                        />
+                      ) : (
+                        <div style={detailValueStyle}>{item.end_customer_payment_terms || '-'}</div>
+                      )}
+                    </div>
                     <div><span style={detailLabelStyle}>Comp. Name</span><div style={detailValueStyle}>{item.competition_product_name || '-'}</div></div>
                     <div><span style={detailLabelStyle}>Comp. Price/Vol</span><div style={detailValueStyle}>{item.competition_price ? `${item.competition_price} INR` : '-'} {item.competition_volume ? `(${item.competition_volume} YTD)` : ''}</div></div>
                   </div>
@@ -202,14 +313,31 @@ export default function PriceRequestApprovalsPage() {
               )}
             </div>
 
-            {selectedEpr.additional_remarks && (
-               <div style={{ marginBottom: '24px' }}>
-                 <h3 style={{ fontSize: '14px', fontWeight: '800', marginBottom: '8px', color: 'var(--primary)' }}>Final Approval Remarks</h3>
-                 <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13.5px', color: 'var(--text-muted)' }}>
-                   {selectedEpr.additional_remarks}
-                 </div>
-               </div>
-            )}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '800', marginBottom: '8px', color: 'var(--primary)' }}>Approval Remarks / Notes</h3>
+              {isPending ? (
+                <textarea 
+                  value={selectedEpr.additional_remarks || ''} 
+                  onChange={e => setSelectedEpr({ ...selectedEpr, additional_remarks: e.target.value })}
+                  placeholder="Enter final remarks or comments for this request..."
+                  style={{ 
+                    width: '100%', 
+                    minHeight: '80px', 
+                    padding: '10px', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border)',
+                    fontSize: '13.5px',
+                    color: 'var(--text)',
+                    background: 'var(--bg)',
+                    outline: 'none'
+                  }}
+                />
+              ) : (
+                <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13.5px', color: 'var(--text-muted)' }}>
+                  {selectedEpr.additional_remarks || 'No remarks provided.'}
+                </div>
+              )}
+            </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
               {renderActionButtons(selectedEpr)}

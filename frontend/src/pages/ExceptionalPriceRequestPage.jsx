@@ -264,36 +264,7 @@ export default function ExceptionalPriceRequestPage() {
                 </div>
               </div>
 
-              {/* Group 3: Logistics & Commercials */}
-              <h4 style={sectionHeadingStyle}>Logistics & Commercials</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-                <div className="form-group">
-                  <label>Freight Charges</label>
-                  <select value={item.freight_charges} onChange={e => handleLineItemChange(index, 'freight_charges', e.target.value)}>
-                    <option>Paid By Distributor</option>
-                    <option>FTL Order</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Distributor Payment Terms</label>
-                  <input type="text" value={item.distributor_payment_terms} onChange={e => handleLineItemChange(index, 'distributor_payment_terms', e.target.value)} placeholder="e.g. 30 Days" />
-                </div>
-                <div className="form-group">
-                  <label>End Customer Payment Terms</label>
-                  <input type="text" value={item.end_customer_payment_terms} onChange={e => handleLineItemChange(index, 'end_customer_payment_terms', e.target.value)} placeholder="e.g. 60 Days" />
-                </div>
-                <div className="form-group">
-                  <label>Used in Package</label>
-                  <select value={item.product_used_in_package} onChange={e => handleLineItemChange(index, 'product_used_in_package', e.target.value)}>
-                    <option>No</option>
-                    <option>Yes</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label>Other Products Details (If used in package)</label>
-                  <input type="text" value={item.other_products_details} onChange={e => handleLineItemChange(index, 'other_products_details', e.target.value)} placeholder="Describe package relationships..." />
-                </div>
-              </div>
+
 
               {/* Group 4: Competition & Remarks */}
               <h4 style={sectionHeadingStyle}>Competition Justification</h4>

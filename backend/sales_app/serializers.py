@@ -40,6 +40,8 @@ class PrimarySalesSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class EPRLineItemSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = EPRLineItem
         fields = '__all__'
@@ -58,6 +60,33 @@ class ExceptionalPriceRequestSerializer(serializers.ModelSerializer):
         for line_item_data in line_items_data:
             EPRLineItem.objects.create(epr=epr, **line_item_data)
         return epr
+
+    def update(self, instance, validated_data):
+        line_items_data = validated_data.pop('line_items', None)
+
+        # Update parent fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if line_items_data is not None:
+            existing_items = {item.id: item for item in instance.line_items.all()}
+            existing_items_list = list(instance.line_items.all())
+
+            for idx, item_data in enumerate(line_items_data):
+                item_id = item_data.get('id')
+                line_item = None
+                if item_id and item_id in existing_items:
+                    line_item = existing_items[item_id]
+                elif idx < len(existing_items_list):
+                    line_item = existing_items_list[idx]
+
+                if line_item:
+                    for attr, value in item_data.items():
+                        if attr != 'id':
+                            setattr(line_item, attr, value)
+                    line_item.save()
+        return instance
 
 class TraderTemplateSerializer(serializers.ModelSerializer):
     class Meta:
