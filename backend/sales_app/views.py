@@ -876,9 +876,10 @@ def upload_primary_sales(request):
         plant_col = find_matching_col('Plant')
         rate_col = find_matching_col(['Rate Per Unit', 'Rate'])
         qty_col = find_matching_col(['Billed Quantity', 'Inv Qty Kgs', 'Quantity'])
-        val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Inv Value INR', 'Value'])
+        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
 
         records = df.to_dict('records')
+
         for index, row in enumerate(records):
             line_no = header_row_idx + index + 2
             
