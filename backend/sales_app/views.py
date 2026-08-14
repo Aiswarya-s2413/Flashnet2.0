@@ -817,30 +817,37 @@ def upload_primary_sales(request):
         filename = file.name.lower()
         if filename.endswith(('.xls', '.xlsx')):
             raw_df = pd.read_excel(file, header=None)
-            header_row_idx = 0
-            
-            for i, r in raw_df.head(20).iterrows():
-                row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-                if any(k in v for v in row_vals for k in ['billing no', 'tax invoice', 'assessable', 'ppc', 'ship to party', 'inv qty', 'billing doc']):
-                    header_row_idx = i
-                    break
-                    
-            raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
-            headers = []
-            seen = set()
-            for h in raw_headers:
-                new_h = h
-                idx = 1
-                while new_h in seen:
-                    new_h = f"{h}_{idx}"
-                    idx += 1
-                headers.append(new_h)
-                seen.add(new_h)
-                
-            df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
-            df.columns = headers
+        elif filename.endswith('.csv'):
+            try:
+                raw_df = pd.read_csv(file, header=None, encoding='utf-8')
+            except Exception:
+                file.seek(0)
+                raw_df = pd.read_csv(file, header=None, encoding='latin-1')
         else:
-            return Response({'error': 'Unsupported file.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        header_row_idx = 0
+        
+        for i, r in raw_df.head(20).iterrows():
+            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
+            if any(k in v for v in row_vals for k in ['billing no', 'tax invoice', 'assessable', 'ppc', 'ship to party', 'inv qty', 'billing doc']):
+                header_row_idx = i
+                break
+                
+        raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+        headers = []
+        seen = set()
+        for h in raw_headers:
+            new_h = h
+            idx = 1
+            while new_h in seen:
+                new_h = f"{h}_{idx}"
+                idx += 1
+            headers.append(new_h)
+            seen.add(new_h)
+            
+        df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+        df.columns = headers
             
         errors = []
         valid_records = []

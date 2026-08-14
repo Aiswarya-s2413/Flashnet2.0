@@ -115,8 +115,8 @@ export default function UploadPrimarySalesPage() {
               <UploadCloud size={24} />
             </div>
             <p>{file ? file.name : "Select Primary Sales Document"}</p>
-            <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Only explicitly formatted .xlsx or .xls files"}</small>
-            <input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} required />
+            <small>{file ? `${(file.size / 1024).toFixed(1)} KB` : "Only explicitly formatted .xlsx, .xls, or .csv files"}</small>
+            <input id="file-upload" type="file" accept=".xlsx, .xls, .csv" onChange={handleFileChange} required />
           </label>
           
           <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
