@@ -807,6 +807,26 @@ def upload_monthly_sales(request):
     except Exception as e:
         return Response({'error': f"Document pipeline failed natively: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+def smart_read_csv(file):
+    lines = [line.decode('utf-8', errors='ignore') for line in file.readlines()]
+    data_lines = []
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        parts = s.split('\t') if '\t' in line else (s.split(',') if ',' in s else s.split(';'))
+        if len(parts) >= 2:
+            data_lines.append(line)
+            
+    if not data_lines:
+        data_lines = [line for line in lines if line.strip()]
+        
+    content = ''.join(data_lines)
+    first_data_line = data_lines[0] if data_lines else ''
+    sep = '\t' if '\t' in first_data_line else (',' if ',' in first_data_line else ';')
+    import io
+    return pd.read_csv(io.StringIO(content), header=None, sep=sep, engine='python', on_bad_lines='skip')
+
 @api_view(['POST'])
 def upload_primary_sales(request):
     try:
@@ -818,17 +838,8 @@ def upload_primary_sales(request):
         if filename.endswith(('.xls', '.xlsx')):
             raw_df = pd.read_excel(file, header=None)
         elif filename.endswith('.csv'):
-            try:
-                raw_df = pd.read_csv(file, header=None, encoding='utf-8', on_bad_lines='skip', engine='python')
-            except Exception:
-                file.seek(0)
-                try:
-                    raw_df = pd.read_csv(file, header=None, encoding='latin-1', on_bad_lines='skip', engine='python')
-                except Exception:
-                    file.seek(0)
-                    lines = [line.decode('utf-8', errors='ignore') for line in file.readlines()]
-                    import io
-                    raw_df = pd.read_csv(io.StringIO(''.join(lines)), header=None, on_bad_lines='skip', engine='python')
+            file.seek(0)
+            raw_df = smart_read_csv(file)
         else:
             return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
             
