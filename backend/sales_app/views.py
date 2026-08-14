@@ -874,7 +874,7 @@ def upload_primary_sales(request):
             return None
 
         # Pre-locate all target columns with broad aliases
-        billing_no_col = find_matching_col(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher', 'No'])
+        billing_no_col = find_matching_col(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
         tax_inv_col = find_matching_col(['Tax Invoice No', 'Tax Invoice'])
         so_col = find_matching_col(['Sales Order', 'SO No'])
         so_date_col = find_matching_col(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
@@ -892,7 +892,20 @@ def upload_primary_sales(request):
         val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
 
-        records = df.to_dict('records')
+        cols_list = list(df.columns)
+        # Positional Fallback for CSV files without standard header names
+        if not material_code_col and not material_desc_col and not billing_no_col:
+            # If row 0 was data, include it back
+            first_row_dict = {col: col for col in cols_list}
+            records = [first_row_dict] + df.to_dict('records')
+            if len(cols_list) >= 1: material_code_col = cols_list[0]
+            if len(cols_list) >= 2: material_desc_col = cols_list[1]
+            if len(cols_list) >= 3: qty_col = cols_list[2]
+            if len(cols_list) >= 4: val_col = cols_list[3]
+        else:
+            records = df.to_dict('records')
+            if not material_code_col and len(cols_list) >= 1: material_code_col = cols_list[0]
+            if not material_desc_col and len(cols_list) >= 2: material_desc_col = cols_list[1]
 
         for index, row in enumerate(records):
             line_no = header_row_idx + index + 2
