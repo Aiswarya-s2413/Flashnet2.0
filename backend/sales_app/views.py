@@ -110,21 +110,107 @@ class TraderTemplateViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 def upload_products(request):
     if 'file' not in request.FILES:
-        return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
     
     file = request.FILES['file']
+    filename = file.name.lower()
     try:
-        df = pd.read_excel(file)
+        if filename.endswith(('.xls', '.xlsx')):
+            raw_df = pd.read_excel(file, header=None)
+        elif filename.endswith('.csv'):
+            file.seek(0)
+            raw_df = smart_read_csv(file)
+        else:
+            return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        header_row_idx = 0
+        for i, r in raw_df.head(20).iterrows():
+            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
+            if any(k in v for v in row_vals for k in ['material', 'mat_desc', 'code', 'desc', 'name']):
+                header_row_idx = i
+                break
+
+        raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+        headers = []
+        seen = set()
+        for h in raw_headers:
+            new_h = h
+            idx = 1
+            while new_h in seen:
+                new_h = f'{h}_{idx}'
+                idx += 1
+            headers.append(new_h)
+            seen.add(new_h)
+
+        df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+        df.columns = headers
+
+        import re
+        normalized_cols = {col: re.sub(r'[^a-z0-9]', '', str(col).lower()) for col in df.columns}
+        def find_matching_col(key_options):
+            if isinstance(key_options, str): key_options = [key_options]
+            for key_name in key_options:
+                lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
+                for original_col, norm_col in normalized_cols.items():
+                    if lower_key in norm_col:
+                        return original_col
+            return None
+
+        material_code_col = find_matching_col(['Material', 'Material Code', 'PPC', 'Item Code', 'ItemNo', 'Code'])
+        material_desc_col = find_matching_col(['MAT_DESC', 'Material Desc', 'Material Name', 'Description', 'Item Name', 'Name'])
+        mat_div_col = find_matching_col(['DI', 'Division', 'Mat Div'])
+        prod_hier_col = find_matching_col(['PROD_HEIR', 'Product Hierarchy', 'Hierarchy'])
+        pack_size_col = find_matching_col(['PACK_SIZE', 'Pack Size', 'Pack'])
+        special_price_col = find_matching_col(['SPECIAL_PRICE', 'Special Price', 'Price'])
+        end_cust_col = find_matching_col(['CUSTOMER', 'Customer', 'Customer Code'])
+        from_date_col = find_matching_col(['DATE_FROM', 'From Date', 'From'])
+        to_date_col = find_matching_col(['DATE_TO', 'To Date', 'To'])
+
+        cols_list = list(df.columns)
+        if not material_code_col and not material_desc_col:
+            if len(cols_list) >= 1: material_code_col = cols_list[0]
+            if len(cols_list) >= 2: material_desc_col = cols_list[1]
+
+        def clean_val(v):
+            if pd.isna(v) or v is None: return ''
+            s = str(v).strip()
+            return s[:-2] if s.endswith('.0') else s
+
+        def clean_float(v):
+            if pd.isna(v) or v is None: return None
+            try:
+                clean_s = str(v).strip().replace(' ', '').replace(',', '.')
+                return float(clean_s)
+            except: return None
+
+        def clean_date(v):
+            if pd.isna(v) or v is None: return None
+            try:
+                return pd.to_datetime(str(v).strip(), dayfirst=True).date()
+            except: return None
+
+        records = df.to_dict('records')
         success_count = 0
-        for index, row in df.iterrows():
-            if pd.notna(row.get('Material Code')) and pd.notna(row.get('Material Name')):
-                material_code = str(row['Material Code']).replace('.0', '')
-                ProductMaster.objects.update_or_create(
-                    material_code=material_code,
-                    defaults={'material_name': str(row['Material Name'])}
-                )
-                success_count += 1
-        return Response({'message': f'Successfully uploaded {success_count} products.'}, status=status.HTTP_200_OK)
+        for index, row in enumerate(records):
+            code = clean_val(row.get(material_code_col)) if material_code_col else ''
+            desc = clean_val(row.get(material_desc_col)) if material_desc_col else ''
+            if not code and not desc: continue
+            if not code: code = f"MAT-{index+1:05d}"
+            
+            data = {
+                'material_name': desc or code,
+                'mat_div': clean_val(row.get(mat_div_col)) if mat_div_col else '',
+                'prod_hierracy_code': clean_val(row.get(prod_hier_col)) if prod_hier_col else '',
+                'pack_size': clean_val(row.get(pack_size_col)) if pack_size_col else '',
+                'special_price': clean_float(row.get(special_price_col)) if special_price_col else None,
+                'end_customer_code': clean_val(row.get(end_cust_col)) if end_cust_col else '',
+                'from_date': clean_date(row.get(from_date_col)) if from_date_col else None,
+                'to_date': clean_date(row.get(to_date_col)) if to_date_col else None,
+            }
+            ProductMaster.objects.update_or_create(material_code=code, defaults=data)
+            success_count += 1
+
+        return Response({'message': f'Successfully ingested {success_count} Product Master records.'}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
