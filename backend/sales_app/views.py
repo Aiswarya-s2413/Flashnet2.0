@@ -836,7 +836,7 @@ def upload_primary_sales(request):
         
         for i, r in raw_df.head(20).iterrows():
             row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-            if any(k in v for v in row_vals for k in ['billing no', 'tax invoice', 'assessable', 'ppc', 'ship to party', 'inv qty', 'billing doc']):
+            if any(k in v for v in row_vals for k in ['billing', 'invoice', 'tax', 'assessable', 'ppc', 'ship', 'party', 'qty', 'quantity', 'material', 'item', 'code', 'desc', 'description', 'amount', 'value', 'price', 'rate', 'sold']):
                 header_row_idx = i
                 break
                 
@@ -873,23 +873,23 @@ def upload_primary_sales(request):
                         return original_col
             return None
 
-        # Pre-locate all target columns
-        billing_no_col = find_matching_col(['Billing No', 'Invoice No', 'Billing Document'])
+        # Pre-locate all target columns with broad aliases
+        billing_no_col = find_matching_col(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher', 'No'])
         tax_inv_col = find_matching_col(['Tax Invoice No', 'Tax Invoice'])
         so_col = find_matching_col(['Sales Order', 'SO No'])
         so_date_col = find_matching_col(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
         division_col = find_matching_col('Division')
-        sold_to_col = find_matching_col(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party'])
-        sold_to_addr_col = find_matching_col(['Sold to party Address', 'Sold-to Party Address'])
+        sold_to_col = find_matching_col(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
+        sold_to_addr_col = find_matching_col(['Sold to party Address', 'Sold-to Party Address', 'Address'])
         ship_to_col = find_matching_col(['Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
-        ship_to_name_col = find_matching_col(['Ship to Party Name', 'Ship-to Party Name'])
-        material_code_col = find_matching_col(['Material Code', 'PPC', 'Material'])
-        material_desc_col = find_matching_col(['Material Desc', 'Material Text', 'Description'])
+        ship_to_name_col = find_matching_col(['Ship to Party Name', 'Ship-to Party Name', 'Ship Name'])
+        material_code_col = find_matching_col(['Material Code', 'PPC', 'Material', 'Item Code', 'ItemNo', 'Item Code', 'Item', 'Code', 'Part No', 'Product Code'])
+        material_desc_col = find_matching_col(['Material Desc', 'Material Text', 'Description', 'Item Name', 'Item Description', 'Name', 'Product Name'])
         billing_date_col = find_matching_col(['Billing Date', 'Billing date', 'Bill Date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
         plant_col = find_matching_col('Plant')
-        rate_col = find_matching_col(['Rate Per Unit', 'Rate'])
-        qty_col = find_matching_col(['Billed Quantity', 'Inv Qty Kgs', 'Quantity'])
-        val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Inv Value INR', 'Value'])
+        rate_col = find_matching_col(['Rate Per Unit', 'Rate', 'Price', 'Unit Price'])
+        qty_col = find_matching_col(['Billed Quantity', 'Inv Qty Kgs', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
+        val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
 
         records = df.to_dict('records')
@@ -925,9 +925,13 @@ def upload_primary_sales(request):
 
             billing_no = extract_str(billing_no_col)
             material_code = extract_str(material_code_col)
+            material_desc = extract_str(material_desc_col)
             
-            if not billing_no and not material_code:
+            if not billing_no and not material_code and not material_desc:
                 continue
+                
+            if not billing_no:
+                billing_no = f"INV-{index+1:05d}"
                 
             if material_code and material_code not in valid_codes:
                 errors.append(f"Row {line_no}: Material Code '{material_code}' not recognized in Product Master.")
