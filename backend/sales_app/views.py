@@ -819,10 +819,16 @@ def upload_primary_sales(request):
             raw_df = pd.read_excel(file, header=None)
         elif filename.endswith('.csv'):
             try:
-                raw_df = pd.read_csv(file, header=None, encoding='utf-8')
+                raw_df = pd.read_csv(file, header=None, encoding='utf-8', on_bad_lines='skip', engine='python')
             except Exception:
                 file.seek(0)
-                raw_df = pd.read_csv(file, header=None, encoding='latin-1')
+                try:
+                    raw_df = pd.read_csv(file, header=None, encoding='latin-1', on_bad_lines='skip', engine='python')
+                except Exception:
+                    file.seek(0)
+                    lines = [line.decode('utf-8', errors='ignore') for line in file.readlines()]
+                    import io
+                    raw_df = pd.read_csv(io.StringIO(''.join(lines)), header=None, on_bad_lines='skip', engine='python')
         else:
             return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
             
