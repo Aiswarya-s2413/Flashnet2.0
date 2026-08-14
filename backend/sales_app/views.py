@@ -933,9 +933,21 @@ def upload_primary_sales(request):
             if not billing_no:
                 billing_no = f"INV-{index+1:05d}"
                 
+            if not material_code and material_desc:
+                material_code = re.sub(r'[^A-Za-z0-9]', '', material_desc)[:20].upper()
+
+            if not material_code:
+                material_code = f"MAT-{index+1:05d}"
+
             if material_code and material_code not in valid_codes:
-                errors.append(f"Row {line_no}: Material Code '{material_code}' not recognized in Product Master.")
-                continue
+                try:
+                    ProductMaster.objects.get_or_create(
+                        material_code=material_code,
+                        defaults={'material_name': material_desc or material_code}
+                    )
+                except Exception:
+                    pass
+                valid_codes.add(material_code)
 
             billing_date = extract_date(billing_date_col)
             so_date = extract_date(so_date_col)
