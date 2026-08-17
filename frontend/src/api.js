@@ -14,4 +14,19 @@ API.interceptors.request.use((config) => {
   return Promise.reject(error)
 })
 
+API.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('jwt_token')
+      if (error.config && !error.config._retry) {
+        error.config._retry = true
+        delete error.config.headers.Authorization
+        return API(error.config)
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
 export default API
