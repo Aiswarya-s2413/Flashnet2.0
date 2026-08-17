@@ -13,6 +13,12 @@ class ProductMaster(models.Model):
     end_customer_code = models.CharField(max_length=100, blank=True, default='')
     from_date = models.DateField(blank=True, null=True)
     to_date = models.DateField(blank=True, null=True)
+    
+    ORGANISATION_CHOICES = [
+        ('inx1', 'inx1'),
+        ('inx2', 'inx2'),
+    ]
+    organisation = models.CharField(max_length=10, choices=ORGANISATION_CHOICES, blank=True, null=True)
 
     def __str__(self):
         return f"{self.material_code} - {self.material_name}"

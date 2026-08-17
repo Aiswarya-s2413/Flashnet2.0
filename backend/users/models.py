@@ -36,6 +36,12 @@ class DistributorUser(AbstractBaseUser):
     region_code = models.CharField(max_length=50, blank=True, default='')
     trade_code = models.CharField(max_length=100, blank=True, default='')
     trade_code2 = models.CharField(max_length=100, blank=True, default='')
+    
+    ORGANISATION_CHOICES = [
+        ('inx1', 'inx1'),
+        ('inx2', 'inx2'),
+    ]
+    organisation = models.CharField(max_length=10, choices=ORGANISATION_CHOICES, blank=True, null=True)
 
     objects = DistributorUserManager()
 
