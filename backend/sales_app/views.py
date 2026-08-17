@@ -1208,62 +1208,81 @@ def primary_vs_secondary_analytics(request):
                     return get_canonical_name(clean_m_name)
             return get_canonical_name(prod_clean)
 
-        # Primary Sales Months
-        ps_months = primary_sales_qs.annotate(month=TruncMonth('billing_date')).values('month').annotate(total=Sum('assessable_value'))
-        for pm in ps_months:
-            if pm['month']:
-                month_str = pm['month'].strftime('%Y-%m')
-                trend_map[month_str]['ps'] += pm['total'] or 0.0
+        # Dynamic distributor group normalization
+        def get_group_name(raw_name):
+            if not raw_name: return ''
+            n = str(raw_name).upper()
+            if 'VIKRAM' in n: return 'VIKRAM TRADING'
+            if 'MIKHAIL' in n: return 'MIKHAIL ENTERPRISES'
+            return n.strip()
 
-        # Track products from Primary Sales
+        # Track distributor-level monthly breakdown for Primary & Secondary Sales
+        ps_dist_months = defaultdict(lambda: defaultdict(float))
+        ss_dist_months = defaultdict(lambda: defaultdict(float))
+        all_ps_months = set()
+        all_ss_months = set()
+
         for ps in primary_sales_qs:
             if ps.billing_date:
-                month_str = ps.billing_date.strftime('%Y-%m')
-                prod_name = get_clean_ps_product(ps) or 'Unknown Product'
+                m_str = ps.billing_date.strftime('%Y-%m')
+                grp = get_group_name(ps.ship_to_party_name or ps.sold_to_party_address)
                 val = ps.assessable_value or 0.0
-                qty = ps.billed_quantity or 0.0
-                month_products_map[month_str][prod_name]['ps'] += val
-                month_products_map[month_str][prod_name]['ps_qty'] += qty
+                ps_dist_months[m_str][grp] += val
+                all_ps_months.add(m_str)
+                trend_map[m_str]['ps'] += val
 
-        # Secondary Sales Months (Financial Value mapping)
+                prod_name = get_clean_ps_product(ps) or 'Unknown Product'
+                qty = ps.billed_quantity or 0.0
+                month_products_map[m_str][prod_name]['ps'] += val
+                month_products_map[m_str][prod_name]['ps_qty'] += qty
+
         for ms in monthly_sales_qs:
+            grp = get_group_name(ms.distributor_name)
             prod_name = get_clean_ms_product(ms) or 'Unknown Product'
-            for month_str, val in ms.values.items():
+            for m_str, val in ms.values.items():
                 try:
                     val_float = float(val)
-                    trend_map[month_str]['ss'] += val_float
-                    month_products_map[month_str][prod_name]['ss'] += val_float
-                except:
-                    pass
-            for month_str, vol in ms.volumes.items():
+                    if val_float > 0:
+                        ss_dist_months[m_str][grp] += val_float
+                        all_ss_months.add(m_str)
+                        trend_map[m_str]['ss'] += val_float
+                        month_products_map[m_str][prod_name]['ss'] += val_float
+                except: pass
+            for m_str, vol in ms.volumes.items():
                 try:
                     vol_float = float(vol)
-                    month_products_map[month_str][prod_name]['ss_qty'] += vol_float
-                except:
-                    pass
+                    if vol_float > 0:
+                        month_products_map[m_str][prod_name]['ss_qty'] += vol_float
+                except: pass
 
-        # 2. KPI EXTRACTION (Totals summed only for months where both primary and secondary sales exist)
+        # 2. KPI EXTRACTION (Strictly common distributors in common months)
+        common_months = sorted(list(all_ps_months.intersection(all_ss_months)))
+        
         total_ps = 0.0
         total_ss = 0.0
-        for k, v in trend_map.items():
-            if v['ps'] > 0 and v['ss'] > 0:
-                total_ps += v['ps']
-                total_ss += v['ss']
-
-        # Global KPI Efficiency Calculation matching the displayed KPI cards
-        channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
-
-        # Build Trend Array intelligently
         trend_array = []
-        for k, v in trend_map.items():
-            if v['ps'] > 0 and v['ss'] > 0:
-                eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
+
+        for m in common_months:
+            m_ps = 0.0
+            m_ss = 0.0
+            # Match common distributors for this month
+            for grp in ss_dist_months[m]:
+                if grp in ps_dist_months[m]:
+                    m_ps += ps_dist_months[m][grp]
+                    m_ss += ss_dist_months[m][grp]
+            if m_ps > 0 and m_ss > 0:
+                total_ps += m_ps
+                total_ss += m_ss
+                eff = (m_ss / m_ps * 100) if m_ps > 0 else 0
                 trend_array.append({
-                    'month': k,
-                    'Primary Sales': round(v['ps'], 2),
-                    'Secondary Sales': round(v['ss'], 2),
+                    'month': m,
+                    'Primary Sales': round(m_ps, 2),
+                    'Secondary Sales': round(m_ss, 2),
                     'Efficiency %': round(eff, 2)
                 })
+
+        # Global KPI Efficiency Calculation for Common Distributors & Common Months
+        channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
         
         def parse_my(my_str):
             try:
