@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://virtually-neighborhood-markets-absolute.trycloudflare.com/api',
+  baseURL: 'https://virtually-neighborhood-markets-absolute.trycloudflare.com/api',
 })
 
 API.interceptors.request.use((config) => {
