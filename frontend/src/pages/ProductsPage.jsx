@@ -11,11 +11,13 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     setLoading(true)
+    setAlert(null)
     try {
       const res = await API.get('/products/')
-      setProducts(res.data)
+      const data = Array.isArray(res.data) ? res.data : (res.data?.results || [])
+      setProducts(data)
     } catch (e) {
-      setAlert({ type: 'error', title: 'Failed to load products', messages: [e.message] })
+      setAlert({ type: 'error', title: 'Failed to load products', messages: [e.response?.data?.detail || e.message || 'Network Error'] })
     } finally {
       setLoading(false)
     }
