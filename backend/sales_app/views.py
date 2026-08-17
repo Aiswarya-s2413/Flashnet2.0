@@ -1216,6 +1216,13 @@ def primary_vs_secondary_analytics(request):
             if 'MIKHAIL' in n: return 'MIKHAIL ENTERPRISES'
             return n.strip()
 
+        # Track distributor-level monthly breakdown for Primary & Secondary Sales
+        ps_dist_months = defaultdict(lambda: defaultdict(float))
+        ss_dist_months = defaultdict(lambda: defaultdict(float))
+        all_ps_months = set()
+        all_ss_months = set()
+        prod_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
+
         # Optimize PrimarySales querying with .values() for 50x speedup
         ps_values = primary_sales_qs.values(
             'billing_date', 'ship_to_party_name', 'sold_to_party_address', 
