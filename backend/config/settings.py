@@ -182,3 +182,17 @@ EMAIL_USE_TLS = True
 # File upload size limit (100MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600
+
+# Proxy & SSL Headers Configuration for Cloudflare Tunnel / Reverse Proxies
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.trycloudflare.com',
+    'https://*.vercel.app',
+    'https://flashnet-snowy.vercel.app',
+]
