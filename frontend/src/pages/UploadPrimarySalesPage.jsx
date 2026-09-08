@@ -140,8 +140,10 @@ export default function UploadPrimarySalesPage() {
           <thead style={{ backgroundColor: 'var(--surface)' }}>
             <tr>
               <SortHeader label="Billing No" sortKey="billing_no" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Item" sortKey="billing_item" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Tax Invoice No" sortKey="tax_invoice_no" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Sales Order" sortKey="sales_order" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="SO Item" sortKey="sales_order_item" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="SO Date" sortKey="so_creation_date" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Division" sortKey="division" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Sold To" sortKey="sold_to_party" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
@@ -154,15 +156,18 @@ export default function UploadPrimarySalesPage() {
               <SortHeader label="Plant" sortKey="plant" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Rate" sortKey="rate_per_unit" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Billed Qty" sortKey="billed_quantity" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Unit" sortKey="sales_unit" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Assessable Value" sortKey="assessable_value" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Country" sortKey="country" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Region" sortKey="region_dlv_plant" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
             </tr>
           </thead>
           <tbody>
             {fetching ? (
-              <tr><td colSpan={16} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Primary Sales…</td></tr>
+              <tr><td colSpan={21} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Primary Sales…</td></tr>
             ) : sales.length === 0 ? (
               <tr>
-                <td colSpan={16} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
+                <td colSpan={21} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
                   <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
                   <div>Data mapping aligns strictly downward matching these exact column properties natively.</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>Material Names are strictly cross-referenced securely against the absolute Product Master natively.</div>
@@ -172,21 +177,26 @@ export default function UploadPrimarySalesPage() {
               sorted.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE).map((s, i) => (
                 <tr key={s.id || i} onClick={() => setSelectedRow(s)} style={{ cursor: 'pointer' }}>
                   <td><span className="badge badge-accent">{s.billing_no}</span></td>
-                  <td>{s.tax_invoice_no}</td>
-                  <td>{s.sales_order}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{s.so_creation_date}</td>
-                  <td>{s.division}</td>
-                  <td>{s.sold_to_party}</td>
-                  <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.sold_to_party_address}>{s.sold_to_party_address}</td>
-                  <td>{s.ship_to_party}</td>
-                  <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.ship_to_party_name}>{s.ship_to_party_name}</td>
+                  <td>{s.billing_item || '-'}</td>
+                  <td>{s.tax_invoice_no || '-'}</td>
+                  <td>{s.sales_order || '-'}</td>
+                  <td>{s.sales_order_item || '-'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{s.so_creation_date || '-'}</td>
+                  <td>{s.division || '-'}</td>
+                  <td>{s.sold_to_party || '-'}</td>
+                  <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.sold_to_party_address}>{s.sold_to_party_address || '-'}</td>
+                  <td>{s.ship_to_party || '-'}</td>
+                  <td style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.ship_to_party_name}>{s.ship_to_party_name || '-'}</td>
                   <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{s.material_code}</td>
                   <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.material_desc}>{s.material_desc}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{s.billing_date}</td>
-                  <td>{s.plant}</td>
-                  <td>{s.rate_per_unit}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{s.billing_date || '-'}</td>
+                  <td>{s.plant || '-'}</td>
+                  <td>{s.rate_per_unit || '-'}</td>
                   <td>{s.billed_quantity}</td>
+                  <td><span className="badge" style={{ fontSize: 11 }}>{s.sales_unit || 'KG'}</span></td>
                   <td><span className="badge badge-green" style={{ whiteSpace: 'nowrap' }}>{Math.round(s.assessable_value || 0).toLocaleString('en-IN')}</span></td>
+                  <td>{s.country || '-'}</td>
+                  <td>{s.region_dlv_plant || '-'}</td>
                 </tr>
               ))
             )}

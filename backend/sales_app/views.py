@@ -12,6 +12,13 @@ def clean_prod_name(s):
     # Replace all whitespace characters (including \xa0) with a standard space
     return re.sub(r'[\s\xa0]+', ' ', str(s)).strip().upper()
 
+def invalidate_dashboard_cache():
+    try:
+        from django.core.cache import cache
+        cache.clear()
+    except Exception:
+        pass
+
 def is_distributor(user):
     if not user or not user.is_authenticated:
         return False
@@ -636,9 +643,13 @@ def upload_stock(request):
             line_no = index + 2 
             
             def get_val(key_options):
+                # Normalized mapping of df columns
+                norm_cols = {str(c).strip().lower(): c for c in df.columns}
                 for k in key_options:
-                    if k in df.columns:
-                        val = row.get(k)
+                    norm_k = str(k).strip().lower()
+                    if norm_k in norm_cols:
+                        actual_col = norm_cols[norm_k]
+                        val = row.get(actual_col)
                         if pd.isna(val) or str(val).strip() == 'nan' or val is None:
                             return ''
                         string_val = str(val).strip()
@@ -856,20 +867,21 @@ def upload_monthly_sales(request):
                             pass
                         volumes[month_key] = num_val
             
-            total_vol_raw = get_val('Total Volume (kg)')
-            total_val_raw = get_val('Total Value (INR)')
-            
-            try:
-                total_vol = float(total_vol_raw.replace(',', '')) if total_vol_raw else 0.0
-                total_val = float(total_val_raw.replace(',', '')) if total_val_raw else 0.0
-            except ValueError:
-                total_vol = 0.0
-                total_val = 0.0
-            
+            total_val = 0.0
+            for m_name, c_name in val_cols.items():
+                v = row[c_name]
+                try:
+                    if pd.notna(v):
+                        f_v = float(str(v).replace(',', ''))
+                        values[m_name] = f_v
+                        total_val += f_v
+                except:
+                    pass
+                    
             valid_records.append(MonthlySales(
-                distributor_name=get_val('Distributor Name'),
-                ship_to_code=get_val('Ship To Code'),
-                customer_name=customer_name,
+                distributor_name=get_val(['Distributor Name', 'distributor_name']),
+                ship_to_code=get_val(['Ship to Code', 'Ship To', 'ship_to_code']),
+                customer_name=get_val(['Customer Name', 'customer_name']),
                 customer_classification=get_val('Customer Classification (A+,A,B,C,D)'),
                 product_code=product_code,
                 product_name=product_name,
@@ -885,6 +897,7 @@ def upload_monthly_sales(request):
             return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
         MonthlySales.objects.bulk_create(valid_records)
+        invalidate_dashboard_cache()
         msg = f'Successfully ingested {len(valid_records)} robust Monthly Sales records.'
         if errors and ignore_errors:
             msg += f' (Ignored {len(errors)} structurally conflicting rows).'
@@ -930,15 +943,6 @@ def upload_primary_sales(request):
             return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
             
         header_row_idx = 0
-        
-        for i, r in raw_df.head(20).iterrows():
-            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-            if any(k in v for v in row_vals for k in ['billing', 'invoice', 'tax', 'assessable', 'ppc', 'ship', 'party', 'qty', 'quantity', 'material', 'item', 'code', 'desc', 'description', 'amount', 'value', 'price', 'rate', 'sold']):
-                header_row_idx = i
-                break
-                
-        raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
-        headers = []
         seen = set()
         for h in raw_headers:
             new_h = h
@@ -972,21 +976,26 @@ def upload_primary_sales(request):
 
         # Pre-locate all target columns with broad aliases
         billing_no_col = find_matching_col(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
+        billing_item_col = find_matching_col(['Item', 'Billing Item', 'Billing item', 'billing_item'])
         tax_inv_col = find_matching_col(['Tax Invoice No', 'Tax Invoice'])
-        so_col = find_matching_col(['Sales Order', 'SO No'])
+        so_col = find_matching_col(['Sales Order', 'Sales Document', 'SO No'])
+        sales_order_item_col = find_matching_col(['Sales Document Item', 'Sales Doc Item', 'Sales doc item', 'Sales Document item', 'SO Item', 'sales_order_item'])
         so_date_col = find_matching_col(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
         division_col = find_matching_col('Division')
         sold_to_col = find_matching_col(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
         sold_to_addr_col = find_matching_col(['Sold to party Address', 'Sold-to Party Address', 'Address'])
         ship_to_col = find_matching_col(['Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
         ship_to_name_col = find_matching_col(['Ship to Party Name', 'Ship-to Party Name', 'Ship Name'])
-        material_code_col = find_matching_col(['Material Code', 'PPC', 'Material', 'Item Code', 'ItemNo', 'Item Code', 'Item', 'Code', 'Part No', 'Product Code'])
-        material_desc_col = find_matching_col(['Material Desc', 'Material Text', 'Description', 'Item Name', 'Item Description', 'Name', 'Product Name'])
+        material_code_col = find_matching_col(['Material Code', 'Material', 'PPC', 'Item Code', 'ItemNo', 'Item', 'Code', 'Part No', 'Product Code'])
+        material_desc_col = find_matching_col(['Material Desc', 'Description', 'Material Text', 'Item Name', 'Item Description', 'Name', 'Product Name'])
         billing_date_col = find_matching_col(['Billing Date', 'Billing date', 'Bill Date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
         plant_col = find_matching_col('Plant')
         rate_col = find_matching_col(['Rate Per Unit', 'Rate', 'Price', 'Unit Price'])
-        qty_col = find_matching_col(['Billed Quantity', 'Inv Qty Kgs', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
-        val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
+        qty_col = find_matching_col(['Billed Quantity', 'Invoiced Quantity', 'Inv Qty Kgs', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
+        sales_unit_col = find_matching_col(['Sales Unit', 'Sales unit', 'Sales qty unit', 'Unit', 'sales_unit'])
+        val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Net Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
+        country_col = find_matching_col(['Country', 'country', 'Cntry'])
+        region_dlv_plant_col = find_matching_col(['Region of dlv.plant', 'Region of dlv plant', 'Region of dlv. plant', 'Region of dlv', 'Region', 'region_dlv_plant'])
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
 
         cols_list = list(df.columns)
@@ -1064,8 +1073,10 @@ def upload_primary_sales(request):
 
             valid_records.append(PrimarySales(
                 billing_no=billing_no,
+                billing_item=extract_str(billing_item_col),
                 tax_invoice_no=extract_str(tax_inv_col),
                 sales_order=extract_str(so_col),
+                sales_order_item=extract_str(sales_order_item_col),
                 so_creation_date=so_date,
                 division=extract_str(division_col),
                 sold_to_party=extract_str(sold_to_col),
@@ -1078,7 +1089,10 @@ def upload_primary_sales(request):
                 plant=extract_str(plant_col),
                 rate_per_unit=extract_float(rate_col),
                 billed_quantity=extract_float(qty_col),
-                assessable_value=extract_float(val_col)
+                sales_unit=extract_str(sales_unit_col),
+                assessable_value=extract_float(val_col),
+                country=extract_str(country_col),
+                region_dlv_plant=extract_str(region_dlv_plant_col)
             ))
             
         if errors and not ignore_errors:
@@ -1097,14 +1111,22 @@ def upload_primary_sales(request):
 @api_view(['GET'])
 def dashboard_metrics(request):
     try:
-        from django.db.models import Sum
-        from django.db.models.functions import TruncMonth
+        from django.db.models import Sum, Q
+        from collections import defaultdict
+        from django.core.cache import cache
 
         user = request.user
-        if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
-            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=code) | Q(distributor_name=code))
-            stock_level_qs = StockLevel.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        dist_code = getattr(user, 'distributor_code', '') if user else ''
+        is_dist = is_distributor(user)
+
+        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else 'all'}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
+        if is_dist:
+            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=dist_code) | Q(distributor_name=dist_code))
+            stock_level_qs = StockLevel.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
         else:
             monthly_sales_qs = MonthlySales.objects.all()
             stock_level_qs = StockLevel.objects.all()
@@ -1121,8 +1143,7 @@ def dashboard_metrics(request):
                             .order_by('-volume')[:5]
         top_customers = [{'name': item['customer_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
 
-        # Monthly Progression extracted dynamically from genuine invoice dates
-        from collections import defaultdict
+        # Monthly Progression extracted dynamically
         monthly_vols = defaultdict(float)
         for ms in monthly_sales_qs:
             for m_str, vol in ms.volumes.items():
@@ -1140,64 +1161,79 @@ def dashboard_metrics(request):
                     .order_by('-stock')[:5]
         stock_levels = [{'name': item['product_desc'] or 'Unknown', 'stock': item['stock'] or 0} for item in stock_qs]
 
-        return Response({
+        response_data = {
             'top_products': top_products,
             'top_customers': top_customers,
             'monthly_progression': monthly_progression,
             'stock_levels': stock_levels
-        })
+        }
+
+        cache.set(cache_key, response_data, 3600)
+        return Response(response_data, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def primary_vs_secondary_analytics(request):
     try:
-        from django.db.models import Sum
-        from django.db.models.functions import TruncMonth
+        from django.db.models import Sum, Q
         from collections import defaultdict
+        from django.core.cache import cache
         import datetime
 
         user = request.user
-        if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
-            primary_sales_qs = PrimarySales.objects.filter(Q(sold_to_party=code) | Q(ship_to_party=code))
-            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=code) | Q(distributor_name=code))
+        dist_code = getattr(user, 'distributor_code', '') if user else ''
+        is_dist = is_distributor(user)
+
+        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else 'all'}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
+        if is_dist:
+            primary_sales_qs = PrimarySales.objects.filter(Q(sold_to_party=dist_code) | Q(ship_to_party=dist_code))
+            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=dist_code) | Q(distributor_name=dist_code))
         else:
             primary_sales_qs = PrimarySales.objects.all()
             monthly_sales_qs = MonthlySales.objects.all()
 
-        # 1. MONTHLY TRENDS MATCHING (Compute first to filter KPI totals)
-        trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
-        month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0, 'ps_qty': 0.0, 'ss_qty': 0.0}))
-        
         # Build product code to clean name map
         code_to_name = {p.material_code: clean_prod_name(p.material_name) for p in ProductMaster.objects.all() if p.material_code}
         name_to_clean_name = {clean_prod_name(p.material_name): clean_prod_name(p.material_name) for p in ProductMaster.objects.all()}
 
+        # Canonical name cache to prevent running regex 120,000 times
+        canonical_cache = {}
         def get_canonical_name(name):
             if not name:
                 return ""
-            name = str(name).strip().upper()
-            name = re.sub(r'[\s\xa0]+', ' ', name)
-            name = re.sub(r'\b\d{4,}\b$', '', name).strip()
-            name = re.sub(r'\b\d+\s*(KG|KGS)\b', '', name, flags=re.IGNORECASE)
-            name = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', name, flags=re.IGNORECASE)
-            name = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b', '', name, flags=re.IGNORECASE)
-            name = name.replace('-', ' ').replace('.', ' ')
-            name = re.sub(r'[^A-Z0-9\s%]', '', name)
-            name = re.sub(r'\s+', ' ', name).strip()
-            return name
+            if name in canonical_cache:
+                return canonical_cache[name]
+            n = str(name).strip().upper()
+            n = re.sub(r'[\s\xa0]+', ' ', n)
+            n = re.sub(r'\b\d{4,}\b$', '', n).strip()
+            n = re.sub(r'\b\d+\s*(KG|KGS)\b', '', n, flags=re.IGNORECASE)
+            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', n, flags=re.IGNORECASE)
+            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b', '', n, flags=re.IGNORECASE)
+            n = n.replace('-', ' ').replace('.', ' ')
+            n = re.sub(r'[^A-Z0-9\s%]', '', n)
+            res = re.sub(r'\s+', ' ', n).strip()
+            canonical_cache[name] = res
+            return res
 
-        def get_clean_ps_product(ps):
-            if ps.material_code and ps.material_code in code_to_name:
-                return get_canonical_name(code_to_name[ps.material_code])
-            desc_clean = clean_prod_name(ps.material_desc)
-            if desc_clean in name_to_clean_name:
-                return get_canonical_name(name_to_clean_name[desc_clean])
-            for clean_m_name in name_to_clean_name:
-                if desc_clean.startswith(clean_m_name) or clean_m_name in desc_clean:
-                    return get_canonical_name(clean_m_name)
-            return get_canonical_name(desc_clean)
+        # Dynamic distributor group normalization cache
+        group_cache = {}
+        def get_group_name(raw_name):
+            if not raw_name: return ''
+            if raw_name in group_cache:
+                return group_cache[raw_name]
+            n = str(raw_name).upper()
+            if 'VIKRAM' in n: res = 'VIKRAM TRADING'
+            elif 'MIKHAIL' in n: res = 'MIKHAIL ENTERPRISES'
+            elif 'JAKHARIA' in n: res = 'JAKHARIA INDUSTRIES'
+            else:
+                res = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
+            group_cache[raw_name] = res
+            return res
 
         def get_clean_ms_product(ms):
             prod_clean = clean_prod_name(ms.product_name)
@@ -1208,58 +1244,80 @@ def primary_vs_secondary_analytics(request):
                     return get_canonical_name(clean_m_name)
             return get_canonical_name(prod_clean)
 
-        # Dynamic distributor group normalization
-        def get_group_name(raw_name):
-            if not raw_name: return ''
-            n = str(raw_name).upper()
-            if 'VIKRAM' in n: return 'VIKRAM TRADING'
-            if 'MIKHAIL' in n: return 'MIKHAIL ENTERPRISES'
-            return n.strip()
-
-        # Track distributor-level monthly breakdown for Primary & Secondary Sales
+        trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
+        month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0, 'ps_qty': 0.0, 'ss_qty': 0.0}))
         ps_dist_months = defaultdict(lambda: defaultdict(float))
         ss_dist_months = defaultdict(lambda: defaultdict(float))
         all_ps_months = set()
         all_ss_months = set()
         prod_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
 
-        # Optimize PrimarySales querying with .values() for 50x speedup
+        dist_map = defaultdict(lambda: {
+            'ps': 0.0, 
+            'ss': 0.0, 
+            'zone': 'All', 
+            'sold_to': set(), 
+            'ship_to': set(),
+            'products': defaultdict(lambda: {'ps_val': 0.0, 'ss_val': 0.0})
+        })
+
+        # Single optimized pass over PrimarySales using .values()
         ps_values = primary_sales_qs.values(
             'billing_date', 'ship_to_party_name', 'sold_to_party_address', 
-            'assessable_value', 'billed_quantity', 'material_code', 'material_desc'
+            'assessable_value', 'billed_quantity', 'material_code', 'material_desc',
+            'division', 'sold_to_party', 'ship_to_party'
         )
 
         for ps in ps_values:
+            val = ps['assessable_value'] or 0.0
             b_date = ps['billing_date']
+            ship_name = ps['ship_to_party_name']
+            sold_addr = ps['sold_to_party_address']
+            sold_party = ps['sold_to_party']
+            ship_party = ps['ship_to_party']
+            division = ps['division']
+            mat_code = ps['material_code']
+            mat_desc = ps['material_desc']
+
+            # Product name resolution
+            if mat_code and mat_code in code_to_name:
+                prod_name = get_canonical_name(code_to_name[mat_code])
+            elif mat_desc:
+                desc_clean = clean_prod_name(mat_desc)
+                if desc_clean in name_to_clean_name:
+                    prod_name = get_canonical_name(name_to_clean_name[desc_clean])
+                else:
+                    prod_name = get_canonical_name(desc_clean)
+            else:
+                prod_name = 'Unknown Product'
+
+            # Monthly aggregation
             if b_date:
                 m_str = b_date.strftime('%Y-%m')
-                grp = get_group_name(ps['ship_to_party_name'] or ps['sold_to_party_address'])
-                val = ps['assessable_value'] or 0.0
+                grp = get_group_name(ship_name or sold_addr)
                 ps_dist_months[m_str][grp] += val
                 all_ps_months.add(m_str)
                 trend_map[m_str]['ps'] += val
-
-                # Helper to clean product name from dict
-                mat_code = ps['material_code']
-                mat_desc = ps['material_desc']
-                if mat_code and mat_code in code_to_name:
-                    prod_name = get_canonical_name(code_to_name[mat_code])
-                elif mat_desc:
-                    desc_clean = clean_prod_name(mat_desc)
-                    if desc_clean in name_to_clean_name:
-                        prod_name = get_canonical_name(name_to_clean_name[desc_clean])
-                    else:
-                        prod_name = get_canonical_name(desc_clean)
-                else:
-                    prod_name = 'Unknown Product'
 
                 qty = ps['billed_quantity'] or 0.0
                 month_products_map[m_str][prod_name]['ps'] += val
                 month_products_map[m_str][prod_name]['ps_qty'] += qty
 
-                # Product group aggregation
-                group = prod_name.split(' ')[0] if prod_name != 'Unknown Product' else 'Unknown Product'
-                prod_map[group]['ps'] += val
+            # Product group
+            group = prod_name.split(' ')[0] if prod_name != 'Unknown Product' else 'Unknown Product'
+            prod_map[group]['ps'] += val
+
+            # Distributor mapping (calculated in single pass)
+            sold = sold_addr or sold_party or ''
+            ship = ship_name or ship_party or ''
+            raw_name = ship if ship else sold
+            if raw_name:
+                d_grp = get_group_name(raw_name)
+                dist_map[d_grp]['ps'] += val
+                if division: dist_map[d_grp]['zone'] = division
+                if sold: dist_map[d_grp]['sold_to'].add(str(sold).strip().title())
+                if ship: dist_map[d_grp]['ship_to'].add(str(ship).strip().title())
+                dist_map[d_grp]['products'][prod_name]['ps_val'] += val
 
         for ms in monthly_sales_qs:
             grp = get_group_name(ms.distributor_name)
@@ -1283,6 +1341,15 @@ def primary_vs_secondary_analytics(request):
                         month_products_map[m_str][prod_name]['ss_qty'] += vol_float
                 except: pass
 
+            raw_name = str(ms.customer_name or ms.ship_to_code or ms.distributor_name).strip()
+            if raw_name and raw_name != 'None':
+                d_grp = get_group_name(raw_name)
+                val = ms.total_value or 0
+                dist_map[d_grp]['ss'] += val
+                if ms.customer_name: dist_map[d_grp]['sold_to'].add(str(ms.customer_name).title())
+                if ms.ship_to_code: dist_map[d_grp]['ship_to'].add(str(ms.ship_to_code).title())
+                dist_map[d_grp]['products'][prod_name]['ss_val'] += val
+
         # 2. KPI EXTRACTION (Strictly common distributors in common months)
         common_months = sorted(list(all_ps_months.intersection(all_ss_months)))
         
@@ -1293,7 +1360,6 @@ def primary_vs_secondary_analytics(request):
         for m in common_months:
             m_ps = 0.0
             m_ss = 0.0
-            # Match common distributors for this month
             for grp in ss_dist_months[m]:
                 if grp in ps_dist_months[m]:
                     m_ps += ps_dist_months[m][grp]
@@ -1309,7 +1375,6 @@ def primary_vs_secondary_analytics(request):
                     'Efficiency %': round(eff, 2)
                 })
 
-        # Global KPI Efficiency Calculation for Common Distributors & Common Months
         channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
         
         def parse_my(my_str):
@@ -1322,61 +1387,16 @@ def primary_vs_secondary_analytics(request):
         trend_array.sort(key=lambda x: parse_my(x['month']))
 
         # 3. DISTRIBUTOR COMPARISONS
-        dist_map = defaultdict(lambda: {
-            'ps': 0, 
-            'ss': 0, 
-            'zone': 'All', 
-            'sold_to': set(), 
-            'ship_to': set(),
-            'products': defaultdict(lambda: {'ps_val': 0.0, 'ss_val': 0.0})
-        })
-        
-        # Use global re import
-        def get_group_name(raw_name):
-            n = raw_name.upper()
-            if 'VIKRAM' in n: return 'VIKRAM TRADING'
-            if 'JAKHARIA' in n: return 'JAKHARIA INDUSTRIES'
-            n = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
-            return n
-
-        for ps in primary_sales_qs:
-            sold = ps.sold_to_party_address or ps.sold_to_party or ''
-            ship = ps.ship_to_party_name or ps.ship_to_party or ''
-            raw_name = ship if ship else sold
-            if raw_name:
-                group = get_group_name(raw_name)
-                val = ps.assessable_value or 0
-                dist_map[group]['ps'] += val
-                if ps.division: dist_map[group]['zone'] = ps.division
-                if sold: dist_map[group]['sold_to'].add(str(sold).strip().title())
-                if ship: dist_map[group]['ship_to'].add(str(ship).strip().title())
-                prod_name = get_clean_ps_product(ps) or 'Unknown Product'
-                dist_map[group]['products'][prod_name]['ps_val'] += val
-                
-        for ms in monthly_sales_qs:
-            raw_name = str(ms.customer_name or ms.ship_to_code or ms.distributor_name).strip()
-            if raw_name and raw_name != 'None':
-                group = get_group_name(raw_name)
-                val = ms.total_value or 0
-                dist_map[group]['ss'] += val
-                if ms.customer_name: dist_map[group]['sold_to'].add(str(ms.customer_name).title())
-                if ms.ship_to_code: dist_map[group]['ship_to'].add(str(ms.ship_to_code).title())
-                prod_name = get_clean_ms_product(ms) or 'Unknown Product'
-                dist_map[group]['products'][prod_name]['ss_val'] += val
-
         distributor_array = []
         for k, v in dist_map.items():
             if v['ps'] == 0 and v['ss'] == 0: continue
             eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
             
-            # Map products list
-            prod_list = []
-            for p_name, p_data in v['products'].items():
-                prod_list.append({
-                    'name': p_name,
-                    'primary_val': round(p_data['ps_val'], 2),
-                    'secondary_val': round(p_data['ss_val'], 2)
-                })
+            prod_list = [{
+                'name': p_name,
+                'primary_val': round(p_data['ps_val'], 2),
+                'secondary_val': round(p_data['ss_val'], 2)
+            } for p_name, p_data in v['products'].items()]
             prod_list.sort(key=lambda x: x['primary_val'] + x['secondary_val'], reverse=True)
             
             distributor_array.append({
@@ -1389,7 +1409,6 @@ def primary_vs_secondary_analytics(request):
                 'products': prod_list
             })
         
-        # Split into distributors (have primary sales) and customers (secondary only)
         dist_only = sorted([r for r in distributor_array if r['primary'] > 0], key=lambda x: x['primary'], reverse=True)
         cust_only = sorted([r for r in distributor_array if r['primary'] == 0], key=lambda x: x['secondary'], reverse=True)
 
@@ -1398,7 +1417,6 @@ def primary_vs_secondary_analytics(request):
                          for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
         product_array.sort(key=lambda x: x['Primary Sales'] + x['Secondary Sales'], reverse=True)
 
-        # Build All Months Comparison intelligently for the Variance Table mismatch details
         all_months_comparison = []
         raw_total_ps = 0.0
         raw_total_ss = 0.0
@@ -1409,7 +1427,6 @@ def primary_vs_secondary_analytics(request):
                 raw_total_ss += v['ss']
                 eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
                 
-                # Get products for this month
                 month_prods = []
                 for p_name, p_vals in month_products_map[k].items():
                     p_ps = p_vals['ps']
@@ -1445,7 +1462,7 @@ def primary_vs_secondary_analytics(request):
         all_months_comparison.sort(key=lambda x: parse_my(x['month']))
         raw_channel_efficiency = (raw_total_ss / raw_total_ps * 100) if raw_total_ps > 0 else 0
 
-        return Response({
+        response_data = {
             'kpis': {
                 'total_primary': round(total_ps, 2),
                 'total_secondary': round(total_ss, 2),
@@ -1461,7 +1478,11 @@ def primary_vs_secondary_analytics(request):
             'distributor_performance': dist_only[:20],
             'customer_performance': cust_only[:50],
             'product_group': product_array[:15]
-        }, status=status.HTTP_200_OK)
+        }
+
+        # Cache response in Redis for 1 hour
+        cache.set(cache_key, response_data, 3600)
+        return Response(response_data, status=status.HTTP_200_OK)
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
