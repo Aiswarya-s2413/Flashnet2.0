@@ -871,50 +871,62 @@ def upload_monthly_sales(request):
         
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
         
+        ignore_errors = (
+            str(request.data.get('ignore_errors', '')).lower() in ('true', '1') or
+            str(request.POST.get('ignore_errors', '')).lower() in ('true', '1')
+        )
+
         for index, row in df.iterrows():
             line_no = header_row_idx + index + 2 
             
-            def get_val(key_name):
-                # Try exact match first
-                if key_name in df.columns:
-                    val = row.get(key_name)
-                    # Handle if there are STILL duplicate columns and row.get returned a Series
-                    if isinstance(val, pd.Series):
-                        val = val.iloc[0]
-                    
-                    if pd.isna(val) or str(val).strip() == 'nan' or val is None:
-                        return ''
-                    string_val = str(val).strip()
-                    if string_val.endswith('.0') and not key_name.startswith('Total'):
-                        return string_val[:-2]
-                    return string_val
-                
-                # Try case insensitive match if exact fails
-                lower_key = key_name.lower()
-                for c in df.columns:
-                    if str(c).lower().strip() == lower_key:
-                        val = row.get(c)
+            def get_val(key_options):
+                if isinstance(key_options, str):
+                    key_options = [key_options]
+                for key_name in key_options:
+                    # Try exact match first
+                    if key_name in df.columns:
+                        val = row.get(key_name)
                         if isinstance(val, pd.Series):
                             val = val.iloc[0]
-                            
                         if pd.isna(val) or str(val).strip() == 'nan' or val is None:
-                            return ''
+                            continue
                         string_val = str(val).strip()
                         if string_val.endswith('.0') and not key_name.startswith('Total'):
                             return string_val[:-2]
                         return string_val
+                    
+                    # Try case insensitive match if exact fails
+                    lower_key = key_name.lower().strip()
+                    for c in df.columns:
+                        if str(c).lower().strip() == lower_key:
+                            val = row.get(c)
+                            if isinstance(val, pd.Series):
+                                val = val.iloc[0]
+                            if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                                continue
+                            string_val = str(val).strip()
+                            if string_val.endswith('.0') and not key_name.startswith('Total'):
+                                return string_val[:-2]
+                            return string_val
                 return ''
 
-            product_code = get_val('Product Code')
-            product_name = get_val('Product Name')
-            customer_name = get_val('Customer Name')
+            product_code = get_val(['Product Code', 'product_code', 'Material Code', 'Material'])
+            product_name = get_val(['Product Name', 'product_name', 'Material Name', 'Material Desc', 'Description'])
+            customer_name = get_val(['Customer Name', 'customer_name', 'Customer'])
             
             if not product_code and not product_name and not customer_name:
                 continue 
             
             if product_code and product_code not in valid_codes:
-                errors.append(f"Row {line_no}: Product Code '{product_code}' is disconnected from explicit Product Master registries.")
-                continue 
+                if not ignore_errors:
+                    errors.append(f"Row {line_no}: Product Code '{product_code}' is disconnected from explicit Product Master registries.")
+                    continue
+                else:
+                    ProductMaster.objects.get_or_create(
+                        material_code=product_code,
+                        defaults={'material_name': product_name or product_code}
+                    )
+                    valid_codes.add(product_code)
                 
             volumes = {}
             values = {}
@@ -951,32 +963,32 @@ def upload_monthly_sales(request):
                             pass
                         volumes[month_key] = num_val
             
-            total_val = 0.0
-            for m_name, c_name in val_cols.items():
-                v = row[c_name]
-                try:
-                    if pd.notna(v):
-                        f_v = float(str(v).replace(',', ''))
-                        values[m_name] = f_v
-                        total_val += f_v
-                except:
-                    pass
+            tot_vol_raw = get_val(['Total Volume (KG)', 'Total Volume', 'Total Qty', 'Total Vol'])
+            try:
+                total_vol = float(str(tot_vol_raw).replace(',', '')) if tot_vol_raw else sum(volumes.values())
+            except ValueError:
+                total_vol = sum(volumes.values())
+
+            tot_val_raw = get_val(['Total Value (INR)', 'Total Value', 'Total Amount', 'Total INR'])
+            try:
+                total_val = float(str(tot_val_raw).replace(',', '')) if tot_val_raw else sum(values.values())
+            except ValueError:
+                total_val = sum(values.values())
                     
             valid_records.append(MonthlySales(
                 distributor_name=get_val(['Distributor Name', 'distributor_name']),
                 ship_to_code=get_val(['Ship to Code', 'Ship To', 'ship_to_code']),
                 customer_name=get_val(['Customer Name', 'customer_name']),
-                customer_classification=get_val('Customer Classification (A+,A,B,C,D)'),
+                customer_classification=get_val(['Customer Classification (A+,A,B,C,D)', 'Classification', 'customer_classification']),
                 product_code=product_code,
                 product_name=product_name,
-                product_bd_group=get_val('Product BD Group'),
+                product_bd_group=get_val(['Product BD Group', 'BD Group', 'product_bd_group']),
                 volumes=volumes,
                 total_volume=total_vol,
                 values=values,
                 total_value=total_val
             ))
             
-        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
         if errors and not ignore_errors:
             return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -984,7 +996,7 @@ def upload_monthly_sales(request):
         invalidate_dashboard_cache()
         msg = f'Successfully ingested {len(valid_records)} robust Monthly Sales records.'
         if errors and ignore_errors:
-            msg += f' (Ignored {len(errors)} structurally conflicting rows).'
+            msg += f' (Included {len(valid_records)} records, auto-registering any missing product codes).'
         return Response({'message': msg}, status=status.HTTP_200_OK)
         
     except Exception as e:
