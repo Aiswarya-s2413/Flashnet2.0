@@ -17,11 +17,20 @@ const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }) => 
         boxShadow: 'var(--shadow-lg)'
       }}>
         {label && <p style={{ margin: '0 0 6px 0', fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>}
-        {payload.map((pld, idx) => (
-          <p key={idx} style={{ margin: '4px 0 0 0', fontSize: '13.5px', fontWeight: 700, color: pld.color || 'var(--primary)' }}>
-            {pld.name}: <span style={{ color: 'var(--text)' }}>{prefix}{new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(pld.value)}{suffix}</span>
-          </p>
-        ))}
+        {payload.map((pld, idx) => {
+          const isPercentage = Boolean(pld.name?.includes('%') || pld.name?.toLowerCase().includes('efficiency'))
+          const itemPrefix = isPercentage ? '' : prefix
+          const itemSuffix = isPercentage ? '%' : suffix
+          const formattedVal = new Intl.NumberFormat('en-IN', { 
+            maximumFractionDigits: isPercentage ? 2 : 0 
+          }).format(pld.value)
+
+          return (
+            <p key={idx} style={{ margin: '4px 0 0 0', fontSize: '13.5px', fontWeight: 700, color: pld.color || 'var(--primary)' }}>
+              {pld.name}: <span style={{ color: 'var(--text)' }}>{itemPrefix}{formattedVal}{itemSuffix}</span>
+            </p>
+          )
+        })}
       </div>
     );
   }

@@ -1,1 +1,16 @@
-{"projectId":"prj_iWlK1p2Tnc4NEdmz336BIBvR9APV","orgId":"team_5ZIJowRD3eM5IoTPuOF1GjDr","projectName":"flashnet"}
+{
+  "projectId": "prj_iWlK1p2Tnc4NEdmz336BIBvR9APV",
+  "orgId": "team_5ZIJowRD3eM5IoTPuOF1GjDr",
+  "projectName": "flashnet",
+  "settings": {
+    "createdAt": 1773860908236,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}

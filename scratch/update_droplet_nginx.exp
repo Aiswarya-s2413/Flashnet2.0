@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+set timeout 60
+spawn ssh -i /Users/aiswarya/Downloads/flashnetdevkey -o StrictHostKeyChecking=no mohit@168.144.27.187
+expect "$ "
+send "sudo sed -i 's/client_max_body_size 100M;/client_max_body_size 1000M;/g' /etc/nginx/sites-enabled/flashnet\r"
+expect {
+    "password for mohit:" {
+        send "Abacus@2026\r"
+    }
+}
+expect "$ "
+send "sudo sed -i 's/proxy_read_timeout 300s;/proxy_read_timeout 900s;/g' /etc/nginx/sites-enabled/flashnet\r"
+expect "$ "
+send "sudo sed -i 's/--timeout 120/--timeout 900/g' /etc/systemd/system/gunicorn.service\r"
+expect "$ "
+send "sudo systemctl daemon-reload && sudo systemctl restart gunicorn && sudo systemctl reload nginx\r"
+expect "$ "
+send "/home/mohit/Flashnet2.0/backend/venv/bin/pip install python-calamine\r"
+expect "$ "
+send "exit\r"
+expect eof

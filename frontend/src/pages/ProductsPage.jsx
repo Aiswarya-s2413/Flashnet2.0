@@ -5,6 +5,7 @@ import { Package, RefreshCw, Search, X } from 'lucide-react'
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedOrg, setSelectedOrg] = useState('ALL')
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState(null)
   const [selectedRow, setSelectedRow] = useState(null)
@@ -25,16 +26,20 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts() }, [])
 
-  const filteredProducts = products.filter(p => 
-    (p.material_code || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (p.material_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = 
+      (p.material_code || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (p.material_name || '').toLowerCase().includes(searchQuery.toLowerCase())
+    
+    const matchesOrg = selectedOrg === 'ALL' || (p.organisation || '').toLowerCase() === selectedOrg.toLowerCase()
+
+    return matchesSearch && matchesOrg
+  })
 
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">Product Master</h1>
-
       </div>
 
       {alert && (
@@ -44,7 +49,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <div className="page-actions">
+      <div className="page-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
         <div className="search-container" style={{ flex: 1, maxWidth: 350 }}>
           <Search className="search-icon" size={16} />
           <input 
@@ -56,6 +61,22 @@ export default function ProductsPage() {
             style={{ width: '100%' }}
           />
         </div>
+
+        {/* Organisation Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Organisation:</label>
+          <select
+            className="search-input"
+            value={selectedOrg}
+            onChange={(e) => setSelectedOrg(e.target.value)}
+            style={{ padding: '6px 12px', fontSize: '13px', background: 'var(--surface)', borderRadius: '8px', cursor: 'pointer', fontWeight: 500 }}
+          >
+            <option value="ALL">All Organisations</option>
+            <option value="inx1">INX1</option>
+            <option value="inx2">INX2</option>
+          </select>
+        </div>
+
         <button className="btn btn-outline" onClick={fetchProducts}>
           <RefreshCw size={15} /> Refresh
         </button>
@@ -76,9 +97,9 @@ export default function ProductsPage() {
             ) : 'Never'}
           </span>
         </div>
-        {searchQuery && (
+        {(searchQuery || selectedOrg !== 'ALL') && (
           <div className="stat-card">
-            <span className="stat-label">Search Results</span>
+            <span className="stat-label">Filtered Results</span>
             <span className="stat-value" style={{ color: 'var(--text)' }}>{loading ? '-' : filteredProducts.length}</span>
           </div>
         )}
@@ -92,14 +113,15 @@ export default function ProductsPage() {
               <th>Material Code</th>
               <th>Material Name</th>
               <th>Pack Size</th>
+              <th>Organisation</th>
             </tr>
           </thead>
         <tbody>
             {loading ? (
-              <tr><td colSpan={3} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading…</td></tr>
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading…</td></tr>
             ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan={4}>
-                <div className="empty-state"><Package size={40} /><p>{searchQuery ? 'No products match your search.' : 'No products available.'}</p></div>
+              <tr><td colSpan={5}>
+                <div className="empty-state"><Package size={40} /><p>{searchQuery || selectedOrg !== 'ALL' ? 'No products match your filter.' : 'No products available.'}</p></div>
               </td></tr>
             ) : filteredProducts.map((p, i) => {
               const packSizeMatch = p.material_name?.trim().match(/(\d{4})$/)
@@ -110,6 +132,11 @@ export default function ProductsPage() {
                 <td><span className="badge badge-accent">{p.material_code}</span></td>
                 <td>{p.material_name}</td>
                 <td style={{ fontWeight: 500, color: 'var(--primary)' }}>{packSize}</td>
+                <td>
+                  <span className={`badge ${p.organisation === 'inx2' ? 'badge-green' : 'badge-accent'}`}>
+                    {p.organisation ? p.organisation.toUpperCase() : '-'}
+                  </span>
+                </td>
               </tr>
             )})}
           </tbody>

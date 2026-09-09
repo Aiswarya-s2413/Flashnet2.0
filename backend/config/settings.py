@@ -167,11 +167,20 @@ AZURE_CLIENT_ID = env('AZURE_CLIENT_ID', default='')
 AZURE_TENANT_ID = env('AZURE_TENANT_ID', default='')
 AZURE_CLIENT_SECRET = env('AZURE_CLIENT_SECRET', default='')
 
-# Celery Configuration
-CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
+# Celery & Redis Configuration
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://127.0.0.1:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
+
+# Redis Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+        'TIMEOUT': 3600,
+    }
+}
 
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -192,7 +201,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.trycloudflare.com',
+    'https://*.sslip.io',
+    'http://*.sslip.io',
+    'https://168.144.27.187',
+    'http://168.144.27.187',
+    'https://flashnet.aiswaryasathyan.space',
+    'http://flashnet.aiswaryasathyan.space',
     'https://*.vercel.app',
     'https://flashnet-snowy.vercel.app',
+    'https://*.trycloudflare.com',
+    'http://localhost:3000',
+    'http://localhost:5173',
 ]

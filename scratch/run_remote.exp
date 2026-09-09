@@ -1,0 +1,11 @@
+#!/usr/bin/expect -f
+set timeout 30
+set cmd [lindex $argv 0]
+spawn ssh -o PubkeyAuthentication=no -o StrictHostKeyChecking=no mohit@168.144.27.187 $cmd
+expect {
+    "password:" {
+        send "Abacus@2026\r"
+        exp_continue
+    }
+    eof
+}

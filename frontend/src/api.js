@@ -1,7 +1,15 @@
 import axios from 'axios'
 
+const getBaseURL = () => {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim()
+  if (!envUrl || envUrl.includes('trycloudflare.com') || (typeof window !== 'undefined' && envUrl.includes('localhost') && window.location.hostname !== 'localhost')) {
+    return '/api'
+  }
+  return envUrl
+}
+
 const API = axios.create({
-  baseURL: 'https://virtually-neighborhood-markets-absolute.trycloudflare.com/api',
+  baseURL: getBaseURL(),
 })
 
 API.interceptors.request.use((config) => {

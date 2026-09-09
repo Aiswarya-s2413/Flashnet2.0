@@ -934,117 +934,118 @@ def upload_primary_sales(request):
             return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
             
         filename = file.name.lower()
+        rows = []
+        
+        # Fast streaming read
         if filename.endswith(('.xls', '.xlsx')):
-            raw_df = pd.read_excel(file, header=None)
+            try:
+                from python_calamine import CalamineWorkbook
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as tmp:
+                    for chunk in file.chunks():
+                        tmp.write(chunk)
+                    tmp_path = tmp.name
+                
+                try:
+                    wb = CalamineWorkbook.from_path(tmp_path)
+                    sheet = wb.get_sheet_by_index(0)
+                    rows = sheet.to_python()
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+            except Exception:
+                import openpyxl
+                file.seek(0)
+                wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
+                ws = wb.active
+                rows = list(ws.iter_rows(values_only=True))
         elif filename.endswith('.csv'):
             file.seek(0)
             raw_df = smart_read_csv(file)
+            rows = [list(raw_df.columns)] + raw_df.values.tolist()
         else:
             return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        header_row_idx = 0
-        seen = set()
-        for h in raw_headers:
-            new_h = h
-            idx = 1
-            while new_h in seen:
-                new_h = f"{h}_{idx}"
-                idx += 1
-            headers.append(new_h)
-            seen.add(new_h)
+        if not rows or len(rows) < 2:
+            return Response({'error': 'The uploaded file contains no data rows.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
-        df.columns = headers
-            
-        errors = []
-        valid_records = []
-        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
-        
-        # Pre-map column headers ONCE before row iteration for 100x performance boost
+        raw_headers = [str(h).strip() if h is not None else '' for h in rows[0]]
         import re
-        normalized_cols = {col: re.sub(r'[^a-z0-9]', '', str(col).lower()) for col in df.columns}
+        normalized_cols = {idx: re.sub(r'[^a-z0-9]', '', h.lower()) for idx, h in enumerate(raw_headers)}
         
-        def find_matching_col(key_options):
+        def find_col_idx(key_options):
             if isinstance(key_options, str):
                 key_options = [key_options]
             for key_name in key_options:
                 lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
-                for original_col, norm_col in normalized_cols.items():
+                for idx, norm_col in normalized_cols.items():
                     if lower_key in norm_col:
-                        return original_col
+                        return idx
             return None
 
-        # Pre-locate all target columns with broad aliases
-        billing_no_col = find_matching_col(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
-        billing_item_col = find_matching_col(['Item', 'Billing Item', 'Billing item', 'billing_item'])
-        tax_inv_col = find_matching_col(['Tax Invoice No', 'Tax Invoice'])
-        so_col = find_matching_col(['Sales Order', 'Sales Document', 'SO No'])
-        sales_order_item_col = find_matching_col(['Sales Document Item', 'Sales Doc Item', 'Sales doc item', 'Sales Document item', 'SO Item', 'sales_order_item'])
-        so_date_col = find_matching_col(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
-        division_col = find_matching_col('Division')
-        sold_to_col = find_matching_col(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
-        sold_to_addr_col = find_matching_col(['Sold to party Address', 'Sold-to Party Address', 'Address'])
-        ship_to_col = find_matching_col(['Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
-        ship_to_name_col = find_matching_col(['Ship to Party Name', 'Ship-to Party Name', 'Ship Name'])
-        material_code_col = find_matching_col(['Material Code', 'Material', 'PPC', 'Item Code', 'ItemNo', 'Item', 'Code', 'Part No', 'Product Code'])
-        material_desc_col = find_matching_col(['Material Desc', 'Description', 'Material Text', 'Item Name', 'Item Description', 'Name', 'Product Name'])
-        billing_date_col = find_matching_col(['Billing Date', 'Billing date', 'Bill Date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
-        plant_col = find_matching_col('Plant')
-        rate_col = find_matching_col(['Rate Per Unit', 'Rate', 'Price', 'Unit Price'])
-        qty_col = find_matching_col(['Billed Quantity', 'Invoiced Quantity', 'Inv Qty Kgs', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
-        sales_unit_col = find_matching_col(['Sales Unit', 'Sales unit', 'Sales qty unit', 'Unit', 'sales_unit'])
-        val_col = find_matching_col(['Assessable Value', 'Assesable Value', 'Net Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
-        country_col = find_matching_col(['Country', 'country', 'Cntry'])
-        region_dlv_plant_col = find_matching_col(['Region of dlv.plant', 'Region of dlv plant', 'Region of dlv. plant', 'Region of dlv', 'Region', 'region_dlv_plant'])
+        # Pre-locate all target columns by index
+        billing_no_idx = find_col_idx(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
+        billing_item_idx = find_col_idx(['Billing Item', 'Item', 'ItemNo', 'billing_item'])
+        tax_inv_idx = find_col_idx(['Tax Invoice No', 'Tax Invoice'])
+        so_idx = find_col_idx(['Sales Order', 'Sales Document', 'SO No'])
+        sales_order_item_idx = find_col_idx(['Sales Document Item', 'Sales Doc Item', 'Sales doc item', 'Sales Document item', 'SO Item', 'sales_order_item'])
+        so_date_idx = find_col_idx(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
+        division_idx = find_col_idx('Division')
+        sold_to_idx = find_col_idx(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
+        sold_to_addr_idx = find_col_idx(['Sold to party Address', 'Sold-to Party Address', 'Address'])
+        ship_to_idx = find_col_idx(['Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
+        ship_to_name_idx = find_col_idx(['Ship to Party Name', 'Ship-to Party Name', 'Ship Name'])
+        material_code_idx = find_col_idx(['Material Code', 'Material', 'PPC', 'Item Code', 'Part No', 'Product Code'])
+        material_desc_idx = find_col_idx(['Material Desc', 'Description', 'Material Text', 'Item Name', 'Item Description', 'Name', 'Product Name'])
+        billing_date_idx = find_col_idx(['Billing Date', 'Billing date', 'Bill Date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
+        plant_idx = find_col_idx('Plant')
+        rate_idx = find_col_idx(['Rate Per Unit', 'Rate', 'Price', 'Unit Price'])
+        qty_idx = find_col_idx(['Billed Quantity', 'Invoiced Quantity', 'Inv Qty Kgs', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
+        sales_unit_idx = find_col_idx(['Sales Unit', 'Sales unit', 'Sales qty unit', 'Unit', 'sales_unit'])
+        val_idx = find_col_idx(['Assessable Value', 'Assesable Value', 'Net Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
+        country_idx = find_col_idx(['Country', 'country', 'Cntry'])
+        region_dlv_plant_idx = find_col_idx(['Region of dlv.plant', 'Region of dlv plant', 'Region of dlv. plant', 'Region of dlv', 'Region', 'region_dlv_plant'])
+        
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
+        new_products = {}
 
-        cols_list = list(df.columns)
-        # Positional Fallback for CSV files without standard header names
-        if not material_code_col and not material_desc_col and not billing_no_col:
-            # If row 0 was data, include it back
-            first_row_dict = {col: col for col in cols_list}
-            records = [first_row_dict] + df.to_dict('records')
-            if len(cols_list) >= 1: material_code_col = cols_list[0]
-            if len(cols_list) >= 2: material_desc_col = cols_list[1]
-            if len(cols_list) >= 3: qty_col = cols_list[2]
-            if len(cols_list) >= 4: val_col = cols_list[3]
-        else:
-            records = df.to_dict('records')
-            if not material_code_col and len(cols_list) >= 1: material_code_col = cols_list[0]
-            if not material_desc_col and len(cols_list) >= 2: material_desc_col = cols_list[1]
+        def get_str(row, idx):
+            if idx is None or idx >= len(row): return ''
+            v = row[idx]
+            if v is None: return ''
+            s = str(v).strip()
+            return s[:-2] if s.endswith('.0') else s
 
-        for index, row in enumerate(records):
-            line_no = header_row_idx + index + 2
-            
-            def extract_str(col):
-                if not col: return ''
-                v = row.get(col)
-                if pd.isna(v) or v is None: return ''
-                s = str(v).strip()
-                return s[:-2] if s.endswith('.0') else s
+        def get_float(row, idx):
+            if idx is None or idx >= len(row): return 0.0
+            v = row[idx]
+            if v is None: return 0.0
+            if isinstance(v, (int, float)): return float(v)
+            try:
+                clean = re.sub(r'[^\d.-]', '', str(v))
+                return float(clean) if clean else 0.0
+            except: return 0.0
 
-            def extract_date(col):
-                if not col: return None
-                v = row.get(col)
-                if pd.isna(v) or v is None: return None
-                try:
-                    dt = pd.to_datetime(v).date()
-                    if dt and 2010 < dt.year < 2030: return dt
-                except: pass
-                return None
+        def get_date(row, idx):
+            if idx is None or idx >= len(row): return None
+            v = row[idx]
+            if v is None: return None
+            if hasattr(v, 'year') and hasattr(v, 'month') and hasattr(v, 'day'):
+                return v if hasattr(v, 'hour') is False else v.date()
+            try:
+                dt = pd.to_datetime(v).date()
+                if dt and 2000 < dt.year < 2050: return dt
+            except: pass
+            return None
 
-            def extract_float(col):
-                if not col: return 0.0
-                v = row.get(col)
-                if pd.isna(v) or v is None: return 0.0
-                try:
-                    clean_val = re.sub(r'[^\d.-]', '', str(v))
-                    return float(clean_val)
-                except: return 0.0
+        records_to_create = []
+        batch_size = 5000
+        total_created = 0
 
-            billing_no = extract_str(billing_no_col)
-            material_code = extract_str(material_code_col)
-            material_desc = extract_str(material_desc_col)
+        for index, row in enumerate(rows[1:]):
+            billing_no = get_str(row, billing_no_idx)
+            material_code = get_str(row, material_code_idx)
+            material_desc = get_str(row, material_desc_idx)
             
             if not billing_no and not material_code and not material_desc:
                 continue
@@ -1059,53 +1060,61 @@ def upload_primary_sales(request):
                 material_code = f"MAT-{index+1:05d}"
 
             if material_code and material_code not in valid_codes:
-                try:
-                    ProductMaster.objects.get_or_create(
+                if material_code not in new_products:
+                    new_products[material_code] = ProductMaster(
                         material_code=material_code,
-                        defaults={'material_name': material_desc or material_code}
+                        material_name=material_desc or material_code
                     )
-                except Exception:
-                    pass
-                valid_codes.add(material_code)
 
-            billing_date = extract_date(billing_date_col)
-            so_date = extract_date(so_date_col)
-
-            valid_records.append(PrimarySales(
+            records_to_create.append(PrimarySales(
                 billing_no=billing_no,
-                billing_item=extract_str(billing_item_col),
-                tax_invoice_no=extract_str(tax_inv_col),
-                sales_order=extract_str(so_col),
-                sales_order_item=extract_str(sales_order_item_col),
-                so_creation_date=so_date,
-                division=extract_str(division_col),
-                sold_to_party=extract_str(sold_to_col),
-                sold_to_party_address=extract_str(sold_to_addr_col),
-                ship_to_party=extract_str(ship_to_col),
-                ship_to_party_name=extract_str(ship_to_name_col),
+                billing_item=get_str(row, billing_item_idx),
+                tax_invoice_no=get_str(row, tax_inv_idx),
+                sales_order=get_str(row, so_idx),
+                sales_order_item=get_str(row, sales_order_item_idx),
+                so_creation_date=get_date(row, so_date_idx),
+                division=get_str(row, division_idx),
+                sold_to_party=get_str(row, sold_to_idx),
+                sold_to_party_address=get_str(row, sold_to_addr_idx),
+                ship_to_party=get_str(row, ship_to_idx),
+                ship_to_party_name=get_str(row, ship_to_name_idx),
                 material_code=material_code,
-                material_desc=extract_str(material_desc_col),
-                billing_date=billing_date,
-                plant=extract_str(plant_col),
-                rate_per_unit=extract_float(rate_col),
-                billed_quantity=extract_float(qty_col),
-                sales_unit=extract_str(sales_unit_col),
-                assessable_value=extract_float(val_col),
-                country=extract_str(country_col),
-                region_dlv_plant=extract_str(region_dlv_plant_col)
+                material_desc=material_desc,
+                billing_date=get_date(row, billing_date_idx),
+                plant=get_str(row, plant_idx),
+                rate_per_unit=get_float(row, rate_idx),
+                billed_quantity=get_float(row, qty_idx),
+                sales_unit=get_str(row, sales_unit_idx),
+                assessable_value=get_float(row, val_idx),
+                country=get_str(row, country_idx),
+                region_dlv_plant=get_str(row, region_dlv_plant_idx)
             ))
-            
-        if errors and not ignore_errors:
-            return Response({'message': 'Validation failed heavily.', 'errors': errors[:50]}, status=status.HTTP_400_BAD_REQUEST)
-            
-        PrimarySales.objects.bulk_create(valid_records, batch_size=1000)
-        msg = f'Successfully secured {len(valid_records)} Primary Sales extractions.'
-        if errors and ignore_errors:
-            msg += f' (Ignored {len(errors)} format conflicts).'
-        return Response({'message': msg}, status=status.HTTP_200_OK)
+
+            if len(records_to_create) >= batch_size:
+                if new_products:
+                    ProductMaster.objects.bulk_create(list(new_products.values()), ignore_conflicts=True)
+                    valid_codes.update(new_products.keys())
+                    new_products.clear()
+                PrimarySales.objects.bulk_create(records_to_create, batch_size=batch_size, ignore_conflicts=True)
+                total_created += len(records_to_create)
+                records_to_create.clear()
+
+        if new_products:
+            ProductMaster.objects.bulk_create(list(new_products.values()), ignore_conflicts=True)
+            valid_codes.update(new_products.keys())
+            new_products.clear()
+
+        if records_to_create:
+            PrimarySales.objects.bulk_create(records_to_create, batch_size=batch_size, ignore_conflicts=True)
+            total_created += len(records_to_create)
+            records_to_create.clear()
+
+        return Response({
+            'message': f'Successfully secured and parsed {total_created:,} Primary Sales records with all 5 new fields.'
+        }, status=status.HTTP_200_OK)
         
     except Exception as e:
-        return Response({'error': f"Primary Sales parser totally failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': f"Primary Sales parser error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
