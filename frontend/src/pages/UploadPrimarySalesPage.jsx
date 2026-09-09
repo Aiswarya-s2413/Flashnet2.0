@@ -12,6 +12,7 @@ export default function UploadPrimarySalesPage() {
   const [alert, setAlert] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [sales, setSales] = useState([])
+  const [totalCount, setTotalCount] = useState(0)
   const [fetching, setFetching] = useState(true)
   const { sorted, sortKey, sortDir, requestSort } = useSortableData(sales)
   const [selectedRow, setSelectedRow] = useState(null)
@@ -20,7 +21,13 @@ export default function UploadPrimarySalesPage() {
     setFetching(true)
     try {
       const res = await API.get('/primary-sales/')
-      setSales(res.data)
+      if (res.data && res.data.results) {
+        setSales(res.data.results)
+        setTotalCount(res.data.total_count || 0)
+      } else if (Array.isArray(res.data)) {
+        setSales(res.data)
+        setTotalCount(res.data.length)
+      }
     } catch(e) {
       console.error(e)
     } finally {
@@ -53,11 +60,13 @@ export default function UploadPrimarySalesPage() {
 
     try {
       const res = await API.post('/primary-sales/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 900000 // 15 minutes timeout for large files (50MB+)
       })
       setAlert({ type: 'success', title: 'Upload Successful', messages: [res.data.message] })
       setFile(null)
-      document.getElementById('file-upload').value = ''
+      const inputEl = document.getElementById('file-upload')
+      if (inputEl) inputEl.value = ''
       fetchSales()
       setCurrentPage(1)
     } catch (e) {
@@ -127,7 +136,7 @@ export default function UploadPrimarySalesPage() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>{sales.length > 0 ? `Uploaded Primary Sales Records (${sales.length})` : 'Required Document Structure'}</h3>
+        <h3 style={{ margin: 0 }}>{totalCount > 0 ? `Uploaded Primary Sales Records (${totalCount.toLocaleString('en-IN')})` : 'Required Document Structure'}</h3>
         {sales.length > 0 && (
           <button className="btn btn-outline" onClick={fetchSales} style={{ fontSize: 13, padding: '4px 12px' }}>
             <RefreshCw size={13} /> Refresh List

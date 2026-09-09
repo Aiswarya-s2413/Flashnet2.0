@@ -89,15 +89,25 @@ class MonthlySalesViewSet(viewsets.ModelViewSet):
         return MonthlySales.objects.all()
 
 class PrimarySalesViewSet(viewsets.ModelViewSet):
-    queryset = PrimarySales.objects.all()
+    queryset = PrimarySales.objects.all().order_by('-id')
     serializer_class = PrimarySalesSerializer
 
     def get_queryset(self):
         user = self.request.user
         if is_distributor(user):
             code = getattr(user, 'distributor_code', '')
-            return PrimarySales.objects.filter(Q(sold_to_party=code) | Q(ship_to_party=code))
-        return PrimarySales.objects.all()
+            return PrimarySales.objects.filter(Q(sold_to_party=code) | Q(ship_to_party=code)).order_by('-id')
+        return PrimarySales.objects.all().order_by('-id')
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        total_count = qs.count()
+        recent_records = qs[:200]
+        serializer = self.get_serializer(recent_records, many=True)
+        return Response({
+            'total_count': total_count,
+            'results': serializer.data
+        })
 
 class EPRViewSet(viewsets.ModelViewSet):
     queryset = ExceptionalPriceRequest.objects.all()
