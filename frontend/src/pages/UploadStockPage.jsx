@@ -181,7 +181,7 @@ export default function UploadStockPage() {
             </div>
           </div>
           
-          <button className="btn btn-primary" type="submit" disabled={!file || !month || !year || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
+          <button className="btn btn-primary" type="submit" disabled={!file || loading} style={{ width: '100%', padding: 12, justifyContent: 'center' }}>
             {loading ? <span className="spinner" /> : <UploadCloud size={18} />}
             {loading ? 'Crunching Master Code Validations...' : 'Process Document Securely'}
           </button>
