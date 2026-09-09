@@ -10,6 +10,7 @@ const getBaseURL = () => {
 
 const API = axios.create({
   baseURL: getBaseURL(),
+  timeout: 900000, // 15-minute global timeout to handle large bulk data operations
 })
 
 API.interceptors.request.use((config) => {
