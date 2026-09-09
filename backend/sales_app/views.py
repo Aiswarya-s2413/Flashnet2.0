@@ -700,6 +700,11 @@ def upload_stock(request):
 
             return (parsed_m if parsed_m is not None else fallback_m), (parsed_y if parsed_y is not None else fallback_y)
 
+        ignore_errors = (
+            str(request.data.get('ignore_errors', '')).lower() in ('true', '1') or
+            str(request.POST.get('ignore_errors', '')).lower() in ('true', '1')
+        )
+
         for index, row in df.iterrows():
             line_no = index + 2 
             
@@ -728,14 +733,22 @@ def upload_stock(request):
             sold_to_val = get_val(['Sold To', 'sold_to'])
             
             if product_code and product_code not in valid_codes:
-                errors.append(f"Row {line_no}: Product '{product_code}' does not exist.")
-                continue 
+                if not ignore_errors:
+                    errors.append(f"Row {line_no}: Product '{product_code}' does not exist in Product Master.")
+                    continue 
+                else:
+                    ProductMaster.objects.get_or_create(
+                        material_code=product_code,
+                        defaults={'material_name': product_desc or product_code}
+                    )
+                    valid_codes.add(product_code)
                 
             if product_code and sold_to_val:
                 pair = (str(sold_to_val).strip().lower(), str(product_code).strip().lower())
                 if pair not in valid_sales_pairs:
-                    errors.append(f"Row {line_no}: Product '{product_code}' has not been sold to the distributor '{sold_to_val}'.")
-                    continue
+                    if not ignore_errors:
+                        errors.append(f"Row {line_no}: Product '{product_code}' has not been sold to the distributor '{sold_to_val}'.")
+                        continue
                 
             def get_float(key_options):
                 val = get_val(key_options)
@@ -749,8 +762,12 @@ def upload_stock(request):
             r_month, r_year = parse_month_year(row_month_raw, month, year)
 
             if not r_month:
-                errors.append(f"Row {line_no}: Month could not be determined. Please select a Month in the dropdown or include a Month column.")
-                continue
+                if not ignore_errors:
+                    errors.append(f"Row {line_no}: Month could not be determined. Please select a Month in the dropdown or include a Month column.")
+                    continue
+                else:
+                    r_month = month or 1
+                    r_year = year or 2026
             
             valid_stocks.append(StockLevel(
                 sold_to=sold_to_val,
@@ -765,14 +782,13 @@ def upload_stock(request):
                 year=r_year
             ))
             
-        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
         if errors and not ignore_errors:
             return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
             
         StockLevel.objects.bulk_create(valid_stocks)
         msg = f'Successfully verified and uploaded {len(valid_stocks)} stock records natively.'
         if errors and ignore_errors:
-            msg += f' (Ignored {len(errors)} structurally conflicting rows).'
+            msg += f' (Included {len(valid_stocks)} records by bypassing past-sales checks for new distributor).'
         return Response({'message': msg}, status=status.HTTP_200_OK)
         
     except Exception as e:
