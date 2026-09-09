@@ -597,7 +597,7 @@ def upload_stock(request):
     file = request.FILES['file']
     filename = file.name.lower()
     
-    # Extract month and year from form data
+    # Extract month and year from form data (used as default / fallback)
     month_val = request.data.get('month') or request.POST.get('month')
     year_val = request.data.get('year') or request.POST.get('year')
     
@@ -610,6 +610,11 @@ def upload_stock(request):
         year = int(year_val) if year_val else None
     except ValueError:
         year = None
+
+    # Fallback year to current year if none provided
+    if not year:
+        import datetime
+        year = datetime.date.today().year
         
     try:
         # Dynamically support PDF extraction as requested
@@ -642,18 +647,63 @@ def upload_stock(request):
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
         
         valid_sales_pairs = set()
-        for sold_to_val, mat_code in Order.objects.values_list('sold_to', 'material_code'):
+        for sold_to_val, mat_code in Order.objects.values_list('sold_to', 'material_code').distinct():
             if sold_to_val and mat_code:
                 valid_sales_pairs.add((str(sold_to_val).strip().lower(), str(mat_code).strip().lower()))
-        for sold_to_val, mat_code in PrimarySales.objects.values_list('sold_to_party', 'material_code'):
+        for sold_to_val, mat_code in PrimarySales.objects.values_list('sold_to_party', 'material_code').distinct():
             if sold_to_val and mat_code:
                 valid_sales_pairs.add((str(sold_to_val).strip().lower(), str(mat_code).strip().lower()))
         
+        MONTH_NAME_MAP = {
+            'jan': 1, 'january': 1,
+            'feb': 2, 'february': 2,
+            'mar': 3, 'march': 3,
+            'apr': 4, 'april': 4,
+            'may': 5,
+            'jun': 6, 'june': 6,
+            'jul': 7, 'july': 7,
+            'aug': 8, 'august': 8,
+            'sep': 9, 'september': 9,
+            'oct': 10, 'october': 10,
+            'nov': 11, 'november': 11,
+            'dec': 12, 'december': 12
+        }
+
+        def parse_month_year(val, fallback_m, fallback_y):
+            if not val:
+                return fallback_m, fallback_y
+            val_str = str(val).strip().lower()
+            parsed_m = None
+            parsed_y = None
+            
+            # Match month name words
+            import re
+            for name, m_num in sorted(MONTH_NAME_MAP.items(), key=lambda x: -len(x[0])):
+                if re.search(r'\b' + name + r'\b', val_str) or name in val_str:
+                    parsed_m = m_num
+                    break
+            
+            # Match 4-digit year or 2-digit year
+            y_match = re.search(r'\b(20\d{2})\b', val_str)
+            if y_match:
+                parsed_y = int(y_match.group(1))
+            elif re.search(r'[-/](\d{2})\b', val_str):
+                parsed_y = 2000 + int(re.search(r'[-/](\d{2})\b', val_str).group(1))
+                
+            if not parsed_m:
+                import datetime
+                if isinstance(val, (datetime.date, datetime.datetime, pd.Timestamp)):
+                    parsed_m = val.month
+                    parsed_y = val.year
+                elif re.match(r'^\d{1,2}$', val_str) and 1 <= int(val_str) <= 12:
+                    parsed_m = int(val_str)
+
+            return (parsed_m if parsed_m is not None else fallback_m), (parsed_y if parsed_y is not None else fallback_y)
+
         for index, row in df.iterrows():
             line_no = index + 2 
             
             def get_val(key_options):
-                # Normalized mapping of df columns
                 norm_cols = {str(c).strip().lower(): c for c in df.columns}
                 for k in key_options:
                     norm_k = str(k).strip().lower()
@@ -668,8 +718,8 @@ def upload_stock(request):
                         return string_val
                 return ''
 
-            product_code = get_val(['Product Code', 'product_code'])
-            product_desc = get_val(['Prod Desc', 'product_desc', 'Product Desc'])
+            product_code = get_val(['Product Code', 'product_code', 'Material Code', 'Material'])
+            product_desc = get_val(['Prod Desc', 'product_desc', 'Product Desc', 'Material Desc', 'Description'])
             
             # Skip genuinely empty rows safely
             if not product_code and not product_desc:
@@ -693,18 +743,26 @@ def upload_stock(request):
                     return float(val) if val else None
                 except ValueError:
                     return None
+
+            # Extract month and year per row if available, or use selected dropdown fallback
+            row_month_raw = get_val(['Month End Stock', 'Month End', 'Month', 'Period', 'Month / Year', 'Month-Year'])
+            r_month, r_year = parse_month_year(row_month_raw, month, year)
+
+            if not r_month:
+                errors.append(f"Row {line_no}: Month could not be determined. Please select a Month in the dropdown or include a Month column.")
+                continue
             
             valid_stocks.append(StockLevel(
                 sold_to=sold_to_val,
                 ship_to=get_val(['Ship To', 'ship_to']),
                 product_code=product_code,
                 product_desc=product_desc,
-                avg_six_month_sales=get_float(['Avg Last six month sales in kg', 'Avg Last six month']),
-                month_end_inventory=get_float(['Month End Inventory', 'month_end_inventory']),
+                avg_six_month_sales=get_float(['Avg Last six month sales in kg', 'Avg Last six month', 'Avg Last Six month sales in kg']),
+                month_end_inventory=get_float(['Month End Inventory', 'month_end_inventory', 'Ending Inventory']),
                 mid_month_inventory=get_float(['Mid Month Inventory', 'mid_month_inventory']),
-                remarks=get_val(['Remarks/Comments', 'Remarks', 'comments']),
-                month=month,
-                year=year
+                remarks=get_val(['Remarks/Comments', 'Remarks', 'comments', 'Local Manufactured/Imported']),
+                month=r_month,
+                year=r_year
             ))
             
         ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'

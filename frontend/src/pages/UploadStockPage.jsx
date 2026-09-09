@@ -143,15 +143,14 @@ export default function UploadStockPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             <div>
-              <label htmlFor="period-month" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Month</label>
+              <label htmlFor="period-month" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Month (or from file)</label>
               <select
                 id="period-month"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                required
                 style={{ width: '100%' }}
               >
-                <option value="">Select Month</option>
+                <option value="">Auto-detect / Select Month</option>
                 <option value="1">January</option>
                 <option value="2">February</option>
                 <option value="3">March</option>
@@ -172,10 +171,9 @@ export default function UploadStockPage() {
                 id="period-year"
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
-                required
                 style={{ width: '100%' }}
               >
-                <option value="">Select Year</option>
+                <option value="">Auto-detect / Select Year</option>
                 {yearsRange.map((y) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
