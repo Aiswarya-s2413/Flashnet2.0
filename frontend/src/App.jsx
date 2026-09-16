@@ -3,6 +3,7 @@ import ProductsPage from './pages/ProductsPage'
 import InvoicesPage from './pages/InvoicesPage'
 import OrdersPage from './pages/OrdersPage'
 import DashboardPage from './pages/DashboardPage'
+import SalesExecAnalysisPage from './pages/SalesExecAnalysisPage'
 import UploadOrdersPage from './pages/UploadOrdersPage'
 import UploadStockPage from './pages/UploadStockPage'
 import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
@@ -12,7 +13,7 @@ import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
 import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
 import OnboardingApprovalsPage from './pages/OnboardingApprovalsPage'
 
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, Users } from 'lucide-react'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, Users, Award } from 'lucide-react'
 
 // AppShell holds the sidebar layout and top header
 function AppShell({ children }) {
@@ -33,6 +34,10 @@ function AppShell({ children }) {
               <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                 <LayoutDashboard size={18} />
                 Dashboard
+              </NavLink>
+              <NavLink to="/sales-exec-analysis" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                <Award size={18} />
+                Sales Exec Analysis
               </NavLink>
               <NavLink to="/orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                 <ShoppingCart size={18} />
@@ -122,6 +127,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<AppShell><DashboardPage /></AppShell>} />
+        <Route path="/sales-exec-analysis" element={<AppShell><SalesExecAnalysisPage /></AppShell>} />
         <Route path="/orders" element={<AppShell><OrdersPage /></AppShell>} />
         <Route path="/upload-orders" element={<AppShell><UploadOrdersPage /></AppShell>} />
         <Route path="/upload-stock" element={<AppShell><UploadStockPage /></AppShell>} />

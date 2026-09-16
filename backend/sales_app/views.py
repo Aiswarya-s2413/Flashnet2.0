@@ -1791,3 +1791,187 @@ def upload_csi_sales(request):
 
     except Exception as e:
         return Response({'error': f'CSI upload failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def sales_exec_analytics(request):
+    try:
+        from collections import defaultdict
+        from django.core.cache import cache
+
+        month_filter = request.GET.get('month', '').strip()
+        division_filter = request.GET.get('division', '').strip()
+        exec_filter = request.GET.get('exec', '').strip()
+
+        cache_key = f"sales_exec_analytics_{month_filter}_{division_filter}_{exec_filter}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
+        qs = PrimarySales.objects.filter(sales_exec__isnull=False).exclude(sales_exec='')
+        if month_filter and month_filter != 'all':
+            try:
+                parts = month_filter.split('-')
+                qs = qs.filter(billing_date__year=int(parts[0]), billing_date__month=int(parts[1]))
+            except Exception:
+                pass
+
+        if division_filter and division_filter != 'all':
+            qs = qs.filter(division__iexact=division_filter)
+
+        if exec_filter:
+            qs = qs.filter(sales_exec__iexact=exec_filter)
+
+        values_iter = qs.values(
+            'sales_exec', 'assessable_value', 'billed_quantity', 'billing_date', 
+            'material_desc', 'ship_to_party_name', 'sold_to_party_address', 'division', 'billing_no'
+        )
+
+        all_months_set = set()
+        all_divisions_set = set()
+        total_rev_all = 0.0
+        total_vol_all = 0.0
+        total_tx_all = 0
+
+        exec_summary = defaultdict(lambda: {
+            'name': '',
+            'total_val': 0.0,
+            'total_qty': 0.0,
+            'invoices': 0,
+            'customers': set(),
+            'products': set(),
+            'divisions': defaultdict(float),
+            'monthly': defaultdict(lambda: {'val': 0.0, 'qty': 0.0}),
+            'top_products': defaultdict(lambda: {'val': 0.0, 'qty': 0.0}),
+            'top_customers': defaultdict(lambda: {'val': 0.0, 'qty': 0.0}),
+        })
+
+        for row in values_iter:
+            e_name = (row['sales_exec'] or '').strip()
+            if not e_name: continue
+            
+            val = float(row['assessable_value'] or 0.0)
+            qty = float(row['billed_quantity'] or 0.0)
+            b_date = row['billing_date']
+            p_name = (row['material_desc'] or 'Unknown Product').strip()
+            c_name = (row['ship_to_party_name'] or row['sold_to_party_address'] or 'Unknown Customer').strip()
+            div = (row['division'] or 'General').strip()
+
+            total_rev_all += val
+            total_vol_all += qty
+            total_tx_all += 1
+            if div:
+                all_divisions_set.add(div)
+
+            item = exec_summary[e_name]
+            item['name'] = e_name
+            item['total_val'] += val
+            item['total_qty'] += qty
+            item['invoices'] += 1
+            item['customers'].add(c_name)
+            item['products'].add(p_name)
+            item['divisions'][div] += val
+            item['top_products'][p_name]['val'] += val
+            item['top_products'][p_name]['qty'] += qty
+            item['top_customers'][c_name]['val'] += val
+            item['top_customers'][c_name]['qty'] += qty
+            
+            if b_date:
+                m_str = b_date.strftime('%Y-%m')
+                all_months_set.add(m_str)
+                item['monthly'][m_str]['val'] += val
+                item['monthly'][m_str]['qty'] += qty
+
+        exec_list = []
+        for e_name, data in exec_summary.items():
+            tot_val = data['total_val']
+            tot_qty = data['total_qty']
+            asp = (tot_val / tot_qty) if tot_qty > 0 else 0.0
+
+            sorted_divs = sorted(data['divisions'].items(), key=lambda x: x[1], reverse=True)
+            primary_div = sorted_divs[0][0] if sorted_divs else 'General'
+            div_breakdown = [{'division': d, 'revenue': round(v, 2), 'share': round(v / tot_val * 100, 1) if tot_val > 0 else 0} for d, v in sorted_divs]
+
+            monthly_trend = []
+            for m_str in sorted(data['monthly'].keys()):
+                m_val = data['monthly'][m_str]['val']
+                m_qty = data['monthly'][m_str]['qty']
+                monthly_trend.append({
+                    'month': m_str,
+                    'revenue': round(m_val, 2),
+                    'volume': round(m_qty, 2),
+                    'asp': round(m_val / m_qty, 2) if m_qty > 0 else 0.0
+                })
+
+            top_prods = sorted(data['top_products'].items(), key=lambda x: x[1]['val'], reverse=True)[:10]
+            top_prods_list = [{
+                'name': p,
+                'revenue': round(v['val'], 2),
+                'volume': round(v['qty'], 2),
+                'asp': round(v['val'] / v['qty'], 2) if v['qty'] > 0 else 0.0
+            } for p, v in top_prods]
+
+            top_custs = sorted(data['top_customers'].items(), key=lambda x: x[1]['val'], reverse=True)[:10]
+            top_custs_list = [{
+                'name': c,
+                'revenue': round(v['val'], 2),
+                'volume': round(v['qty'], 2)
+            } for c, v in top_custs]
+
+            exec_list.append({
+                'name': e_name,
+                'total_revenue': round(tot_val, 2),
+                'total_volume': round(tot_qty, 2),
+                'asp': round(asp, 2),
+                'invoices_count': data['invoices'],
+                'unique_customers_count': len(data['customers']),
+                'unique_products_count': len(data['products']),
+                'primary_division': primary_div,
+                'divisions': div_breakdown,
+                'monthly_trend': monthly_trend,
+                'top_products': top_prods_list,
+                'top_customers': top_custs_list
+            })
+
+        exec_list.sort(key=lambda x: x['total_revenue'], reverse=True)
+
+        for i, item in enumerate(exec_list):
+            item['rank'] = i + 1
+
+        leaderboard_chart = [{
+            'name': item['name'],
+            'Revenue': round(item['total_revenue'], 2),
+            'Volume': round(item['total_volume'], 2),
+            'ASP': item['asp']
+        } for item in exec_list[:15]]
+
+        top_performer = {
+            'name': exec_list[0]['name'] if exec_list else 'N/A',
+            'revenue': exec_list[0]['total_revenue'] if exec_list else 0,
+            'volume': exec_list[0]['total_volume'] if exec_list else 0
+        }
+
+        all_avail_months = sorted(list(PrimarySales.objects.filter(billing_date__isnull=False).dates('billing_date', 'month')))
+        month_strings = [d.strftime('%Y-%m') for d in all_avail_months]
+        division_strings = sorted([d for d in PrimarySales.objects.values_list('division', flat=True).distinct() if d])
+
+        response_data = {
+            'kpis': {
+                'total_executives': len(exec_list),
+                'total_revenue': round(total_rev_all, 2),
+                'total_volume': round(total_vol_all, 2),
+                'total_transactions': total_tx_all,
+                'top_performer': top_performer,
+                'avg_revenue_per_exec': round(total_rev_all / len(exec_list), 2) if exec_list else 0.0
+            },
+            'available_months': month_strings if month_strings else sorted(list(all_months_set)),
+            'available_divisions': division_strings if division_strings else sorted(list(all_divisions_set)),
+            'leaderboard': leaderboard_chart,
+            'executives': exec_list
+        }
+
+        cache.set(cache_key, response_data, 3600)
+        return Response(response_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': f'Sales Exec analytics error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

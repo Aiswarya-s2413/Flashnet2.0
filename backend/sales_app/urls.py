@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductMasterViewSet, DistributorInvoiceViewSet, OrderViewSet, StockLevelViewSet, MonthlySalesViewSet, PrimarySalesViewSet, EPRViewSet, TraderTemplateViewSet, upload_products, extract_orders, upload_orders, extract_headers, upload_stock, upload_monthly_sales, upload_primary_sales, upload_csi_sales, dashboard_metrics, primary_vs_secondary_analytics
+from .views import ProductMasterViewSet, DistributorInvoiceViewSet, OrderViewSet, StockLevelViewSet, MonthlySalesViewSet, PrimarySalesViewSet, EPRViewSet, TraderTemplateViewSet, upload_products, extract_orders, upload_orders, extract_headers, upload_stock, upload_monthly_sales, upload_primary_sales, upload_csi_sales, dashboard_metrics, primary_vs_secondary_analytics, sales_exec_analytics
 
 router = DefaultRouter()
 router.register(r'products', ProductMasterViewSet)
@@ -23,5 +23,6 @@ urlpatterns = [
     path('csi-sales/upload/', upload_csi_sales, name='upload-csi-sales'),
     path('dashboard/metrics/', dashboard_metrics, name='dashboard-metrics'),
     path('dashboard/analytics-ps-ss/', primary_vs_secondary_analytics, name='dashboard-analytics'),
+    path('analytics/sales-exec/', sales_exec_analytics, name='sales-exec-analytics'),
     path('', include(router.urls)),
 ]
