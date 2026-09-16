@@ -1,18 +1,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import API from '../api'
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, AreaChart, Area
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart
 } from 'recharts'
 import {
-  Users, Award, TrendingUp, Package, RefreshCw, Search, X, ChevronRight, BarChart2, DollarSign, Filter, Layers
+  Users, Award, TrendingUp, Package, RefreshCw, Search, X, ChevronRight, Filter, DollarSign, Briefcase
 } from 'lucide-react'
 import { useSortableData, SortHeader } from '../components/SortableTable'
 import Pagination from '../components/Pagination'
 
 const ROWS_PER_PAGE = 15
 
-// Custom Tooltip for Charts
-const CustomChartTooltip = ({ active, payload, label, prefix = '₹', suffix = '' }) => {
+// Clean Custom Tooltip
+const CustomChartTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <div style={{
@@ -20,18 +20,41 @@ const CustomChartTooltip = ({ active, payload, label, prefix = '₹', suffix = '
         border: '1px solid var(--border)',
         padding: '12px 16px',
         borderRadius: '12px',
-        boxShadow: 'var(--shadow-lg)'
+        boxShadow: 'var(--shadow-lg)',
+        minWidth: 160
       }}>
-        {label && <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase' }}>{label}</p>}
+        {label && (
+          <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {label}
+          </p>
+        )}
         {payload.map((pld, idx) => {
-          const isAsp = pld.name === 'ASP' || pld.name?.toLowerCase().includes('asp') || pld.name?.toLowerCase().includes('rate')
-          const isVol = pld.name === 'Volume' || pld.name?.toLowerCase().includes('volume') || pld.name?.toLowerCase().includes('qty')
-          const itemPrefix = isVol ? '' : '₹'
-          const itemSuffix = isVol ? ' KG' : (isAsp ? '/KG' : '')
-          const formatted = new Intl.NumberFormat('en-IN', { maximumFractionDigits: isAsp ? 2 : 0 }).format(pld.value)
+          const isAsp = pld.name === 'ASP' || pld.name?.toLowerCase().includes('asp')
+          const isVol = pld.name === 'Volume' || pld.name?.toLowerCase().includes('volume')
+          let formatted = ''
+          let prefix = '₹'
+          let suffix = ''
+
+          if (isVol) {
+            prefix = ''
+            suffix = ' KG'
+            formatted = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(pld.value)
+          } else if (isAsp) {
+            suffix = ' / KG'
+            formatted = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(pld.value)
+          } else {
+            if (pld.value >= 10000000) {
+              formatted = `${(pld.value / 10000000).toFixed(2)} Cr`
+            } else if (pld.value >= 100000) {
+              formatted = `${(pld.value / 100000).toFixed(2)} L`
+            } else {
+              formatted = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(pld.value)
+            }
+          }
+
           return (
             <p key={idx} style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 700, color: pld.color || 'var(--primary)' }}>
-              {pld.name}: <span style={{ color: 'var(--text)' }}>{itemPrefix}{formatted}{itemSuffix}</span>
+              {pld.name}: <span style={{ color: 'var(--text)' }}>{prefix}{formatted}{suffix}</span>
             </p>
           )
         })}
@@ -102,165 +125,250 @@ export default function SalesExecAnalysisPage() {
   const kpis = data?.kpis || {}
 
   return (
-    <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+    <div style={{ paddingBottom: 40 }}>
+      {/* Page Title & Refresh */}
+      <div className="page-header" style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="page-title" style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Sales Executive Performance Analysis</h1>
+          <h1 className="page-title" style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>
+            Sales Executive Performance Analysis
+          </h1>
           <p style={{ color: 'var(--text-dim)', margin: '4px 0 0 0', fontSize: 13.5 }}>
-            Detailed sales representative benchmarking, revenue contribution, volume trends, and account breakdown.
+            Representative revenue benchmarking, volume trends, average selling prices, and territory accounts.
           </p>
         </div>
         <button
           className="btn btn-outline"
           onClick={fetchData}
           disabled={loading}
-          style={{ fontSize: 13, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}
+          style={{ fontSize: 13, padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 8 }}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Refreshing…' : 'Refresh Metrics'}
+          {loading ? 'Refreshing…' : 'Refresh Data'}
         </button>
       </div>
 
-      {/* Top Level Summary Cards */}
-      <div className="stats-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: 24 }}>
-        <div className="stat-card" style={{ borderLeft: '4px solid #0B3B2C' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <span className="stat-label">Active Executives</span>
-              <span className="stat-value" style={{ color: '#0B3B2C', fontSize: 26, margin: '4px 0' }}>
-                {kpis.total_executives || 0}
-              </span>
-              <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>Across all divisions</p>
+      {/* Structured Top KPI Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gap: 20,
+        marginBottom: 28
+      }}>
+        {/* Card 1: Active Execs */}
+        <div style={{
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderLeft: '4px solid #0B3B2C',
+          borderRadius: 'var(--radius-lg)',
+          padding: '20px 24px',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
+              Active Executives
+            </span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'var(--accent-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={18} />
             </div>
-            <div style={{ padding: 10, backgroundColor: 'var(--accent-soft)', borderRadius: 10, color: 'var(--primary)' }}>
-              <Users size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#0B3B2C', lineHeight: 1.1, marginBottom: 6 }}>
+              {kpis.total_executives || 0}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>
+              Across all business segments
             </div>
           </div>
         </div>
 
-        <div className="stat-card" style={{ borderLeft: '4px solid #2F7A60' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <span className="stat-label">Total Primary Revenue</span>
-              <span className="stat-value" style={{ color: '#2F7A60', fontSize: 26, margin: '4px 0' }}>
-                {formatLakhs(kpis.total_revenue || 0)}
-              </span>
-              <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>{(kpis.total_transactions || 0).toLocaleString('en-IN')} billing transactions</p>
+        {/* Card 2: Total Revenue */}
+        <div style={{
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderLeft: '4px solid #2F7A60',
+          borderRadius: 'var(--radius-lg)',
+          padding: '20px 24px',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
+              Total Primary Revenue
+            </span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(47, 122, 96, 0.1)', color: '#2F7A60', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={18} />
             </div>
-            <div style={{ padding: 10, backgroundColor: 'rgba(47, 122, 96, 0.1)', borderRadius: 10, color: '#2F7A60' }}>
-              <TrendingUp size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#2F7A60', lineHeight: 1.1, marginBottom: 6 }}>
+              {formatLakhs(kpis.total_revenue || 0)}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>
+              {(kpis.total_transactions || 0).toLocaleString('en-IN')} billing records
             </div>
           </div>
         </div>
 
-        <div className="stat-card" style={{ borderLeft: '4px solid #3D6A8A' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <span className="stat-label">Total Volume Sold</span>
-              <span className="stat-value" style={{ color: '#3D6A8A', fontSize: 26, margin: '4px 0' }}>
-                {formatQty(kpis.total_volume || 0)}
-              </span>
-              <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>
-                Avg ASP: ₹{kpis.total_volume > 0 ? (kpis.total_revenue / kpis.total_volume).toFixed(2) : '0.00'}/KG
-              </p>
+        {/* Card 3: Total Volume */}
+        <div style={{
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderLeft: '4px solid #3D6A8A',
+          borderRadius: 'var(--radius-lg)',
+          padding: '20px 24px',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
+              Total Volume Sold
+            </span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(61, 106, 138, 0.1)', color: '#3D6A8A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Package size={18} />
             </div>
-            <div style={{ padding: 10, backgroundColor: 'rgba(61, 106, 138, 0.1)', borderRadius: 10, color: '#3D6A8A' }}>
-              <Package size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#3D6A8A', lineHeight: 1.1, marginBottom: 6 }}>
+              {formatQty(kpis.total_volume || 0)}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>
+              Avg ASP: ₹{kpis.total_volume > 0 ? (kpis.total_revenue / kpis.total_volume).toFixed(2) : '0.00'}/KG
             </div>
           </div>
         </div>
 
-        <div className="stat-card" style={{ borderLeft: '4px solid #C07D38' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <span className="stat-label">Top Performer (#1)</span>
-              <span className="stat-value" style={{ color: '#C07D38', fontSize: 20, margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 }} title={kpis.top_performer?.name}>
-                {kpis.top_performer?.name || 'N/A'}
-              </span>
-              <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>
-                Revenue: {formatLakhs(kpis.top_performer?.revenue || 0)}
-              </p>
+        {/* Card 4: Top Performer */}
+        <div style={{
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderLeft: '4px solid #C07D38',
+          borderRadius: 'var(--radius-lg)',
+          padding: '20px 24px',
+          boxShadow: 'var(--shadow-sm)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
+              Top Performer (#1)
+            </span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(192, 125, 56, 0.1)', color: '#C07D38', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Award size={18} />
             </div>
-            <div style={{ padding: 10, backgroundColor: 'rgba(192, 125, 56, 0.1)', borderRadius: 10, color: '#C07D38' }}>
-              <Award size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#C07D38', lineHeight: 1.2, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={kpis.top_performer?.name}>
+              {kpis.top_performer?.name || 'N/A'}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>
+              Revenue: {formatLakhs(kpis.top_performer?.revenue || 0)}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filters Control Bar */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: 24, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 200 }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+      {/* Clean Filters Toolbar */}
+      <div style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '14px 20px',
+        marginBottom: 28,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 14,
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        {/* Search Field */}
+        <div style={{ position: 'relative', flex: '1 1 260px', minWidth: 220 }}>
+          <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
           <input
             type="text"
-            placeholder="Search Sales Executive..."
+            placeholder="Search by Sales Executive name or division..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="form-control"
-            style={{ paddingLeft: 36, width: '100%' }}
+            style={{ paddingLeft: 38, width: '100%', height: 38, fontSize: 13.5 }}
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>Month:</span>
-          <select
-            className="form-control"
-            value={selectedMonth}
-            onChange={(e) => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
-            style={{ minWidth: 140, padding: '8px 12px' }}
-          >
-            <option value="all">All Months</option>
-            {(data?.available_months || []).map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
+        {/* Dropdowns */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Month:</label>
+            <select
+              className="form-control"
+              value={selectedMonth}
+              onChange={(e) => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
+              style={{ minWidth: 135, height: 38, fontSize: 13 }}
+            >
+              <option value="all">All Months</option>
+              {(data?.available_months || []).map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600, whiteSpace: 'nowrap' }}>Division:</span>
-          <select
-            className="form-control"
-            value={selectedDivision}
-            onChange={(e) => { setSelectedDivision(e.target.value); setCurrentPage(1); }}
-            style={{ minWidth: 160, padding: '8px 12px' }}
-          >
-            <option value="all">All Divisions</option>
-            {(data?.available_divisions || []).map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Division:</label>
+            <select
+              className="form-control"
+              value={selectedDivision}
+              onChange={(e) => { setSelectedDivision(e.target.value); setCurrentPage(1); }}
+              style={{ minWidth: 160, height: 38, fontSize: 13 }}
+            >
+              <option value="all">All Divisions</option>
+              {(data?.available_divisions || []).map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
 
-        {(selectedMonth !== 'all' || selectedDivision !== 'all' || searchQuery) && (
-          <button
-            className="btn btn-outline"
-            onClick={() => { setSelectedMonth('all'); setSelectedDivision('all'); setSearchQuery(''); setCurrentPage(1); }}
-            style={{ fontSize: 12, padding: '6px 12px', color: 'var(--text-dim)' }}
-          >
-            Reset Filters
-          </button>
-        )}
+          {(selectedMonth !== 'all' || selectedDivision !== 'all' || searchQuery) && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => { setSelectedMonth('all'); setSelectedDivision('all'); setSearchQuery(''); setCurrentPage(1); }}
+              style={{ height: 38, padding: '0 14px', fontSize: 12, color: 'var(--text-muted)' }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Top 15 Executives Leaderboard Chart */}
-      <div className="card" style={{ padding: 24, height: 430, marginBottom: 32 }}>
+      <div className="card" style={{ padding: '24px 28px', height: 440, marginBottom: 32 }}>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Top Sales Executives by Revenue</h3>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--text)' }}>
+              Top Sales Executives by Revenue
+            </h3>
             <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>
-              Comparison of Primary Sales Revenue (INR Lakhs) & Average Selling Price (₹/KG)
+              Comparison of Primary Sales Revenue (Left Axis) vs Average Selling Price (Right Axis, ₹/KG)
             </p>
           </div>
-          <span className="badge badge-accent" style={{ fontSize: 12 }}>Top 15 Executives</span>
+          <span className="badge badge-accent" style={{ fontSize: 12, padding: '4px 10px' }}>
+            Top 15 Executives
+          </span>
         </div>
+
         {data?.leaderboard && data.leaderboard.length > 0 ? (
-          <ResponsiveContainer width="100%" height="80%">
-            <ComposedChart data={data.leaderboard} margin={{ top: 10, right: 10, bottom: 25, left: 10 }}>
+          <ResponsiveContainer width="100%" height="82%">
+            <ComposedChart data={data.leaderboard} margin={{ top: 10, right: 10, bottom: 45, left: 10 }}>
               <defs>
                 <linearGradient id="execRevenueGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#0B3B2C" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.65}/>
+                  <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.7}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
@@ -272,11 +380,11 @@ export default function SalesExecAnalysisPage() {
                 interval={0}
                 angle={-25}
                 textAnchor="end"
-                height={50}
+                height={55}
               />
               <YAxis
                 yAxisId="left"
-                tickFormatter={(val) => `₹${(val / 100000).toFixed(0)}L`}
+                tickFormatter={(val) => `₹${(val / 10000000).toFixed(0)}Cr`}
                 tick={{ fill: 'var(--text-dim)', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
@@ -290,8 +398,8 @@ export default function SalesExecAnalysisPage() {
                 tickLine={false}
               />
               <Tooltip content={<CustomChartTooltip />} cursor={{ fill: 'var(--bg)', opacity: 0.5 }} />
-              <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
-              <Bar yAxisId="left" name="Revenue" dataKey="Revenue" fill="url(#execRevenueGrad)" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
+              <Bar yAxisId="left" name="Revenue" dataKey="Revenue" fill="url(#execRevenueGrad)" radius={[4, 4, 0, 0]} maxBarSize={30} />
               <Line yAxisId="right" name="ASP" type="monotone" dataKey="ASP" stroke="#C07D38" strokeWidth={2.5} dot={{ r: 4, fill: '#C07D38' }} />
             </ComposedChart>
           </ResponsiveContainer>
@@ -303,35 +411,35 @@ export default function SalesExecAnalysisPage() {
       </div>
 
       {/* Main Executives Table */}
-      <div className="card" style={{ padding: 24, marginBottom: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+      <div className="card" style={{ padding: '24px 28px', marginBottom: 32 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>
-              Sales Executives Leaderboard ({filteredExecutives.length})
+              Sales Executives Performance Table ({filteredExecutives.length})
             </h3>
             <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>
-              Click any row to view complete product, customer, and monthly progression breakdown.
+              Click any executive row to open a full deep-dive of products, accounts, and monthly trends.
             </p>
           </div>
           <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>
-            Showing page {currentPage} of {Math.max(1, Math.ceil(filteredExecutives.length / ROWS_PER_PAGE))}
+            Page {currentPage} of {Math.max(1, Math.ceil(filteredExecutives.length / ROWS_PER_PAGE))}
           </span>
         </div>
 
         <div className="table-wrapper">
-          <table className="data-table" style={{ width: '100%', minWidth: 900 }}>
+          <table className="data-table" style={{ width: '100%', minWidth: 920 }}>
             <thead>
               <tr>
-                <th style={{ width: 60, textAlign: 'center' }}>Rank</th>
+                <th style={{ width: 65, textAlign: 'center' }}>Rank</th>
                 <SortHeader label="Sales Executive" sortKey="name" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 <SortHeader label="Primary Revenue" sortKey="total_revenue" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 <SortHeader label="Total Volume" sortKey="total_volume" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 <SortHeader label="ASP (₹/KG)" sortKey="asp" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 <SortHeader label="Accounts" sortKey="unique_customers_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 <SortHeader label="Products" sortKey="unique_products_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                <SortHeader label="Transactions" sortKey="invoices_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+                <SortHeader label="Invoices" sortKey="invoices_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 <SortHeader label="Primary Division" sortKey="primary_division" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                <th style={{ width: 90, textAlign: 'center' }}>Action</th>
+                <th style={{ width: 100, textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -345,7 +453,6 @@ export default function SalesExecAnalysisPage() {
                     key={exec.name}
                     onClick={() => setSelectedExec(exec)}
                     style={{ cursor: 'pointer', transition: 'background 0.15s ease' }}
-                    className="hover-row"
                   >
                     <td style={{ textAlign: 'center' }}>
                       <span className={`badge ${exec.rank === 1 ? 'badge-gold' : exec.rank === 2 ? 'badge-silver' : exec.rank === 3 ? 'badge-bronze' : ''}`} style={{ fontWeight: 800 }}>
@@ -395,7 +502,7 @@ export default function SalesExecAnalysisPage() {
                     <td style={{ textAlign: 'center' }}>
                       <button
                         className="btn btn-outline"
-                        style={{ padding: '4px 8px', fontSize: 12 }}
+                        style={{ padding: '4px 10px', fontSize: 12 }}
                         onClick={(e) => { e.stopPropagation(); setSelectedExec(exec); }}
                       >
                         Details <ChevronRight size={13} style={{ marginLeft: 2 }} />
@@ -418,7 +525,7 @@ export default function SalesExecAnalysisPage() {
       {/* Selected Executive Deep-Dive Modal */}
       {selectedExec && (
         <div className="modal-overlay" onClick={() => setSelectedExec(null)}>
-          <div className="modal" style={{ maxWidth: '850px', width: '92%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '860px', width: '92%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{
