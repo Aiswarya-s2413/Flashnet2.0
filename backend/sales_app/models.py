@@ -88,12 +88,12 @@ class MonthlySales(models.Model):
 
 class PrimarySales(models.Model):
     billing_no = models.CharField(max_length=100, blank=True, null=True)
-    billing_item = models.CharField(max_length=50, blank=True, null=True)
+    billing_item = models.CharField(max_length=100, blank=True, null=True)
     tax_invoice_no = models.CharField(max_length=100, blank=True, null=True)
     sales_order = models.CharField(max_length=100, blank=True, null=True)
-    sales_order_item = models.CharField(max_length=50, blank=True, null=True)
+    sales_order_item = models.CharField(max_length=100, blank=True, null=True)
     so_creation_date = models.DateField(blank=True, null=True)
-    division = models.CharField(max_length=50, blank=True, null=True)
+    division = models.CharField(max_length=255, blank=True, null=True)
     sold_to_party = models.CharField(max_length=100, blank=True, null=True)
     sold_to_party_address = models.TextField(blank=True, null=True)
     ship_to_party = models.CharField(max_length=100, blank=True, null=True)
@@ -104,10 +104,10 @@ class PrimarySales(models.Model):
     plant = models.CharField(max_length=100, blank=True, null=True)
     rate_per_unit = models.FloatField(blank=True, null=True)
     billed_quantity = models.FloatField(blank=True, null=True)
-    sales_unit = models.CharField(max_length=20, blank=True, null=True)
+    sales_unit = models.CharField(max_length=100, blank=True, null=True)
     assessable_value = models.FloatField(blank=True, null=True)
-    country = models.CharField(max_length=50, blank=True, null=True)
-    region_dlv_plant = models.CharField(max_length=50, blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
+    region_dlv_plant = models.CharField(max_length=100, blank=True, null=True)
     sales_exec = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):

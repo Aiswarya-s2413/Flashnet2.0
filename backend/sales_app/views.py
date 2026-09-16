@@ -1115,7 +1115,7 @@ def upload_primary_sales(request):
         plant_idx = find_col_idx(['Plant'])
         rate_idx = find_col_idx(['ASP INR', 'Rate Per Unit', 'Rate', 'Price', 'Unit Price', 'ASP'])
         qty_idx = find_col_idx(['Inv Qty Kgs', 'Billed Quantity', 'Invoiced Quantity', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
-        sales_unit_idx = find_col_idx(['Sales Unit', 'Sales unit', 'Sales qty unit', 'Unit', 'sales_unit'])
+        sales_unit_idx = find_col_idx(['Sales Unit', 'Sales unit', 'Sales qty unit', 'UOM', 'Unit of Measure', 'sales_unit'])
         val_idx = find_col_idx(['Inv Value INR', 'Assessable Value', 'Assesable Value', 'Net Value', 'Value', 'Amount', 'Total'])
         country_idx = find_col_idx(['Country', 'country', 'Cntry'])
         region_dlv_plant_idx = find_col_idx(['Region of dlv.plant', 'Region of dlv plant', 'Region of dlv. plant', 'Region of dlv', 'Region', 'region_dlv_plant'])
