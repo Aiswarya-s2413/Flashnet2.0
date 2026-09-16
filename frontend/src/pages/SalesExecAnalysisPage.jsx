@@ -258,7 +258,7 @@ export default function SalesExecAnalysisPage() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-dim)' }}>
-              Top Performer (#1)
+              Top Performer
             </span>
             <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(192, 125, 56, 0.1)', color: '#C07D38', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Award size={18} />
@@ -456,7 +456,7 @@ export default function SalesExecAnalysisPage() {
                   >
                     <td style={{ textAlign: 'center' }}>
                       <span className={`badge ${exec.rank === 1 ? 'badge-gold' : exec.rank === 2 ? 'badge-silver' : exec.rank === 3 ? 'badge-bronze' : ''}`} style={{ fontWeight: 800 }}>
-                        #{exec.rank}
+                        {exec.rank}
                       </span>
                     </td>
                     <td>
@@ -539,7 +539,7 @@ export default function SalesExecAnalysisPage() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <h2 className="modal-title" style={{ margin: 0, fontSize: 20 }}>{selectedExec.name}</h2>
-                    <span className="badge badge-accent">Rank #{selectedExec.rank}</span>
+                    <span className="badge badge-accent">Rank {selectedExec.rank}</span>
                   </div>
                   <p style={{ margin: '2px 0 0 0', fontSize: 13, color: 'var(--text-dim)' }}>
                     Primary Segment: {selectedExec.primary_division}
