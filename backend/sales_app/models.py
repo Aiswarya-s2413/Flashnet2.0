@@ -108,6 +108,7 @@ class PrimarySales(models.Model):
     assessable_value = models.FloatField(blank=True, null=True)
     country = models.CharField(max_length=50, blank=True, null=True)
     region_dlv_plant = models.CharField(max_length=50, blank=True, null=True)
+    sales_exec = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"Primary Sale: {self.billing_no} - {self.material_desc}"

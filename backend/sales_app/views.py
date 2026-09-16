@@ -1065,13 +1065,30 @@ def upload_primary_sales(request):
         if not rows or len(rows) < 2:
             return Response({'error': 'The uploaded file contains no data rows.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        raw_headers = [str(h).strip() if h is not None else '' for h in rows[0]]
+        # Dynamically locate the header row (skip top formula / title / subtotal rows)
+        header_row_idx = 0
+        for i in range(min(15, len(rows))):
+            row_strs = [str(cell).lower() for cell in rows[i] if cell is not None]
+            row_text = ' '.join(row_strs)
+            matches = sum(1 for k in ['billing', 'sold', 'ship', 'material', 'ppc', 'order', 'plant', 'qty', 'value', 'date', 'invoice', 'product', 'sales'] if k in row_text)
+            if matches >= 2:
+                header_row_idx = i
+                break
+
+        raw_headers = [str(h).strip() if h is not None else '' for h in rows[header_row_idx]]
         import re
         normalized_cols = {idx: re.sub(r'[^a-z0-9]', '', h.lower()) for idx, h in enumerate(raw_headers)}
         
         def find_col_idx(key_options):
             if isinstance(key_options, str):
                 key_options = [key_options]
+            # Exact match first
+            for key_name in key_options:
+                lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
+                for idx, norm_col in normalized_cols.items():
+                    if lower_key == norm_col:
+                        return idx
+            # Substring match second
             for key_name in key_options:
                 lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
                 for idx, norm_col in normalized_cols.items():
@@ -1080,27 +1097,29 @@ def upload_primary_sales(request):
             return None
 
         # Pre-locate all target columns by index
-        billing_no_idx = find_col_idx(['Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
+        billing_no_idx = find_col_idx(['Billing Doc', 'Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
         billing_item_idx = find_col_idx(['Billing Item', 'Item', 'ItemNo', 'billing_item'])
         tax_inv_idx = find_col_idx(['Tax Invoice No', 'Tax Invoice'])
-        so_idx = find_col_idx(['Sales Order', 'Sales Document', 'SO No'])
+        so_idx = find_col_idx(['Sales Order', 'Sales Document', 'SO No', 'Order No', 'Order'])
         sales_order_item_idx = find_col_idx(['Sales Document Item', 'Sales Doc Item', 'Sales doc item', 'Sales Document item', 'SO Item', 'sales_order_item'])
         so_date_idx = find_col_idx(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
-        division_idx = find_col_idx('Division')
-        sold_to_idx = find_col_idx(['Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
+        division_idx = find_col_idx(['Division', 'United Segments', 'Segment', 'Segments'])
+        sold_to_idx = find_col_idx(['SoldTo', 'Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
+        sold_to_name_idx = find_col_idx(['Sold To Text', 'Sold to party Name', 'Customer Name'])
         sold_to_addr_idx = find_col_idx(['Sold to party Address', 'Sold-to Party Address', 'Address'])
-        ship_to_idx = find_col_idx(['Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
-        ship_to_name_idx = find_col_idx(['Ship to Party Name', 'Ship-to Party Name', 'Ship Name'])
-        material_code_idx = find_col_idx(['Material Code', 'Material', 'PPC', 'Item Code', 'Part No', 'Product Code'])
-        material_desc_idx = find_col_idx(['Material Desc', 'Description', 'Material Text', 'Item Name', 'Item Description', 'Name', 'Product Name'])
-        billing_date_idx = find_col_idx(['Billing Date', 'Billing date', 'Bill Date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
-        plant_idx = find_col_idx('Plant')
-        rate_idx = find_col_idx(['Rate Per Unit', 'Rate', 'Price', 'Unit Price'])
-        qty_idx = find_col_idx(['Billed Quantity', 'Invoiced Quantity', 'Inv Qty Kgs', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
+        ship_to_idx = find_col_idx(['ShipTo', 'Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
+        ship_to_name_idx = find_col_idx(['Ship To Party Name', 'Ship to Party Name', 'Ship Name', 'ShipTo Name'])
+        material_code_idx = find_col_idx(['PPC', 'Material Code', 'Material', 'Item Code', 'Part No', 'Product Code'])
+        material_desc_idx = find_col_idx(['Material Text', 'Product Description', 'Material Desc', 'Description', 'Item Name', 'Item Description', 'Name', 'Product Name'])
+        billing_date_idx = find_col_idx(['Bill Date', 'Billing Date', 'Billing date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
+        plant_idx = find_col_idx(['Plant'])
+        rate_idx = find_col_idx(['ASP INR', 'Rate Per Unit', 'Rate', 'Price', 'Unit Price', 'ASP'])
+        qty_idx = find_col_idx(['Inv Qty Kgs', 'Billed Quantity', 'Invoiced Quantity', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
         sales_unit_idx = find_col_idx(['Sales Unit', 'Sales unit', 'Sales qty unit', 'Unit', 'sales_unit'])
-        val_idx = find_col_idx(['Assessable Value', 'Assesable Value', 'Net Value', 'Inv Value INR', 'Value', 'Amount', 'Total'])
+        val_idx = find_col_idx(['Inv Value INR', 'Assessable Value', 'Assesable Value', 'Net Value', 'Value', 'Amount', 'Total'])
         country_idx = find_col_idx(['Country', 'country', 'Cntry'])
         region_dlv_plant_idx = find_col_idx(['Region of dlv.plant', 'Region of dlv plant', 'Region of dlv. plant', 'Region of dlv', 'Region', 'region_dlv_plant'])
+        sales_exec_idx = find_col_idx(['New Sales Rep', 'New Sales Rep.', 'Sales Rep', 'Sales Exec', 'Sales Executive', 'Sales Representative', 'Sales Person', 'Executive', 'Sales Representative Name', 'New Sales Leader'])
         
         valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
         new_products = {}
@@ -1138,7 +1157,7 @@ def upload_primary_sales(request):
         batch_size = 5000
         total_created = 0
 
-        for index, row in enumerate(rows[1:]):
+        for index, row in enumerate(rows[header_row_idx + 1:]):
             billing_no = get_str(row, billing_no_idx)
             material_code = get_str(row, material_code_idx)
             material_desc = get_str(row, material_desc_idx)
@@ -1162,6 +1181,10 @@ def upload_primary_sales(request):
                         material_name=material_desc or material_code
                     )
 
+            sold_to_address_val = get_str(row, sold_to_addr_idx)
+            if not sold_to_address_val and sold_to_name_idx is not None:
+                sold_to_address_val = get_str(row, sold_to_name_idx)
+
             records_to_create.append(PrimarySales(
                 billing_no=billing_no,
                 billing_item=get_str(row, billing_item_idx),
@@ -1171,7 +1194,7 @@ def upload_primary_sales(request):
                 so_creation_date=get_date(row, so_date_idx),
                 division=get_str(row, division_idx),
                 sold_to_party=get_str(row, sold_to_idx),
-                sold_to_party_address=get_str(row, sold_to_addr_idx),
+                sold_to_party_address=sold_to_address_val,
                 ship_to_party=get_str(row, ship_to_idx),
                 ship_to_party_name=get_str(row, ship_to_name_idx),
                 material_code=material_code,
@@ -1180,10 +1203,11 @@ def upload_primary_sales(request):
                 plant=get_str(row, plant_idx),
                 rate_per_unit=get_float(row, rate_idx),
                 billed_quantity=get_float(row, qty_idx),
-                sales_unit=get_str(row, sales_unit_idx),
+                sales_unit=get_str(row, sales_unit_idx) or 'KG',
                 assessable_value=get_float(row, val_idx),
                 country=get_str(row, country_idx),
-                region_dlv_plant=get_str(row, region_dlv_plant_idx)
+                region_dlv_plant=get_str(row, region_dlv_plant_idx),
+                sales_exec=get_str(row, sales_exec_idx)
             ))
 
             if len(records_to_create) >= batch_size:

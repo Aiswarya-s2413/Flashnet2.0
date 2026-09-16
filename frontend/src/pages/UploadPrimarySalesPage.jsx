@@ -169,14 +169,15 @@ export default function UploadPrimarySalesPage() {
               <SortHeader label="Assessable Value" sortKey="assessable_value" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Country" sortKey="country" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
               <SortHeader label="Region" sortKey="region_dlv_plant" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
+              <SortHeader label="Sales Exec" sortKey="sales_exec" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
             </tr>
           </thead>
           <tbody>
             {fetching ? (
-              <tr><td colSpan={21} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Primary Sales…</td></tr>
+              <tr><td colSpan={22} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Primary Sales…</td></tr>
             ) : sales.length === 0 ? (
               <tr>
-                <td colSpan={21} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
+                <td colSpan={22} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>
                   <FileSpreadsheet size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
                   <div>Data mapping aligns strictly downward matching these exact column properties natively.</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>Material Names are strictly cross-referenced securely against the absolute Product Master natively.</div>
@@ -206,6 +207,7 @@ export default function UploadPrimarySalesPage() {
                   <td><span className="badge badge-green" style={{ whiteSpace: 'nowrap' }}>{Math.round(s.assessable_value || 0).toLocaleString('en-IN')}</span></td>
                   <td>{s.country || '-'}</td>
                   <td>{s.region_dlv_plant || '-'}</td>
+                  <td>{s.sales_exec || '-'}</td>
                 </tr>
               ))
             )}
