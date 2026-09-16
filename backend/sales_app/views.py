@@ -1229,6 +1229,8 @@ def upload_primary_sales(request):
             total_created += len(records_to_create)
             records_to_create.clear()
 
+        invalidate_dashboard_cache()
+
         return Response({
             'message': f'Successfully secured and parsed {total_created:,} Primary Sales records with all 5 new fields.'
         }, status=status.HTTP_200_OK)
