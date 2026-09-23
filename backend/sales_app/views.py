@@ -1975,3 +1975,267 @@ def sales_exec_analytics(request):
     except Exception as e:
         return Response({'error': f'Sales Exec analytics error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  STOCK ANALYSIS  –  primary_qty − secondary_qty  vs  actual stock on hand
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(['GET'])
+def stock_analysis(request):
+    """
+    Returns a per-product, per-distributor stock reconciliation.
+
+    Logic:
+        expected_stock_left = primary_qty  −  secondary_qty
+        actual_stock        = StockLevel.month_end_inventory  (uploaded stock report)
+        discrepancy         = actual_stock − expected_stock_left
+        anomaly             = abs(discrepancy) > tolerance   (default 5 %)
+
+    Query params:
+        month   – integer 1-12
+        year    – integer e.g. 2026
+        dist    – ship_to code / name filter (partial, case-insensitive)
+    """
+    try:
+        from collections import defaultdict
+        import datetime
+
+        month_filter = request.GET.get('month')
+        year_filter  = request.GET.get('year')
+        dist_filter  = request.GET.get('dist', '').strip().lower()
+
+        ANOMALY_TOLERANCE_PCT = 5.0   # flag if discrepancy > 5 % of expected
+
+        # ── 1. Product master lookup ──────────────────────────────────────────
+        prod_master = {p.material_code: clean_prod_name(p.material_name)
+                       for p in ProductMaster.objects.all() if p.material_code}
+
+        canonical_cache = {}
+        def get_canonical(name):
+            if not name: return ''
+            if name in canonical_cache: return canonical_cache[name]
+            n = re.sub(r'[\s\xa0]+', ' ', str(name)).strip().upper()
+            n = re.sub(r'\b\d{4,}\b$', '', n).strip()
+            n = re.sub(r'\b\d+\s*(KG|KGS)\b', '', n, flags=re.IGNORECASE)
+            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', n, flags=re.IGNORECASE)
+            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b', '', n, flags=re.IGNORECASE)
+            n = n.replace('-', ' ').replace('.', ' ')
+            n = re.sub(r'[^A-Z0-9\s%]', '', n)
+            res = re.sub(r'\s+', ' ', n).strip()
+            canonical_cache[name] = res
+            return res
+
+        def resolve_prod_name(mat_code, mat_desc):
+            if mat_code and mat_code in prod_master:
+                return get_canonical(prod_master[mat_code])
+            if mat_desc:
+                return get_canonical(mat_desc)
+            return 'Unknown'
+
+        # ── 2. Primary Sales  →  qty per (distributor, product, year-month) ──
+        ps_qs = PrimarySales.objects.all()
+        if month_filter and year_filter:
+            ps_qs = ps_qs.filter(
+                billing_date__month=int(month_filter),
+                billing_date__year=int(year_filter)
+            )
+        elif year_filter:
+            ps_qs = ps_qs.filter(billing_date__year=int(year_filter))
+        elif month_filter:
+            ps_qs = ps_qs.filter(billing_date__month=int(month_filter))
+
+        ps_agg = defaultdict(float)   # key: (dist_key, prod_name, ym)
+        ps_val_agg = defaultdict(float)
+        ps_months  = set()
+
+        for ps in ps_qs.values('ship_to_party', 'ship_to_party_name', 'material_code',
+                                'material_desc', 'billed_quantity', 'assessable_value',
+                                'billing_date', 'sold_to_party'):
+            ym    = ps['billing_date'].strftime('%Y-%m') if ps['billing_date'] else 'Unknown'
+            dist  = (ps['ship_to_party_name'] or ps['ship_to_party'] or '').strip()
+            prod  = resolve_prod_name(ps['material_code'], ps['material_desc'])
+            qty   = float(ps['billed_quantity'] or 0)
+            val   = float(ps['assessable_value'] or 0)
+            key   = (dist, prod, ym)
+            ps_agg[key]     += qty
+            ps_val_agg[key] += val
+            ps_months.add(ym)
+
+        # ── 3. Secondary Sales  →  qty per (distributor, product, year-month) ─
+        ss_agg     = defaultdict(float)
+        ss_val_agg = defaultdict(float)
+
+        ms_qs = MonthlySales.objects.all()
+        for ms in ms_qs:
+            dist     = (ms.customer_name or ms.ship_to_code or ms.distributor_name or '').strip()
+            prod_raw = get_canonical(ms.product_name)
+
+            # Match to product master canonical name
+            matched_prod = prod_raw
+            for mc, mp in prod_master.items():
+                if get_canonical(mp) == prod_raw or prod_raw.startswith(get_canonical(mp)):
+                    matched_prod = get_canonical(mp)
+                    break
+
+            for ym, vol in (ms.volumes or {}).items():
+                try:
+                    vol_f = float(vol or 0)
+                    if vol_f <= 0: continue
+
+                    # parse ym to standard YYYY-MM
+                    try:
+                        import dateutil.parser
+                        parsed = dateutil.parser.parse(ym, default=datetime.datetime(2020, 1, 1))
+                        std_ym = parsed.strftime('%Y-%m')
+                    except Exception:
+                        std_ym = ym
+
+                    if month_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').month) != str(month_filter):
+                        continue
+                    if year_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').year) != str(year_filter):
+                        continue
+
+                    key = (dist, matched_prod, std_ym)
+                    ss_agg[key] += vol_f
+                except Exception:
+                    pass
+
+            for ym, val_v in (ms.values or {}).items():
+                try:
+                    val_f = float(val_v or 0)
+                    if val_f <= 0: continue
+                    try:
+                        import dateutil.parser
+                        parsed = dateutil.parser.parse(ym, default=datetime.datetime(2020, 1, 1))
+                        std_ym = parsed.strftime('%Y-%m')
+                    except Exception:
+                        std_ym = ym
+                    if month_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').month) != str(month_filter):
+                        continue
+                    if year_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').year) != str(year_filter):
+                        continue
+                    key = (dist, matched_prod, std_ym)
+                    ss_val_agg[key] += val_f
+                except Exception:
+                    pass
+
+        # ── 4. Uploaded stock on hand ─────────────────────────────────────────
+        sl_qs = StockLevel.objects.all()
+        if month_filter:
+            sl_qs = sl_qs.filter(month=int(month_filter))
+        if year_filter:
+            sl_qs = sl_qs.filter(year=int(year_filter))
+
+        stock_actual = defaultdict(float)   # key: (dist_key, prod_name, ym)
+        stock_meta   = {}
+
+        for sl in sl_qs:
+            dist  = (sl.ship_to or sl.sold_to or '').strip()
+            prod  = get_canonical(sl.product_desc)
+            ym    = f"{sl.year:04d}-{sl.month:02d}" if sl.year and sl.month else 'Unknown'
+            qty   = float(sl.month_end_inventory or 0)
+            key   = (dist, prod, ym)
+            stock_actual[key] = qty
+            stock_meta[key]   = {
+                'avg_six_month_sales': sl.avg_six_month_sales,
+                'mid_month_inventory': sl.mid_month_inventory,
+                'remarks': sl.remarks or '',
+                'ship_to': sl.ship_to or '',
+                'sold_to': sl.sold_to or '',
+            }
+
+        # ── 5. Union all keys and compute reconciliation ──────────────────────
+        all_keys = set(ps_agg.keys()) | set(ss_agg.keys()) | set(stock_actual.keys())
+
+        rows = []
+        summary_total_ps_qty    = 0.0
+        summary_total_ss_qty    = 0.0
+        summary_total_expected  = 0.0
+        summary_total_actual    = 0.0
+        summary_anomaly_count   = 0
+
+        for (dist, prod, ym) in all_keys:
+            # optional distributor filter
+            if dist_filter and dist_filter not in dist.lower():
+                continue
+
+            ps_qty  = ps_agg.get((dist, prod, ym), 0.0)
+            ss_qty  = ss_agg.get((dist, prod, ym), 0.0)
+            ps_val  = ps_val_agg.get((dist, prod, ym), 0.0)
+            ss_val  = ss_val_agg.get((dist, prod, ym), 0.0)
+            actual  = stock_actual.get((dist, prod, ym), None)
+            meta    = stock_meta.get((dist, prod, ym), {})
+
+            expected = round(ps_qty - ss_qty, 4)
+            has_actual = actual is not None
+            actual_val = round(actual, 4) if has_actual else None
+
+            if has_actual:
+                discrepancy = round(actual_val - expected, 4)
+                tol_qty     = abs(expected) * ANOMALY_TOLERANCE_PCT / 100 if expected != 0 else 1.0
+                is_anomaly  = abs(discrepancy) > tol_qty
+            else:
+                discrepancy = None
+                is_anomaly  = False
+
+            # Skip rows where everything is zero and no stock record
+            if ps_qty == 0 and ss_qty == 0 and not has_actual:
+                continue
+
+            summary_total_ps_qty   += ps_qty
+            summary_total_ss_qty   += ss_qty
+            summary_total_expected += expected
+            if has_actual:
+                summary_total_actual += actual_val
+            if is_anomaly:
+                summary_anomaly_count += 1
+
+            rows.append({
+                'distributor':   dist or '—',
+                'product':       prod or '—',
+                'month':         ym,
+                'primary_qty':   round(ps_qty, 4),
+                'secondary_qty': round(ss_qty, 4),
+                'primary_val':   round(ps_val, 2),
+                'secondary_val': round(ss_val, 2),
+                'expected_stock_left': expected,
+                'actual_stock':  actual_val,
+                'discrepancy':   discrepancy,
+                'is_anomaly':    is_anomaly,
+                'has_stock_data': has_actual,
+                # meta from stock upload
+                'avg_six_month_sales': meta.get('avg_six_month_sales'),
+                'mid_month_inventory': meta.get('mid_month_inventory'),
+                'remarks':             meta.get('remarks', ''),
+                'ship_to':             meta.get('ship_to', ''),
+                'sold_to':             meta.get('sold_to', ''),
+            })
+
+        # Sort: anomalies first, then by month desc, then distributor
+        rows.sort(key=lambda r: (
+            0 if r['is_anomaly'] else 1,
+            r['month'],
+            r['distributor']
+        ))
+
+        # Gather available months for filter dropdown
+        available_months = sorted(list(set(r['month'] for r in rows) - {'Unknown'}))
+
+        return Response({
+            'summary': {
+                'total_rows':          len(rows),
+                'anomaly_count':        summary_anomaly_count,
+                'total_primary_qty':    round(summary_total_ps_qty, 4),
+                'total_secondary_qty':  round(summary_total_ss_qty, 4),
+                'total_expected_left':  round(summary_total_expected, 4),
+                'total_actual_stock':   round(summary_total_actual, 4),
+                'stock_discrepancy':    round(summary_total_actual - summary_total_expected, 4),
+            },
+            'available_months': available_months,
+            'rows': rows,
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        import traceback
+        return Response({'error': str(e), 'detail': traceback.format_exc()},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

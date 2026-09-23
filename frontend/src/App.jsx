@@ -12,8 +12,9 @@ import UploadCSISalesPage from './pages/UploadCSISalesPage'
 import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
 import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
 import OnboardingApprovalsPage from './pages/OnboardingApprovalsPage'
+import StockAnalysisPage from './pages/StockAnalysisPage'
 
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, Users, Award } from 'lucide-react'
+import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, Users, Award, BarChart2 } from 'lucide-react'
 
 // AppShell holds the sidebar layout and top header
 function AppShell({ children }) {
@@ -50,6 +51,10 @@ function AppShell({ children }) {
               <NavLink to="/products" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                 <Package size={18} />
                 Product Master
+              </NavLink>
+              <NavLink to="/stock-analysis" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                <BarChart2 size={18} />
+                Stock Analysis
               </NavLink>
             </nav>
           </div>
@@ -139,6 +144,7 @@ function App() {
         <Route path="/exceptional-price-request" element={<AppShell><ExceptionalPriceRequestPage /></AppShell>} />
         <Route path="/epr-approvals" element={<AppShell><PriceRequestApprovalsPage /></AppShell>} />
         <Route path="/onboarding-approvals" element={<AppShell><OnboardingApprovalsPage /></AppShell>} />
+        <Route path="/stock-analysis" element={<AppShell><StockAnalysisPage /></AppShell>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
