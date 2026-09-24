@@ -2024,6 +2024,20 @@ def stock_analysis(request):
             canonical_cache[name] = res
             return res
 
+        group_cache = {}
+        def get_group_name(raw_name):
+            if not raw_name: return ''
+            if raw_name in group_cache: return group_cache[raw_name]
+            n = str(raw_name).upper().strip()
+            if 'VIKRAM' in n: res = 'VIKRAM TRADING'
+            elif 'MIKHAIL' in n: res = 'MIKHAIL ENTERPRISES'
+            elif 'CHEMIELINK' in n or '438498' in n: res = 'CHEMIELINK'
+            elif '436741' in n or '436757' in n or 'JK ASSOCIATES' in n: res = 'JK ASSOCIATES'
+            else:
+                res = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
+            group_cache[raw_name] = res
+            return res
+
         def resolve_prod_name(mat_code, mat_desc):
             if mat_code and mat_code in prod_master:
                 return get_canonical(prod_master[mat_code])
@@ -2051,7 +2065,7 @@ def stock_analysis(request):
                                 'material_desc', 'billed_quantity', 'assessable_value',
                                 'billing_date', 'sold_to_party'):
             ym    = ps['billing_date'].strftime('%Y-%m') if ps['billing_date'] else 'Unknown'
-            dist  = (ps['ship_to_party_name'] or ps['ship_to_party'] or '').strip()
+            dist  = get_group_name(ps['ship_to_party_name'] or ps['ship_to_party'] or '')
             prod  = resolve_prod_name(ps['material_code'], ps['material_desc'])
             qty   = float(ps['billed_quantity'] or 0)
             val   = float(ps['assessable_value'] or 0)
@@ -2066,7 +2080,7 @@ def stock_analysis(request):
 
         ms_qs = MonthlySales.objects.all()
         for ms in ms_qs:
-            dist     = (ms.customer_name or ms.ship_to_code or ms.distributor_name or '').strip()
+            dist     = get_group_name(ms.distributor_name or ms.ship_to_code or ms.customer_name or '')
             prod_raw = get_canonical(ms.product_name)
 
             # Match to product master canonical name
@@ -2077,6 +2091,9 @@ def stock_analysis(request):
                     break
 
             for ym, vol in (ms.volumes or {}).items():
+                # Filter out non-volume columns like currency values, potential, market share
+                if any(bad in ym.lower() for bad in ['value', 'potential', 'share', 'fy26', 'avg']):
+                    continue
                 try:
                     vol_f = float(vol or 0)
                     if vol_f <= 0: continue
@@ -2129,7 +2146,7 @@ def stock_analysis(request):
         stock_meta   = {}
 
         for sl in sl_qs:
-            dist  = (sl.ship_to or sl.sold_to or '').strip()
+            dist  = get_group_name(sl.ship_to or sl.sold_to or '')
             prod  = get_canonical(sl.product_desc)
             ym    = f"{sl.year:04d}-{sl.month:02d}" if sl.year and sl.month else 'Unknown'
             qty   = float(sl.month_end_inventory or 0)
@@ -2143,7 +2160,8 @@ def stock_analysis(request):
                 'sold_to': sl.sold_to or '',
             }
 
-        # ── 5. Union all keys and compute reconciliation ──────────────────────
+        # ── 5. Common distributors & reconciliation ───────────────────────────
+        common_dists = set(k[0] for k in ps_agg.keys()).intersection(set(k[0] for k in ss_agg.keys()))
         all_keys = set(ps_agg.keys()) | set(ss_agg.keys()) | set(stock_actual.keys())
 
         rows = []
@@ -2165,7 +2183,20 @@ def stock_analysis(request):
             actual  = stock_actual.get((dist, prod, ym), None)
             meta    = stock_meta.get((dist, prod, ym), {})
 
-            expected = round(ps_qty - ss_qty, 4)
+            # Common distributor logic: only subtract when distributor is common
+            if dist not in common_dists:
+                ss_qty = 0.0
+
+            # Skip secondary sales without matching primary sales
+            if ss_qty and not ps_qty:
+                continue
+
+            # Compute expected stock left
+            if ss_qty:
+                expected = round(ps_qty - ss_qty, 4)
+            else:
+                expected = round(ps_qty, 4)
+
             has_actual = actual is not None
             actual_val = round(actual, 4) if has_actual else None
 
