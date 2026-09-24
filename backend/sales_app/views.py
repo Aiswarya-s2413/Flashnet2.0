@@ -2183,11 +2183,17 @@ def stock_analysis(request):
         all_keys = set(ps_agg.keys()) | set(ss_agg.keys()) | set(stock_actual.keys())
 
         rows = []
-        summary_total_ps_qty    = 0.0
-        summary_total_ss_qty    = 0.0
-        summary_total_expected  = 0.0
-        summary_total_actual    = 0.0
-        summary_anomaly_count   = 0
+        summary_total_ps_qty       = 0.0
+        summary_total_ss_qty       = 0.0
+        summary_total_expected     = 0.0
+        summary_total_actual       = 0.0
+        summary_anomaly_count      = 0
+        # Discrepancy-specific counters — only where actual stock was uploaded
+        disc_total_expected        = 0.0
+        disc_total_actual          = 0.0
+        disc_count                 = 0
+        # PS-SS reconciled rows (both sides exist)
+        ps_ss_matched_count        = 0
 
         for (dist, prod, ym) in all_keys:
             # Only track distributors who have uploaded stock reports or secondary sales
@@ -2239,6 +2245,11 @@ def stock_analysis(request):
             summary_total_expected += expected
             if has_actual:
                 summary_total_actual += actual_val
+                disc_total_expected  += expected
+                disc_total_actual    += actual_val
+                disc_count           += 1
+            if ps_qty > 0 and ss_qty > 0:
+                ps_ss_matched_count  += 1
             if is_anomaly:
                 summary_anomaly_count += 1
 
@@ -2275,15 +2286,20 @@ def stock_analysis(request):
 
         return Response({
             'summary': {
-                'total_rows':          len(rows),
-                'anomaly_count':        summary_anomaly_count,
-                'total_primary_qty':    round(summary_total_ps_qty, 4),
-                'total_secondary_qty':  round(summary_total_ss_qty, 4),
-                'total_expected_left':  round(summary_total_expected, 4),
-                'total_actual_stock':   round(summary_total_actual, 4),
-                'stock_discrepancy':    round(summary_total_actual - summary_total_expected, 4),
+                'total_rows':              len(rows),
+                'anomaly_count':           summary_anomaly_count,
+                'total_primary_qty':       round(summary_total_ps_qty, 4),
+                'total_secondary_qty':     round(summary_total_ss_qty, 4),
+                'total_expected_left':     round(summary_total_expected, 4),
+                'total_actual_stock':      round(summary_total_actual, 4),
+                # Overall discrepancy only where stock report was uploaded
+                'stock_discrepancy':       round(disc_total_actual - disc_total_expected, 4),
+                'disc_rows_count':         disc_count,
+                'ps_ss_matched_count':     ps_ss_matched_count,
+                # Distributors being tracked
+                'tracked_distributors':    sorted(list(tracked_dists)),
             },
-            'available_months': available_months,
+            'available_months':     available_months,
             'rows': rows,
         }, status=status.HTTP_200_OK)
 
