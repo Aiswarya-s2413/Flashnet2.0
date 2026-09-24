@@ -2045,7 +2045,23 @@ def stock_analysis(request):
                 return get_canonical(mat_desc)
             return 'Unknown'
 
-        # ── 2. Primary Sales  →  qty per (distributor, product, year-month) ──
+        # ── 2. Identify distributors who have uploaded stock reports or secondary sales ──
+        ss_dists = set()
+        for d in MonthlySales.objects.exclude(distributor_name='').values_list('distributor_name', flat=True).distinct():
+            grp = get_group_name(d)
+            if grp: ss_dists.add(grp)
+        for s in MonthlySales.objects.exclude(ship_to_code='').values_list('ship_to_code', flat=True).distinct():
+            grp = get_group_name(s)
+            if grp: ss_dists.add(grp)
+
+        stock_dists = set()
+        for sl in StockLevel.objects.values('ship_to', 'sold_to').distinct():
+            grp = get_group_name(sl.get('ship_to') or sl.get('sold_to') or '')
+            if grp: stock_dists.add(grp)
+
+        tracked_dists = ss_dists | stock_dists
+
+        # ── 3. Primary Sales  →  qty per (distributor, product, year-month) ──
         ps_qs = PrimarySales.objects.all()
         if month_filter and year_filter:
             ps_qs = ps_qs.filter(
@@ -2064,8 +2080,10 @@ def stock_analysis(request):
         for ps in ps_qs.values('ship_to_party', 'ship_to_party_name', 'material_code',
                                 'material_desc', 'billed_quantity', 'assessable_value',
                                 'billing_date', 'sold_to_party'):
-            ym    = ps['billing_date'].strftime('%Y-%m') if ps['billing_date'] else 'Unknown'
             dist  = get_group_name(ps['ship_to_party_name'] or ps['ship_to_party'] or '')
+            if dist not in tracked_dists:
+                continue
+            ym    = ps['billing_date'].strftime('%Y-%m') if ps['billing_date'] else 'Unknown'
             prod  = resolve_prod_name(ps['material_code'], ps['material_desc'])
             qty   = float(ps['billed_quantity'] or 0)
             val   = float(ps['assessable_value'] or 0)
@@ -2172,6 +2190,10 @@ def stock_analysis(request):
         summary_anomaly_count   = 0
 
         for (dist, prod, ym) in all_keys:
+            # Only track distributors who have uploaded stock reports or secondary sales
+            if dist not in tracked_dists:
+                continue
+
             # optional distributor filter
             if dist_filter and dist_filter not in dist.lower():
                 continue
