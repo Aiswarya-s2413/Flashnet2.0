@@ -263,12 +263,15 @@ export default function StockAnalysisPage() {
     setPage(1)
   }
 
-  const s            = data?.summary || {}
-  const anomalyCount = s.anomaly_count       ?? 0
-  const totalRows    = s.total_rows          ?? 0
-  const totalExpLeft = s.total_expected_left ?? 0
-  const totalActual  = s.total_actual_stock  ?? 0
-  const stockDisc    = s.stock_discrepancy   ?? 0
+  const s               = data?.summary || {}
+  const anomalyCount    = s.anomaly_count          ?? 0
+  const totalRows       = s.total_rows             ?? 0
+  const totalExpLeft    = s.total_expected_left    ?? 0
+  const totalActual     = s.total_actual_stock     ?? 0
+  const stockDisc       = s.stock_discrepancy      ?? 0
+  const discRows        = s.disc_rows_count        ?? 0
+  const psssMatched     = s.ps_ss_matched_count    ?? 0
+  const trackedDists    = s.tracked_distributors   ?? []
 
   return (
     <div style={{ paddingBottom: 60 }}>
@@ -361,18 +364,42 @@ export default function StockAnalysisPage() {
       {/* KPI Cards — 5-column grid, numbers abbreviated so they never overflow */}
       {data && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 24 }}>
-          <KpiCard icon={Package}      label="Products Tracked"    value={totalRows.toLocaleString('en-IN')}  sub="Dist × product × month"      color="var(--primary)" />
-          <KpiCard icon={TrendingDown} label="Expected Stock Left"  value={abbr(totalExpLeft)}                sub="Primary − Secondary qty"      color="#7c3aed" />
-          <KpiCard icon={Package}      label="Actual Stock"         value={abbr(totalActual)}                 sub="From stock uploads"           color="var(--green)" />
+          <KpiCard
+            icon={Package}
+            label="Distributors Tracked"
+            value={trackedDists.length}
+            sub={`${psssMatched} rows matched PS & SS`}
+            color="var(--primary)"
+          />
+          <KpiCard
+            icon={TrendingDown}
+            label="Expected Stock Left"
+            value={abbr(totalExpLeft)}
+            sub="Primary − Secondary qty"
+            color="#7c3aed"
+          />
+          <KpiCard
+            icon={Package}
+            label="Actual Stock"
+            value={abbr(totalActual)}
+            sub={`From ${discRows} stock report rows`}
+            color="var(--green)"
+          />
           <KpiCard
             icon={stockDisc === 0 ? Minus : stockDisc > 0 ? TrendingUp : TrendingDown}
-            label="Overall Discrepancy"
+            label="Stock Discrepancy"
             prefix={stockDisc > 0 ? '+' : stockDisc < 0 ? '-' : ''}
             value={abbr(Math.abs(stockDisc))}
-            sub="Actual − Expected"
+            sub={discRows > 0 ? `Across ${discRows} uploaded reports` : 'No stock reports uploaded'}
             color={stockDisc === 0 ? 'var(--text-muted)' : Math.abs(stockDisc) > 100 ? 'var(--red)' : 'var(--amber)'}
           />
-          <KpiCard icon={AlertTriangle} label="Anomalies Flagged"  value={anomalyCount}                      sub="Discrepancy > 5% of expected"  color={anomalyCount > 0 ? 'var(--red)' : 'var(--green)'} />
+          <KpiCard
+            icon={AlertTriangle}
+            label="Anomalies Flagged"
+            value={anomalyCount}
+            sub="Discrepancy > 5% of expected"
+            color={anomalyCount > 0 ? 'var(--red)' : 'var(--green)'}
+          />
         </div>
       )}
 
