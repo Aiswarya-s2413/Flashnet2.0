@@ -2014,6 +2014,7 @@ def stock_analysis(request):
             if not name: return ''
             if name in canonical_cache: return canonical_cache[name]
             n = re.sub(r'[\s\xa0]+', ' ', str(name)).strip().upper()
+            n = re.sub(r'\s+M?\d{4,5}$', '', n).strip()
             n = re.sub(r'\b\d{4,}\b$', '', n).strip()
             n = re.sub(r'\b\d+\s*(KG|KGS)\b', '', n, flags=re.IGNORECASE)
             n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', n, flags=re.IGNORECASE)
@@ -2029,9 +2030,11 @@ def stock_analysis(request):
             if not raw_name: return ''
             if raw_name in group_cache: return group_cache[raw_name]
             n = str(raw_name).upper().strip()
+            n_clean = n.replace(' ', '')
             if 'VIKRAM' in n: res = 'VIKRAM TRADING'
             elif 'MIKHAIL' in n: res = 'MIKHAIL ENTERPRISES'
-            elif 'CHEMIELINK' in n or '438498' in n: res = 'CHEMIELINK'
+            elif 'CHEMIE' in n or 'CHEMIELINK' in n_clean or any(c in n for c in ['438498', '438499', '441522']):
+                res = 'CHEMIELINK'
             elif '436741' in n or '436757' in n or 'JK ASSOCIATES' in n: res = 'JK ASSOCIATES'
             else:
                 res = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
@@ -2039,8 +2042,8 @@ def stock_analysis(request):
             return res
 
         def resolve_prod_name(mat_code, mat_desc):
-            if mat_code and mat_code in prod_master:
-                return get_canonical(prod_master[mat_code])
+            if mat_code and str(mat_code).strip() in prod_master:
+                return get_canonical(prod_master[str(mat_code).strip()])
             if mat_desc:
                 return get_canonical(mat_desc)
             return 'Unknown'
@@ -2056,10 +2059,16 @@ def stock_analysis(request):
 
         stock_dists = set()
         for sl in StockLevel.objects.values('ship_to', 'sold_to').distinct():
-            grp = get_group_name(sl.get('ship_to') or sl.get('sold_to') or '')
+            grp = get_group_name(sl.get('sold_to') or '') or get_group_name(sl.get('ship_to') or '')
             if grp: stock_dists.add(grp)
 
-        tracked_dists = ss_dists | stock_dists
+        # Stock Analysis strictly tracks distributors who have uploaded stock reports.
+        # Distributors without stock reports are not tracked to prevent inflating company-wide expected stock.
+        if dist_filter:
+            filt_dists = {d for d in (ss_dists | stock_dists) if dist_filter.lower() in d.lower()}
+            tracked_dists = stock_dists | filt_dists
+        else:
+            tracked_dists = stock_dists
 
         # ── 3. Primary Sales  →  qty per (distributor, product, year-month) ──
         ps_qs = PrimarySales.objects.all()
@@ -2164,8 +2173,8 @@ def stock_analysis(request):
         stock_meta   = {}
 
         for sl in sl_qs:
-            dist  = get_group_name(sl.ship_to or sl.sold_to or '')
-            prod  = get_canonical(sl.product_desc)
+            dist  = get_group_name(sl.sold_to or '') or get_group_name(sl.ship_to or '')
+            prod  = resolve_prod_name(sl.product_code, sl.product_desc)
             ym    = f"{sl.year:04d}-{sl.month:02d}" if sl.year and sl.month else 'Unknown'
             qty   = float(sl.month_end_inventory or 0)
             key   = (dist, prod, ym)
