@@ -284,7 +284,7 @@ export default function StockAnalysisPage() {
   const TABS = [
     { key: 'table', label: 'All Records',  icon: Layers },
     { key: 'gaps',  label: 'Monthly Gaps', icon: BarChart2 },
-    { key: 'mom',   label: 'MoM Trend',    icon: Activity },
+    { key: 'mom',   label: 'Monthly Trend', icon: Activity },
   ]
 
   // Month-on-month deltas for the MoM tab
