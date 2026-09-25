@@ -3,9 +3,14 @@ import API from '../api'
 import {
   BarChart2, AlertTriangle, CheckCircle, RefreshCw,
   TrendingDown, TrendingUp, Minus, Filter, Info, X,
-  Package, ChevronUp, ChevronDown
+  Package, ChevronUp, ChevronDown, Layers, TrendingUp as GapUp, TrendingDown as GapDown,
+  Activity
 } from 'lucide-react'
 import Pagination from '../components/Pagination'
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area
+} from 'recharts'
 
 const ROWS_PER_PAGE = 30
 
@@ -220,6 +225,9 @@ export default function StockAnalysisPage() {
   const [sortDir, setSortDir]         = useState('asc')
   const [selectedRow, setSelectedRow] = useState(null)
 
+  const [activeTab, setActiveTab] = useState('table')
+  const [selectedGapMonth, setSelectedGapMonth] = useState(null)
+
   const currentYear = new Date().getFullYear()
   const yearsRange  = Array.from({ length: 7 }, (_, i) => currentYear - 3 + i)
 
@@ -272,6 +280,71 @@ export default function StockAnalysisPage() {
   const discRows        = s.disc_rows_count        ?? 0
   const psssMatched     = s.ps_ss_matched_count    ?? 0
   const trackedDists    = s.tracked_distributors   ?? []
+
+  const TABS = [
+    { key: 'table', label: 'All Records',  icon: Layers },
+    { key: 'gaps',  label: 'Monthly Gaps', icon: BarChart2 },
+    { key: 'mom',   label: 'MoM Trend',    icon: Activity },
+  ]
+
+  // Month-on-month deltas for the MoM tab
+  const momData = useMemo(() => {
+    const raw = data?.monthly_gaps || []
+    const sorted = [...raw].map(g => ({
+      ...g,
+      label: fmtYM(g.month) || g.month,
+    }))
+    return sorted.map((g, i) => {
+      const prev = sorted[i - 1]
+      const excessDelta  = prev ? g.excess  - prev.excess  : null
+      const missingDelta = prev ? g.missing - prev.missing : null
+      return { ...g, excessDelta, missingDelta }
+    })
+  }, [data])
+
+  const monthlyGaps = useMemo(() => {
+    const raw = data?.monthly_gaps || []
+    return raw.map(g => ({
+      ...g,
+      label: fmtYM(g.month) || g.month,
+    }))
+  }, [data])
+
+  const selectedGap = useMemo(() => {
+    if (!monthlyGaps.length) return null
+    if (!selectedGapMonth) return monthlyGaps[monthlyGaps.length - 1]
+    return monthlyGaps.find(g => g.month === selectedGapMonth) || monthlyGaps[monthlyGaps.length - 1]
+  }, [monthlyGaps, selectedGapMonth])
+
+  const GapChartTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const entry = monthlyGaps.find(g => g.label === label)
+      return (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          padding: '12px 16px', borderRadius: 12, boxShadow: 'var(--shadow-lg)', minWidth: 180
+        }}>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.05, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+          {payload.map((p, i) => {
+            const v = Number(p.value || 0)
+            const sign = p.dataKey === 'missing' ? '-' : v > 0 ? '+' : ''
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 13, fontWeight: 700 }}>
+                <span style={{ color: p.color }}>{p.name}</span>
+                <span style={{ color: 'var(--text)' }}>{sign}{abbr(Math.abs(v))}</span>
+              </div>
+            )
+          })}
+          {entry && (
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--border)', fontSize: 11, color: 'var(--text-muted)' }}>
+              {entry.stock_rows} rows · {entry.anomaly_rows} anomalies
+            </div>
+          )}
+        </div>
+      )
+    }
+    return null
+  }
 
   return (
     <div style={{ paddingBottom: 60 }}>
@@ -361,7 +434,7 @@ export default function StockAnalysisPage() {
         </div>
       )}
 
-      {/* KPI Cards — 5-column grid, numbers abbreviated so they never overflow */}
+      {/* KPI Cards */}
       {data && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 24 }}>
           <KpiCard
@@ -412,8 +485,455 @@ export default function StockAnalysisPage() {
         </div>
       )}
 
-      {/* Table — fixed-layout with colgroup widths, overflowX:auto so nothing is cut off */}
+      {/* Tabs */}
       {data && totalRows > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
+          {TABS.map(t => {
+            const Icon = t.icon
+            const on = activeTab === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '10px 14px', fontSize: 13, fontWeight: 700,
+                  background: 'transparent', border: 0, cursor: 'pointer',
+                  color: on ? 'var(--primary)' : 'var(--text-muted)',
+                  borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`,
+                  marginBottom: -1, transition: 'all 0.15s',
+                }}>
+                <Icon size={14} /> {t.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Monthly Gaps tab */}
+      {data && totalRows > 0 && activeTab === 'gaps' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, marginBottom: 10 }}>
+          <div className="card" style={{ padding: '18px 20px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Total gap per month</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#d97706' }} /> Excess stock
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#b91c1c' }} /> Missing stock
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ display: 'inline-block', width: 14, height: 2, background: '#111827' }} /> Net gap
+                </span>
+              </div>
+            </div>
+            {monthlyGaps.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                <Info size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+                No stock-report months are available yet under these filters.
+              </div>
+            ) : (
+              <div style={{ width: '100%', height: 340 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={monthlyGaps}
+                    margin={{ top: 10, right: 14, left: 0, bottom: 0 }}
+                    onClick={(e) => {
+                      if (e?.activeLabel) {
+                        const m = monthlyGaps.find(g => g.label === e.activeLabel)
+                        if (m) setSelectedGapMonth(m.month)
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 4" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} tickFormatter={(v) => abbr(v, 0)} />
+                    <Tooltip content={<GapChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                    <Bar
+                      dataKey="excess"
+                      name="Excess stock"
+                      stackId="gaps"
+                      fill="#d97706"
+                      radius={[6, 6, 0, 0]}
+                      barSize={34}
+                    />
+                    <Bar
+                      dataKey="missing"
+                      name="Missing stock"
+                      stackId="gaps"
+                      fill="#b91c1c"
+                      radius={[0, 0, 0, 0]}
+                      barSize={34}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="net"
+                      name="Net gap"
+                      stroke="#111827"
+                      strokeWidth={2.2}
+                      dot={{ r: 3.2, strokeWidth: 1, fill: '#fff' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="card" style={{ padding: '18px 20px' }}>
+            {selectedGap ? (
+              <>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.05, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 4 }}>
+                  {selectedGap.label}
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', color: selectedGap.net >= 0 ? '#b45309' : '#b91c1c' }}>
+                  {selectedGap.net >= 0 ? '+' : ''}{abbr(selectedGap.net, 2)}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                  Net gap across {selectedGap.stock_rows} product rows
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                  <div style={{ background: 'rgba(217,119,6,0.06)', border: '1px solid rgba(217,119,6,0.25)', borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.05, color: '#b45309', marginBottom: 4 }}>
+                      <GapUp size={12} /> Excess stock
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#b45309' }}>+{abbr(selectedGap.excess)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{selectedGap.excess_rows} rows</div>
+                  </div>
+                  <div style={{ background: 'rgba(185,28,28,0.06)', border: '1px solid rgba(185,28,28,0.25)', borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.05, color: '#b91c1c', marginBottom: 4 }}>
+                      <GapDown size={12} /> Missing stock
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#b91c1c' }}>−{abbr(selectedGap.missing)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{selectedGap.missing_rows} rows</div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.05, color: 'var(--text-dim)', marginBottom: 8 }}>
+                    Rows to check · <span style={{ color: 'var(--text-muted)' }}>{(selectedGap.top_excess?.length || 0) + (selectedGap.top_missing?.length || 0)} of {selectedGap.stock_rows}</span>
+                  </div>
+                  {selectedGap.top_excess?.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#b45309', marginBottom: 4 }}>
+                        Excess stock
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {selectedGap.top_excess.map((r, i) => (
+                          <div key={'e' + i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+                            <span style={{ color: 'var(--text)', flex: '1 1 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.product}</span>
+                            <span style={{ color: '#b45309', fontWeight: 700, fontFamily: 'monospace' }}>+{abbr(r.discrepancy)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedGap.top_missing?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', marginBottom: 4 }}>
+                        Missing stock
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {selectedGap.top_missing.map((r, i) => (
+                          <div key={'m' + i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+                            <span style={{ color: 'var(--text)', flex: '1 1 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.product}</span>
+                            <span style={{ color: '#b91c1c', fontWeight: 700, fontFamily: 'monospace' }}>{abbr(r.discrepancy)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!selectedGap.top_excess?.length && !selectedGap.top_missing?.length && (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No excess or missing rows this month.</div>
+                  )}
+                </div>
+
+                <div style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  <Info size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                  Only months with uploaded stock reports appear here. Add more months of stock reports to see the trend change.
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                <BarChart2 size={20} style={{ opacity: 0.4, marginBottom: 8 }} />
+                <div>Click a month in the chart to see its gap breakdown.</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MoM Trend tab */}
+      {data && totalRows > 0 && activeTab === 'mom' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Summary delta chips */}
+          {momData.length > 1 && (() => {
+            const last  = momData[momData.length - 1]
+            const prev  = momData[momData.length - 2]
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {/* Excess chip */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)', padding: '12px 18px',
+                  flex: '1 1 220px', boxShadow: 'var(--shadow-md)',
+                }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(217,119,6,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <GapUp size={18} color="#d97706" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Excess Stock — {last.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#b45309', lineHeight: 1.2 }}>+{abbr(last.excess)}</div>
+                    {last.excessDelta !== null && (
+                      <div style={{ fontSize: 11, fontWeight: 600, color: last.excessDelta > 0 ? '#b91c1c' : '#15803d', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                        {last.excessDelta > 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                        {last.excessDelta > 0 ? '+' : ''}{abbr(last.excessDelta)} vs {prev.label}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Missing chip */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)', padding: '12px 18px',
+                  flex: '1 1 220px', boxShadow: 'var(--shadow-md)',
+                }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(185,28,28,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <GapDown size={18} color="#b91c1c" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing Stock — {last.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#b91c1c', lineHeight: 1.2 }}>−{abbr(last.missing)}</div>
+                    {last.missingDelta !== null && (
+                      <div style={{ fontSize: 11, fontWeight: 600, color: last.missingDelta > 0 ? '#b91c1c' : '#15803d', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                        {last.missingDelta > 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                        {last.missingDelta > 0 ? '+' : ''}{abbr(last.missingDelta)} vs {prev.label}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Net gap chip */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)', padding: '12px 18px',
+                  flex: '1 1 220px', boxShadow: 'var(--shadow-md)',
+                }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(99,102,241,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Activity size={18} color="#6366f1" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Gap — {last.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: last.net >= 0 ? '#b45309' : '#b91c1c', lineHeight: 1.2 }}>
+                      {last.net > 0 ? '+' : ''}{abbr(last.net)}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{last.stock_rows} stock report rows</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {momData.length === 0 ? (
+            <div className="card" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <Activity size={28} style={{ opacity: 0.25, marginBottom: 12 }} />
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>No stock report months yet</div>
+              <div style={{ fontSize: 13 }}>Upload stock reports for multiple months to see the MoM trend.</div>
+            </div>
+          ) : (
+            <>
+              {/* Excess stock area chart */}
+              <div className="card" style={{ padding: '18px 20px 14px' }}>
+                <div style={{ marginBottom: 10 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#b45309' }}>📈 Excess Stock — Month on Month</h3>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Units where actual stock &gt; expected (distributor holding more than expected)</div>
+                </div>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={momData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="excessGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor="#d97706" stopOpacity={0.22} />
+                          <stop offset="95%" stopColor="#d97706" stopOpacity={0.01} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 4" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} tickFormatter={v => abbr(v, 0)} />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const entry = momData.find(g => g.label === label)
+                          return (
+                            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, boxShadow: 'var(--shadow-lg)', minWidth: 160 }}>
+                              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.05, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: '#b45309' }}>+{abbr(entry?.excess ?? 0)}</div>
+                              {entry?.excessDelta !== null && (
+                                <div style={{ fontSize: 11, color: entry.excessDelta > 0 ? '#b91c1c' : '#15803d', marginTop: 3, fontWeight: 600 }}>
+                                  MoM: {entry.excessDelta > 0 ? '+' : ''}{abbr(entry.excessDelta)}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{entry?.excess_rows} rows</div>
+                            </div>
+                          )
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="excess"
+                        name="Excess stock"
+                        stroke="#d97706"
+                        strokeWidth={2.5}
+                        fill="url(#excessGrad)"
+                        dot={{ r: 4, fill: '#d97706', strokeWidth: 0 }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Missing stock area chart */}
+              <div className="card" style={{ padding: '18px 20px 14px' }}>
+                <div style={{ marginBottom: 10 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#b91c1c' }}>📉 Missing Stock — Month on Month</h3>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Units where actual stock &lt; expected (potential stock-out or under-reporting)</div>
+                </div>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={momData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="missingGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor="#b91c1c" stopOpacity={0.22} />
+                          <stop offset="95%" stopColor="#b91c1c" stopOpacity={0.01} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 4" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} tickFormatter={v => abbr(v, 0)} />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const entry = momData.find(g => g.label === label)
+                          return (
+                            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, boxShadow: 'var(--shadow-lg)', minWidth: 160 }}>
+                              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.05, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: '#b91c1c' }}>−{abbr(entry?.missing ?? 0)}</div>
+                              {entry?.missingDelta !== null && (
+                                <div style={{ fontSize: 11, color: entry.missingDelta > 0 ? '#b91c1c' : '#15803d', marginTop: 3, fontWeight: 600 }}>
+                                  MoM: {entry.missingDelta > 0 ? '+' : ''}{abbr(entry.missingDelta)}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{entry?.missing_rows} rows</div>
+                            </div>
+                          )
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="missing"
+                        name="Missing stock"
+                        stroke="#b91c1c"
+                        strokeWidth={2.5}
+                        fill="url(#missingGrad)"
+                        dot={{ r: 4, fill: '#b91c1c', strokeWidth: 0 }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Combined overlay chart */}
+              <div className="card" style={{ padding: '18px 20px 14px' }}>
+                <div style={{ marginBottom: 10 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📊 Combined Trend — Excess vs Missing</h3>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>Side-by-side comparison of excess and missing stock across months</div>
+                </div>
+                <div style={{ width: '100%', height: 280 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={momData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 4" stroke="var(--border)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={{ stroke: 'var(--border)' }} tickFormatter={v => abbr(v, 0)} />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          return (
+                            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, boxShadow: 'var(--shadow-lg)', minWidth: 170 }}>
+                              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.05, color: 'var(--text-dim)', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                              {payload.map((p, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, fontSize: 13, fontWeight: 700, color: p.color }}>
+                                  <span>{p.name}</span><span>{abbr(Math.abs(Number(p.value || 0)))}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                      <Bar dataKey="excess"  name="Excess stock"  fill="#d97706" fillOpacity={0.75} radius={[4,4,0,0]} barSize={22} />
+                      <Bar dataKey="missing" name="Missing stock" fill="#b91c1c" fillOpacity={0.75} radius={[4,4,0,0]} barSize={22} />
+                      <Line type="monotone" dataKey="net" name="Net gap" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* MoM delta table */}
+              {momData.length > 1 && (
+                <div className="card" style={{ padding: '18px 20px 14px' }}>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Month-on-Month Change Summary</h3>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 560 }}>
+                      <thead>
+                        <tr>
+                          {['Month', 'Excess Stock', 'MoM Δ Excess', 'Missing Stock', 'MoM Δ Missing', 'Net Gap'].map(h => (
+                            <th key={h} style={{ textAlign: h === 'Month' ? 'left' : 'right', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {momData.map((g, i) => {
+                          const exDir  = g.excessDelta  !== null ? (g.excessDelta  > 0 ? 'up'   : g.excessDelta  < 0 ? 'down' : 'flat') : null
+                          const miDir  = g.missingDelta !== null ? (g.missingDelta > 0 ? 'up'   : g.missingDelta < 0 ? 'down' : 'flat') : null
+                          const exCol  = exDir === 'up' ? '#b91c1c' : exDir === 'down' ? '#15803d' : 'var(--text-dim)'
+                          const miCol  = miDir === 'up' ? '#b91c1c' : miDir === 'down' ? '#15803d' : 'var(--text-dim)'
+                          return (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>{g.label}</td>
+                              <td style={{ textAlign: 'right', fontFamily: 'monospace', color: '#b45309', fontWeight: 700 }}>+{abbr(g.excess)}</td>
+                              <td style={{ textAlign: 'right', fontFamily: 'monospace', color: exCol, fontWeight: 700 }}>
+                                {g.excessDelta !== null ? (g.excessDelta >= 0 ? '+' : '') + abbr(g.excessDelta) : '—'}
+                              </td>
+                              <td style={{ textAlign: 'right', fontFamily: 'monospace', color: '#b91c1c', fontWeight: 700 }}>−{abbr(g.missing)}</td>
+                              <td style={{ textAlign: 'right', fontFamily: 'monospace', color: miCol, fontWeight: 700 }}>
+                                {g.missingDelta !== null ? (g.missingDelta >= 0 ? '+' : '') + abbr(g.missingDelta) : '—'}
+                              </td>
+                              <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: g.net >= 0 ? '#b45309' : '#b91c1c' }}>
+                                {g.net >= 0 ? '+' : ''}{abbr(g.net)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Table tab */}
+      {data && totalRows > 0 && activeTab === 'table' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <h3 style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>
