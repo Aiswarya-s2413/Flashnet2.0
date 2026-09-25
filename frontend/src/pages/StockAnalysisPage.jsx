@@ -666,6 +666,106 @@ export default function StockAnalysisPage() {
         </div>
       )}
 
+      {/* Product × Month heatmap — inside gaps tab */}
+      {data && totalRows > 0 && activeTab === 'gaps' && (() => {
+        // Build product→month→discrepancy matrix from rows that have actual stock
+        const stockRows = (data.rows || []).filter(r => r.has_stock_data && r.discrepancy !== null)
+        if (!stockRows.length) return null
+
+        // Collect all months (sorted) and all products
+        const monthSet = new Set()
+        const productMap = {}   // product → { month → discrepancy (summed), totalAbs }
+        for (const r of stockRows) {
+          const ym = r.month || 'Unknown'
+          monthSet.add(ym)
+          if (!productMap[r.product]) productMap[r.product] = { byMonth: {}, totalAbs: 0 }
+          productMap[r.product].byMonth[ym] = (productMap[r.product].byMonth[ym] || 0) + (r.discrepancy || 0)
+          productMap[r.product].totalAbs += Math.abs(r.discrepancy || 0)
+        }
+        const months = Array.from(monthSet).sort()
+        // Sort products by total absolute discrepancy descending (top 20)
+        const products = Object.entries(productMap)
+          .sort((a, b) => b[1].totalAbs - a[1].totalAbs)
+          .slice(0, 20)
+
+        // Max absolute value for colour intensity normalisation
+        let maxAbs = 0
+        for (const [, pm] of products)
+          for (const v of Object.values(pm.byMonth))
+            if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v)
+
+        function heatColor(val) {
+          if (val === undefined || val === null || val === 0) return 'transparent'
+          const intensity = Math.min(Math.abs(val) / maxAbs, 1)
+          if (val > 0) {
+            // amber: 217,119,6 → lighter
+            const a = Math.round(0.08 + intensity * 0.55 * 255)
+            return `rgba(217,119,6,${(0.08 + intensity * 0.55).toFixed(2)})`
+          } else {
+            return `rgba(185,28,28,${(0.08 + intensity * 0.55).toFixed(2)})`
+          }
+        }
+
+        return (
+          <div className="card" style={{ padding: '18px 20px 14px', marginTop: 16 }}>
+            <div style={{ marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Gap by product and month</h3>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                Ordered by highest total discrepancy · Darker cells = bigger gap ·
+                <span style={{ color: '#b45309', fontWeight: 600 }}> Amber = excess</span> ·
+                <span style={{ color: '#b91c1c', fontWeight: 600 }}> Red = missing</span>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', minWidth: 180, paddingRight: 12, whiteSpace: 'nowrap', position: 'sticky', left: 0, background: 'var(--surface)', zIndex: 2 }}>
+                      Product
+                    </th>
+                    {months.map(ym => (
+                      <th key={ym} style={{ textAlign: 'right', whiteSpace: 'nowrap', minWidth: 90, paddingLeft: 4, paddingRight: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+                        {fmtYM(ym)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map(([prod, pm], ri) => (
+                    <tr key={prod} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{
+                        fontSize: 12, fontWeight: 600, paddingRight: 12,
+                        maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        position: 'sticky', left: 0,
+                        background: ri % 2 === 0 ? 'var(--surface)' : 'var(--surface2)',
+                        zIndex: 1,
+                      }} title={prod}>
+                        {prod}
+                      </td>
+                      {months.map(ym => {
+                        const val = pm.byMonth[ym]
+                        return (
+                          <td key={ym} style={{
+                            textAlign: 'right',
+                            fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
+                            padding: '5px 8px',
+                            background: heatColor(val),
+                            color: val === undefined ? 'var(--text-dim)' : val > 0 ? '#92400e' : '#991b1b',
+                            borderRadius: 4,
+                          }}>
+                            {val !== undefined ? (val > 0 ? '+' : '') + abbr(val, 1) : '—'}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* MoM Trend tab */}
       {data && totalRows > 0 && activeTab === 'mom' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
