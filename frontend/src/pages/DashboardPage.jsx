@@ -101,16 +101,20 @@ const CustomTooltip = ({
   return null;
 };
 
-const formatLakhs = (val) =>
-  val >= 100000
+const formatLakhs = (raw) => {
+  const val = Number(raw) || 0;
+  return val >= 100000
     ? `₹${(val / 100000).toFixed(1)}L`
-    : `₹${Math.round(val || 0).toLocaleString("en-IN")}`;
-const formatCrores = (val) =>
-  val >= 10000000 ? `₹${(val / 10000000).toFixed(2)} Cr` : formatLakhs(val);
-const formatKG = (val) =>
-  val !== undefined && val !== null
-    ? `${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(val || 0)} KG`
-    : "0 KG";
+    : `₹${Math.round(val).toLocaleString("en-IN")}`;
+};
+const formatCrores = (raw) => {
+  const val = Number(raw) || 0;
+  return val >= 10000000 ? `₹${(val / 10000000).toFixed(2)} Cr` : formatLakhs(val);
+};
+const formatKG = (raw) => {
+  const val = Number(raw) || 0;
+  return `${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(val)} KG`;
+};
 
 const COLORS = [
   "#0B3B2C",
@@ -214,7 +218,7 @@ const DataTable = ({ columns, rows, footer }) => (
             <tr key={i} style={r._style || {}}>
               {columns.map((c) => (
                 <td key={c.key} style={c.tdStyle || {}}>
-                  {c.render ? c.render(r) : r[c.key]}
+                  {c.render ? c.render(r, i) : r[c.key]}
                 </td>
               ))}
             </tr>
