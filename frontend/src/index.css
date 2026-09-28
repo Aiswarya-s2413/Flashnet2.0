@@ -360,19 +360,19 @@ body {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -381,7 +381,7 @@ body {
 }
 
 .stat-card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
   border-color: rgba(11, 59, 44, 0.18);
 }
@@ -398,7 +398,7 @@ body {
 .card:nth-of-type(4) { animation-delay: 240ms; }
 
 .stat-label {
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -406,11 +406,11 @@ body {
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.03em;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .stat-accent {

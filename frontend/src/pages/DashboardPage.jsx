@@ -147,21 +147,21 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent }) => (
         display: "flex",
         justifyContent: "space-between",
         alignItems: "flex-start",
-        marginBottom: 8,
+        marginBottom: 2,
       }}
     >
       <span className="stat-label">{label}</span>
       {Icon && (
         <div
           style={{
-            padding: 8,
-            borderRadius: 10,
+            padding: 5,
+            borderRadius: 8,
             background: `${accent}1A`,
             color: accent,
             display: "flex",
           }}
         >
-          <Icon size={16} />
+          <Icon size={14} />
         </div>
       )}
     </div>
@@ -1700,7 +1700,7 @@ const PsVsSsTab = ({ data }) => {
       {/* KPI ROW */}
       <div
         className="stat-grid"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
       >
         <KpiCard
           label="Total Primary Sales"

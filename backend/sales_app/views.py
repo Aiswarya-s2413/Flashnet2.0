@@ -1726,8 +1726,14 @@ def upload_primary_sales(request):
                 "Executive",
                 "Sales Representative Name",
                 "New Sales Leader",
+                "Created By",
+                "Created by",
+                "CreatedBy",
             ]
         )
+        # Also look for division under SAP VBRK column BM header name
+        if division_idx is None:
+            division_idx = find_col_idx(["Division", "United Segments", "Segment", "Segments", "BM"])
 
         valid_codes = set(ProductMaster.objects.values_list("material_code", flat=True))
         new_products = {}
