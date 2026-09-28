@@ -556,7 +556,7 @@ export default function StockAnalysisPage() {
 
   const [monthFilter, setMonthFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
-  const [distFilter, setDistFilter] = useState("");
+  const [distFilter, setDistFilter] = useState("CHEMIELINK");
   const [showAnomalyOnly, setShowAnomalyOnly] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -866,17 +866,14 @@ export default function StockAnalysisPage() {
             >
               Distributor
             </label>
-            <input
+            <select
               id="sa-dist"
-              type="text"
               value={distFilter}
               onChange={(e) => setDistFilter(e.target.value)}
-              placeholder="Search distributor…"
               style={{ fontSize: 13 }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") fetchData();
-              }}
-            />
+            >
+              <option value="CHEMIELINK">CHEMIELINK</option>
+            </select>
           </div>
 
           <button
@@ -2259,128 +2256,6 @@ export default function StockAnalysisPage() {
                         activeDot={{ r: 6, strokeWidth: 0 }}
                       />
                     </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Combined overlay chart */}
-              <div className="card" style={{ padding: "18px 20px 14px" }}>
-                <div style={{ marginBottom: 10 }}>
-                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
-                    📊 Combined Trend — Excess vs Missing
-                  </h3>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                      marginTop: 3,
-                    }}
-                  >
-                    Side-by-side comparison of excess and missing stock across
-                    months
-                  </div>
-                </div>
-                <div style={{ width: "100%", height: 280 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                      data={momData}
-                      margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 4"
-                        stroke="var(--border)"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-                        axisLine={{ stroke: "var(--border)" }}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-                        axisLine={{ stroke: "var(--border)" }}
-                        tickFormatter={(v) => abbr(v, 0)}
-                      />
-                      <Tooltip
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload?.length) return null;
-                          return (
-                            <div
-                              style={{
-                                background: "var(--surface)",
-                                border: "1px solid var(--border)",
-                                padding: "10px 14px",
-                                borderRadius: 10,
-                                boxShadow: "var(--shadow-lg)",
-                                minWidth: 170,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.05,
-                                  color: "var(--text-dim)",
-                                  fontWeight: 700,
-                                  marginBottom: 6,
-                                }}
-                              >
-                                {label}
-                              </div>
-                              {payload.map((p, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    gap: 14,
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                    color: p.color,
-                                  }}
-                                >
-                                  <span>{p.name}</span>
-                                  <span>
-                                    {abbr(Math.abs(Number(p.value || 0)))}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        }}
-                      />
-                      <Legend
-                        wrapperStyle={{
-                          fontSize: 12,
-                          color: "var(--text-muted)",
-                        }}
-                      />
-                      <Bar
-                        dataKey="excess"
-                        name="Excess stock"
-                        fill="#d97706"
-                        fillOpacity={0.75}
-                        radius={[4, 4, 0, 0]}
-                        barSize={22}
-                      />
-                      <Bar
-                        dataKey="missing"
-                        name="Missing stock"
-                        fill="#b91c1c"
-                        fillOpacity={0.75}
-                        radius={[4, 4, 0, 0]}
-                        barSize={22}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="net"
-                        name="Net gap"
-                        stroke="#6366f1"
-                        strokeWidth={2}
-                        dot={{ r: 3, fill: "#6366f1", strokeWidth: 0 }}
-                        activeDot={{ r: 5 }}
-                      />
-                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </div>

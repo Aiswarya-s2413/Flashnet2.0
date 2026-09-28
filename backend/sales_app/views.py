@@ -1,34 +1,60 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ProductMaster, DistributorInvoice, Order, StockLevel, MonthlySales, PrimarySales, ExceptionalPriceRequest, EPRLineItem, TraderTemplate
-from .serializers import ProductMasterSerializer, DistributorInvoiceSerializer, OrderSerializer, StockLevelSerializer, MonthlySalesSerializer, PrimarySalesSerializer, ExceptionalPriceRequestSerializer, TraderTemplateSerializer
+from .models import (
+    ProductMaster,
+    DistributorInvoice,
+    Order,
+    StockLevel,
+    MonthlySales,
+    PrimarySales,
+    ExceptionalPriceRequest,
+    EPRLineItem,
+    TraderTemplate,
+)
+from .serializers import (
+    ProductMasterSerializer,
+    DistributorInvoiceSerializer,
+    OrderSerializer,
+    StockLevelSerializer,
+    MonthlySalesSerializer,
+    PrimarySalesSerializer,
+    ExceptionalPriceRequestSerializer,
+    TraderTemplateSerializer,
+)
 from django.db.models import Sum, Q
 import pandas as pd
 import re
 
+
 def clean_prod_name(s):
-    if not s: return ""
+    if not s:
+        return ""
     # Replace all whitespace characters (including \xa0) with a standard space
-    return re.sub(r'[\s\xa0]+', ' ', str(s)).strip().upper()
+    return re.sub(r"[\s\xa0]+", " ", str(s)).strip().upper()
+
 
 def invalidate_dashboard_cache():
     try:
         from django.core.cache import cache
+
         cache.clear()
     except Exception:
         pass
 
+
 def is_distributor(user):
     if not user or not user.is_authenticated:
         return False
-    is_staff = getattr(user, 'is_staff', False)
-    is_superuser = getattr(user, 'is_superuser', False)
+    is_staff = getattr(user, "is_staff", False)
+    is_superuser = getattr(user, "is_superuser", False)
     return not (is_staff or is_superuser)
+
 
 class ProductMasterViewSet(viewsets.ModelViewSet):
     queryset = ProductMaster.objects.all()
     serializer_class = ProductMasterSerializer
+
 
 class DistributorInvoiceViewSet(viewsets.ModelViewSet):
     queryset = DistributorInvoice.objects.all()
@@ -37,9 +63,16 @@ class DistributorInvoiceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
+            code = getattr(user, "distributor_code", "")
             return DistributorInvoice.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        dist_param = self.request.GET.get("distributor", "").strip()
+        if not dist_param or dist_param.upper() != "ALL":
+            return DistributorInvoice.objects.filter(
+                Q(sold_to__in=["438498", "441522"])
+                | Q(ship_to__in=["438498", "441522"])
+            )
         return DistributorInvoice.objects.all()
+
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
@@ -47,9 +80,14 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Retroactive lookup: dynamically populate missing material codes from ProductMaster
-        blank_orders = Order.objects.filter(Q(material_code='') | Q(material_code__isnull=True))
+        blank_orders = Order.objects.filter(
+            Q(material_code="") | Q(material_code__isnull=True)
+        )
         if blank_orders.exists():
-            prod_map = {clean_prod_name(p.material_name): p.material_code for p in ProductMaster.objects.all()}
+            prod_map = {
+                clean_prod_name(p.material_name): p.material_code
+                for p in ProductMaster.objects.all()
+            }
             updates = []
             for order in blank_orders:
                 clean_name = clean_prod_name(order.material_name)
@@ -58,13 +96,21 @@ class OrderViewSet(viewsets.ModelViewSet):
                     order.material_code = code
                     updates.append(order)
             if updates:
-                Order.objects.bulk_update(updates, ['material_code'])
-        
+                Order.objects.bulk_update(updates, ["material_code"])
+
         user = self.request.user
         if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
+            code = getattr(user, "distributor_code", "")
             return Order.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        dist_param = self.request.GET.get("distributor", "").strip()
+        if not dist_param or dist_param.upper() != "ALL":
+            return Order.objects.filter(
+                Q(sold_to__in=["438498", "441522"])
+                | Q(ship_to__in=["438498", "441522"])
+                | Q(ship_to__icontains="chemi")
+            )
         return Order.objects.all()
+
 
 class StockLevelViewSet(viewsets.ModelViewSet):
     queryset = StockLevel.objects.all()
@@ -73,9 +119,16 @@ class StockLevelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
+            code = getattr(user, "distributor_code", "")
             return StockLevel.objects.filter(Q(sold_to=code) | Q(ship_to=code))
+        dist_param = self.request.GET.get("distributor", "").strip()
+        if not dist_param or dist_param.upper() != "ALL":
+            return StockLevel.objects.filter(
+                Q(sold_to__in=["438498", "441522"])
+                | Q(ship_to__in=["438498", "441522"])
+            )
         return StockLevel.objects.all()
+
 
 class MonthlySalesViewSet(viewsets.ModelViewSet):
     queryset = MonthlySales.objects.all()
@@ -84,30 +137,56 @@ class MonthlySalesViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
-            return MonthlySales.objects.filter(Q(ship_to_code=code) | Q(distributor_name=code))
+            code = getattr(user, "distributor_code", "")
+            return MonthlySales.objects.filter(
+                Q(ship_to_code=code) | Q(distributor_name=code)
+            )
+        dist_param = self.request.GET.get("distributor", "").strip()
+        if not dist_param or dist_param.upper() != "ALL":
+            return MonthlySales.objects.filter(
+                Q(distributor_name__icontains="chemi")
+                | Q(ship_to_code__in=["438498", "441522"])
+            )
         return MonthlySales.objects.all()
 
+
 class PrimarySalesViewSet(viewsets.ModelViewSet):
-    queryset = PrimarySales.objects.all().order_by('-id')
+    queryset = PrimarySales.objects.all().order_by("-id")
     serializer_class = PrimarySalesSerializer
 
     def get_queryset(self):
         user = self.request.user
+        qs = PrimarySales.objects.all().order_by("-id")
         if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
-            return PrimarySales.objects.filter(Q(sold_to_party=code) | Q(ship_to_party=code)).order_by('-id')
-        return PrimarySales.objects.all().order_by('-id')
+            code = getattr(user, "distributor_code", "")
+            return qs.filter(Q(sold_to_party=code) | Q(ship_to_party=code))
+
+        dist = self.request.GET.get("distributor", "").strip()
+        if not dist or dist.upper() != "ALL":
+            if not dist or "CHEMI" in dist.upper():
+                return qs.filter(
+                    Q(sold_to_party__in=["438498", "441522"])
+                    | Q(ship_to_party__in=["438498", "441522"])
+                    | Q(sold_to_party_address__iexact="Chemielink")
+                    | Q(sold_to_party_address__iexact="Chemie Link")
+                    | Q(ship_to_party_name__iexact="Chemielink")
+                    | Q(ship_to_party_name__iexact="Chemie Link")
+                )
+            return qs.filter(
+                Q(sold_to_party_address__icontains=dist)
+                | Q(ship_to_party_name__icontains=dist)
+                | Q(sold_to_party=dist)
+                | Q(ship_to_party=dist)
+            )
+        return qs
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
         total_count = qs.count()
         recent_records = qs[:200]
         serializer = self.get_serializer(recent_records, many=True)
-        return Response({
-            'total_count': total_count,
-            'results': serializer.data
-        })
+        return Response({"total_count": total_count, "results": serializer.data})
+
 
 class EPRViewSet(viewsets.ModelViewSet):
     queryset = ExceptionalPriceRequest.objects.all()
@@ -116,195 +195,290 @@ class EPRViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if is_distributor(user):
-            code = getattr(user, 'distributor_code', '')
-            return ExceptionalPriceRequest.objects.filter(Q(soldto_code=code) | Q(shipto_code=code))
+            code = getattr(user, "distributor_code", "")
+            return ExceptionalPriceRequest.objects.filter(
+                Q(soldto_code=code) | Q(shipto_code=code)
+            )
         return ExceptionalPriceRequest.objects.all()
+
 
 class TraderTemplateViewSet(viewsets.ModelViewSet):
     queryset = TraderTemplate.objects.all()
     serializer_class = TraderTemplateSerializer
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 def upload_products(request):
-    if 'file' not in request.FILES:
-        return Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    file = request.FILES['file']
+    if "file" not in request.FILES:
+        return Response(
+            {"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    file = request.FILES["file"]
     filename = file.name.lower()
     try:
-        if filename.endswith(('.xls', '.xlsx')):
+        if filename.endswith((".xls", ".xlsx")):
             raw_df = pd.read_excel(file, header=None)
-        elif filename.endswith('.csv'):
+        elif filename.endswith(".csv"):
             file.seek(0)
             raw_df = smart_read_csv(file)
         else:
-            return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "error": "Unsupported file format. Please upload .xlsx, .xls, or .csv."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         header_row_idx = 0
         for i, r in raw_df.head(20).iterrows():
-            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-            if any(k in v for v in row_vals for k in ['material', 'mat_desc', 'code', 'desc', 'name']):
+            row_vals = [str(v).strip().lower() if pd.notna(v) else "" for v in r]
+            if any(
+                k in v
+                for v in row_vals
+                for k in ["material", "mat_desc", "code", "desc", "name"]
+            ):
                 header_row_idx = i
                 break
 
-        raw_headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
+        raw_headers = [
+            str(v).strip() if pd.notna(v) else "" for v in raw_df.iloc[header_row_idx]
+        ]
         headers = []
         seen = set()
         for h in raw_headers:
             new_h = h
             idx = 1
             while new_h in seen:
-                new_h = f'{h}_{idx}'
+                new_h = f"{h}_{idx}"
                 idx += 1
             headers.append(new_h)
             seen.add(new_h)
 
-        df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+        df = raw_df.iloc[header_row_idx + 1 :].reset_index(drop=True)
         df.columns = headers
 
         import re
-        normalized_cols = {col: re.sub(r'[^a-z0-9]', '', str(col).lower()) for col in df.columns}
+
+        normalized_cols = {
+            col: re.sub(r"[^a-z0-9]", "", str(col).lower()) for col in df.columns
+        }
+
         def find_matching_col(key_options):
-            if isinstance(key_options, str): key_options = [key_options]
+            if isinstance(key_options, str):
+                key_options = [key_options]
             for key_name in key_options:
-                lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
+                lower_key = re.sub(r"[^a-z0-9]", "", key_name.lower())
                 for original_col, norm_col in normalized_cols.items():
                     if lower_key in norm_col:
                         return original_col
             return None
 
-        material_code_col = find_matching_col(['Material', 'Material Code', 'PPC', 'Item Code', 'ItemNo', 'Code'])
-        material_desc_col = find_matching_col(['MAT_DESC', 'Material Desc', 'Material Name', 'Description', 'Item Name', 'Name'])
-        mat_div_col = find_matching_col(['DI', 'Division', 'Mat Div'])
-        prod_hier_col = find_matching_col(['PROD_HEIR', 'Product Hierarchy', 'Hierarchy'])
-        pack_size_col = find_matching_col(['PACK_SIZE', 'Pack Size', 'Pack'])
-        special_price_col = find_matching_col(['SPECIAL_PRICE', 'Special Price', 'Price'])
-        end_cust_col = find_matching_col(['CUSTOMER', 'Customer', 'Customer Code'])
-        from_date_col = find_matching_col(['DATE_FROM', 'From Date', 'From'])
-        to_date_col = find_matching_col(['DATE_TO', 'To Date', 'To'])
+        material_code_col = find_matching_col(
+            ["Material", "Material Code", "PPC", "Item Code", "ItemNo", "Code"]
+        )
+        material_desc_col = find_matching_col(
+            [
+                "MAT_DESC",
+                "Material Desc",
+                "Material Name",
+                "Description",
+                "Item Name",
+                "Name",
+            ]
+        )
+        mat_div_col = find_matching_col(["DI", "Division", "Mat Div"])
+        prod_hier_col = find_matching_col(
+            ["PROD_HEIR", "Product Hierarchy", "Hierarchy"]
+        )
+        pack_size_col = find_matching_col(["PACK_SIZE", "Pack Size", "Pack"])
+        special_price_col = find_matching_col(
+            ["SPECIAL_PRICE", "Special Price", "Price"]
+        )
+        end_cust_col = find_matching_col(["CUSTOMER", "Customer", "Customer Code"])
+        from_date_col = find_matching_col(["DATE_FROM", "From Date", "From"])
+        to_date_col = find_matching_col(["DATE_TO", "To Date", "To"])
 
         cols_list = list(df.columns)
         if not material_code_col and not material_desc_col:
-            if len(cols_list) >= 1: material_code_col = cols_list[0]
-            if len(cols_list) >= 2: material_desc_col = cols_list[1]
+            if len(cols_list) >= 1:
+                material_code_col = cols_list[0]
+            if len(cols_list) >= 2:
+                material_desc_col = cols_list[1]
 
         def clean_val(v):
-            if pd.isna(v) or v is None: return ''
+            if pd.isna(v) or v is None:
+                return ""
             s = str(v).strip()
-            return s[:-2] if s.endswith('.0') else s
+            return s[:-2] if s.endswith(".0") else s
 
         def clean_float(v):
-            if pd.isna(v) or v is None: return None
+            if pd.isna(v) or v is None:
+                return None
             try:
-                clean_s = str(v).strip().replace(' ', '').replace(',', '.')
+                clean_s = str(v).strip().replace(" ", "").replace(",", ".")
                 return float(clean_s)
-            except: return None
+            except:
+                return None
 
         def clean_date(v):
-            if pd.isna(v) or v is None: return None
+            if pd.isna(v) or v is None:
+                return None
             try:
                 return pd.to_datetime(str(v).strip(), dayfirst=True).date()
-            except: return None
+            except:
+                return None
 
-        records = df.to_dict('records')
+        records = df.to_dict("records")
         success_count = 0
         for index, row in enumerate(records):
-            code = clean_val(row.get(material_code_col)) if material_code_col else ''
-            desc = clean_val(row.get(material_desc_col)) if material_desc_col else ''
-            if not code and not desc: continue
-            if not code: code = f"MAT-{index+1:05d}"
-            
+            code = clean_val(row.get(material_code_col)) if material_code_col else ""
+            desc = clean_val(row.get(material_desc_col)) if material_desc_col else ""
+            if not code and not desc:
+                continue
+            if not code:
+                code = f"MAT-{index + 1:05d}"
+
             data = {
-                'material_name': desc or code,
-                'mat_div': clean_val(row.get(mat_div_col)) if mat_div_col else '',
-                'prod_hierracy_code': clean_val(row.get(prod_hier_col)) if prod_hier_col else '',
-                'pack_size': clean_val(row.get(pack_size_col)) if pack_size_col else '',
-                'special_price': clean_float(row.get(special_price_col)) if special_price_col else None,
-                'end_customer_code': clean_val(row.get(end_cust_col)) if end_cust_col else '',
-                'from_date': clean_date(row.get(from_date_col)) if from_date_col else None,
-                'to_date': clean_date(row.get(to_date_col)) if to_date_col else None,
+                "material_name": desc or code,
+                "mat_div": clean_val(row.get(mat_div_col)) if mat_div_col else "",
+                "prod_hierracy_code": clean_val(row.get(prod_hier_col))
+                if prod_hier_col
+                else "",
+                "pack_size": clean_val(row.get(pack_size_col)) if pack_size_col else "",
+                "special_price": clean_float(row.get(special_price_col))
+                if special_price_col
+                else None,
+                "end_customer_code": clean_val(row.get(end_cust_col))
+                if end_cust_col
+                else "",
+                "from_date": clean_date(row.get(from_date_col))
+                if from_date_col
+                else None,
+                "to_date": clean_date(row.get(to_date_col)) if to_date_col else None,
             }
             ProductMaster.objects.update_or_create(material_code=code, defaults=data)
             success_count += 1
 
-        return Response({'message': f'Successfully ingested {success_count} Product Master records.'}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "message": f"Successfully ingested {success_count} Product Master records."
+            },
+            status=status.HTTP_200_OK,
+        )
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 def extract_orders(request):
     invoices = DistributorInvoice.objects.all()
     extracted_count = 0
     errors = []
 
     for invoice in invoices:
-        product_obj = ProductMaster.objects.filter(material_name__iexact=str(invoice.material_name).strip()).first()
-        
+        product_obj = ProductMaster.objects.filter(
+            material_name__iexact=str(invoice.material_name).strip()
+        ).first()
+
         # Also try nuclear match if exact/iexact fails
         if not product_obj:
             all_prods = ProductMaster.objects.all()
             target = clean_prod_name(invoice.material_name)
-            product_obj = next((p for p in all_prods if clean_prod_name(p.material_name) == target), None)
+            product_obj = next(
+                (p for p in all_prods if clean_prod_name(p.material_name) == target),
+                None,
+            )
 
         if product_obj:
             Order.objects.update_or_create(
                 invoice_no=invoice.invoice_no,
-                material_code=invoice.material_code or (product_obj.material_code if product_obj else ''),
+                material_code=invoice.material_code
+                or (product_obj.material_code if product_obj else ""),
                 defaults={
-                    'invoice_date': invoice.invoice_date,
-                    'material_name': product_obj.material_name,
-                    'packsize': invoice.packsize,
-                    'qty': invoice.qty,
-                    'value': getattr(invoice, 'value', 0),
-                    'customer': invoice.customer,
-                    'ship_to': invoice.ship_to,
-                    'sold_to': invoice.sold_to
-                }
+                    "invoice_date": invoice.invoice_date,
+                    "material_name": product_obj.material_name,
+                    "packsize": invoice.packsize,
+                    "qty": invoice.qty,
+                    "value": getattr(invoice, "value", 0),
+                    "customer": invoice.customer,
+                    "ship_to": invoice.ship_to,
+                    "sold_to": invoice.sold_to,
+                },
             )
             extracted_count += 1
         else:
-            errors.append(f"Validation failed for Invoice {invoice.invoice_no}: Material '{invoice.material_name}' not found in Product Master.")
-    
-    if errors:
-        return Response({'message': f'Extracted {extracted_count} orders with errors.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
-    
-    return Response({'message': f'Successfully extracted {extracted_count} orders.'}, status=status.HTTP_200_OK)
+            errors.append(
+                f"Validation failed for Invoice {invoice.invoice_no}: Material '{invoice.material_name}' not found in Product Master."
+            )
 
-@api_view(['POST'])
+    if errors:
+        return Response(
+            {
+                "message": f"Extracted {extracted_count} orders with errors.",
+                "errors": errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response(
+        {"message": f"Successfully extracted {extracted_count} orders."},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
 def extract_headers(request):
-    if 'file' not in request.FILES:
-        return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    file = request.FILES['file']
+    if "file" not in request.FILES:
+        return Response(
+            {"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    file = request.FILES["file"]
     try:
         df = pd.read_excel(file, header=None, nrows=10)
         # Scan first few rows to dynamically detect header row if it's pushed down
         header_row_idx = 0
         for i, r in df.iterrows():
-            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-            if len([v for v in row_vals if len(v) > 0]) > 2: # At least 3 columns to be safe
+            row_vals = [str(v).strip().lower() if pd.notna(v) else "" for v in r]
+            if (
+                len([v for v in row_vals if len(v) > 0]) > 2
+            ):  # At least 3 columns to be safe
                 header_row_idx = i
                 break
-                
-        raw_headers = [str(v).strip() if pd.notna(v) else f'Column_{i}' for i, v in enumerate(df.iloc[header_row_idx])]
+
+        raw_headers = [
+            str(v).strip() if pd.notna(v) else f"Column_{i}"
+            for i, v in enumerate(df.iloc[header_row_idx])
+        ]
         # Remove consecutive unnamed columns
         headers = []
         for x in raw_headers:
-            if not x.startswith('Column_') or (x not in headers):
+            if not x.startswith("Column_") or (x not in headers):
                 headers.append(x)
-        return Response({'headers': list(dict.fromkeys(headers))}, status=status.HTTP_200_OK)
+        return Response(
+            {"headers": list(dict.fromkeys(headers))}, status=status.HTTP_200_OK
+        )
     except Exception as e:
-        return Response({'error': f"Failed to extract headers: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": f"Failed to extract headers: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 def upload_orders(request):
-    if 'file' not in request.FILES:
-        return Response({'error': 'No document provided for upload.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    file = request.FILES['file']
-    
-    mapping_str = request.POST.get('mapping')
+    if "file" not in request.FILES:
+        return Response(
+            {"error": "No document provided for upload."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    file = request.FILES["file"]
+
+    mapping_str = request.POST.get("mapping")
     import json
+
     custom_mapping = {}
     if mapping_str:
         try:
@@ -314,13 +488,13 @@ def upload_orders(request):
 
     try:
         df = pd.read_excel(file)
-        
+
         errors = []
         valid_orders = []
-        
+
         # Load all product master names natively for lightning-fast robust validation
-        valid_names = set(ProductMaster.objects.values_list('material_name', flat=True))
-        
+        valid_names = set(ProductMaster.objects.values_list("material_name", flat=True))
+
         # If mapping is provided, force standard format logic and bypass raw format detection
         if custom_mapping:
             has_standard_cols = True
@@ -328,83 +502,108 @@ def upload_orders(request):
         else:
             # --- FORMAT DETECTION ---
             col_names_lower = [str(c).lower().strip() for c in df.columns]
-            has_standard_cols = any('material' in c or 'invoice' in c for c in col_names_lower)
-            
+            has_standard_cols = any(
+                "material" in c or "invoice" in c for c in col_names_lower
+            )
+
             # Detect "Vikram Trading" raw sales format: columns like Sr, Code, Name, Nos, Quantity
             # Sometimes these headers are pushed to the second row (df.iloc[0]) because of a title row
-            has_raw_sales_cols = any('code' in c for c in col_names_lower) and any('name' in c for c in col_names_lower)
-            
+            has_raw_sales_cols = any("code" in c for c in col_names_lower) and any(
+                "name" in c for c in col_names_lower
+            )
+
             if not has_raw_sales_cols and len(df) > 0:
                 first_row_vals = [str(v).lower().strip() for v in df.iloc[0].tolist()]
-                if any('code' in v for v in first_row_vals) and any('name' in v for v in first_row_vals):
+                if any("code" in v for v in first_row_vals) and any(
+                    "name" in v for v in first_row_vals
+                ):
                     has_raw_sales_cols = True
-        
+
         if not has_standard_cols and has_raw_sales_cols:
             # --- VIKRAM TRADING / RAW SALES FORMAT ---
             # Try scraping the implicit date from the report header column dynamically
             import re
             import datetime
+
             extracted_date = None
-            
+
             header_text = " ".join([str(c) for c in df.columns[:5]])
-            date_match = re.search(r'(\d{2}/\d{2}/\d{4})', header_text)
+            date_match = re.search(r"(\d{2}/\d{2}/\d{4})", header_text)
             if date_match:
                 try:
-                    extracted_date = datetime.datetime.strptime(date_match.group(1), "%d/%m/%Y").date()
+                    extracted_date = datetime.datetime.strptime(
+                        date_match.group(1), "%d/%m/%Y"
+                    ).date()
                 except ValueError:
                     pass
 
             # Re-read with header=None to get raw rows, then find the header row
             file.seek(0)
             raw_df = pd.read_excel(file, header=None)
-            
+
             # Find the header row (contains 'Code' and 'Name')
             header_row_idx = None
             for i, row in raw_df.iterrows():
-                vals = [str(v).strip().lower() if pd.notna(v) else '' for v in row]
-                if 'code' in vals and 'name' in vals:
+                vals = [str(v).strip().lower() if pd.notna(v) else "" for v in row]
+                if "code" in vals and "name" in vals:
                     header_row_idx = i
                     break
-            
+
             if header_row_idx is None:
-                return Response({'error': 'Could not detect column headers in raw sales file.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response(
+                    {"error": "Could not detect column headers in raw sales file."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Parse data rows after header
-            data_rows = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
-            headers = [str(v).strip() if pd.notna(v) else '' for v in raw_df.iloc[header_row_idx]]
-            
+            data_rows = raw_df.iloc[header_row_idx + 1 :].reset_index(drop=True)
+            headers = [
+                str(v).strip() if pd.notna(v) else ""
+                for v in raw_df.iloc[header_row_idx]
+            ]
+
             # Find column indices
-            code_idx = next((i for i, h in enumerate(headers) if h.lower() == 'code'), 1)
-            name_idx = next((i for i, h in enumerate(headers) if h.lower() == 'name'), 2)
-            qty_idx = next((i for i, h in enumerate(headers) if h.lower() in ('quantity', 'qty')), len(headers) - 1)
-            
-            current_customer = ''
-            
+            code_idx = next(
+                (i for i, h in enumerate(headers) if h.lower() == "code"), 1
+            )
+            name_idx = next(
+                (i for i, h in enumerate(headers) if h.lower() == "name"), 2
+            )
+            qty_idx = next(
+                (i for i, h in enumerate(headers) if h.lower() in ("quantity", "qty")),
+                len(headers) - 1,
+            )
+
+            current_customer = ""
+
             for i, row in data_rows.iterrows():
-                vals = [str(v).strip() if pd.notna(v) else '' for v in row]
-                
+                vals = [str(v).strip() if pd.notna(v) else "" for v in row]
+
                 # Skip completely empty rows
-                if all(v == '' or v == 'nan' for v in vals):
+                if all(v == "" or v == "nan" for v in vals):
                     continue
-                
-                col0 = vals[0] if len(vals) > 0 else ''
-                code_val = vals[code_idx] if len(vals) > code_idx else ''
-                name_val = vals[name_idx] if len(vals) > name_idx else ''
-                qty_val = vals[qty_idx] if len(vals) > qty_idx else ''
-                
+
+                col0 = vals[0] if len(vals) > 0 else ""
+                code_val = vals[code_idx] if len(vals) > code_idx else ""
+                name_val = vals[name_idx] if len(vals) > name_idx else ""
+                qty_val = vals[qty_idx] if len(vals) > qty_idx else ""
+
                 # Clean up 'nan' strings
-                if code_val.lower() == 'nan': code_val = ''
-                if name_val.lower() == 'nan': name_val = ''
-                if qty_val.lower() == 'nan': qty_val = ''
-                
+                if code_val.lower() == "nan":
+                    code_val = ""
+                if name_val.lower() == "nan":
+                    name_val = ""
+                if qty_val.lower() == "nan":
+                    qty_val = ""
+
                 # Detect CUSTOMER HEADER ROW:
                 # Has text in col0 that is NOT a pure number AND has a code+name on the same row
-                is_serial = col0.replace('.', '').isdigit() and len(col0) < 5
-                
+                is_serial = col0.replace(".", "").isdigit() and len(col0) < 5
+
                 # Total/summary row: col0 is a number, code and name are empty
                 if is_serial and not code_val and not name_val:
                     continue  # Skip total rows
-                
+
                 # Customer header row: col0 is NOT a serial number (it's a long text / customer name)
                 if col0 and not is_serial and code_val and name_val:
                     current_customer = col0.strip()
@@ -414,130 +613,182 @@ def upload_orders(request):
                     # Customer name only row (no product on this row)
                     current_customer = col0.strip()
                     continue
-                
+
                 # Skip rows without a product code or name
                 if not code_val or not name_val:
                     continue
-                
+
                 # Parse quantity
                 try:
                     numeric_qty = int(float(qty_val)) if qty_val else 0
                 except ValueError:
                     numeric_qty = 0
-                
+
                 # Validate against Product Master with robust fuzzy matching for Raw Sales
                 actual_material_name = name_val
                 if name_val:
                     target = clean_prod_name(name_val)
                     all_prods = ProductMaster.objects.all()
-                    product_obj = next((p for p in all_prods if clean_prod_name(p.material_name) == target), None)
+                    product_obj = next(
+                        (
+                            p
+                            for p in all_prods
+                            if clean_prod_name(p.material_name) == target
+                        ),
+                        None,
+                    )
                     if product_obj:
                         actual_material_name = product_obj.material_name
                     else:
-                        errors.append(f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master.")
+                        errors.append(
+                            f"Row {header_row_idx + i + 2}: Material '{name_val}' not found in Product Master."
+                        )
                         continue
-                
-                valid_orders.append(Order(
-                    sold_to='',
-                    ship_to='',
-                    invoice_no='',
-                    invoice_date=extracted_date,
-                    customer=current_customer,
-                    material_code=code_val or (product_obj.material_code if product_obj else ''),
-                    material_name=actual_material_name,
-                    packsize=0,
-                    qty=numeric_qty,
-                    value=0 # Raw sales format typically doesn't have value, fallback to 0
-                ))
+
+                valid_orders.append(
+                    Order(
+                        sold_to="",
+                        ship_to="",
+                        invoice_no="",
+                        invoice_date=extracted_date,
+                        customer=current_customer,
+                        material_code=code_val
+                        or (product_obj.material_code if product_obj else ""),
+                        material_name=actual_material_name,
+                        packsize=0,
+                        qty=numeric_qty,
+                        value=0,  # Raw sales format typically doesn't have value, fallback to 0
+                    )
+                )
         else:
             # --- STANDARD FORMAT ---
             for index, row in df.iterrows():
-                line_no = index + 2 # Excel row number (header is historically row 1)
-                
+                line_no = index + 2  # Excel row number (header is historically row 1)
+
                 # Safely fetch and stringify allowing missing empty fields gracefully
                 def get_val(key_options, internal_key=None):
                     if internal_key and custom_mapping.get(internal_key):
                         key_options = [custom_mapping[internal_key]] + key_options
-                    
+
                     for k in key_options:
                         if k in df.columns:
                             val = row.get(k)
-                            if pd.isna(val) or str(val).strip() == 'nan':
-                                return ''
-                            
+                            if pd.isna(val) or str(val).strip() == "nan":
+                                return ""
+
                             # Handle trailing .0 cleanly for ids
                             string_val = str(val).strip()
-                            if string_val.endswith('.0'):
+                            if string_val.endswith(".0"):
                                 return string_val[:-2]
                             return string_val
-                    return ''
+                    return ""
 
-                material_name = get_val(['Material Name', 'Material', 'material_name'], 'material_name')
-                
+                material_name = get_val(
+                    ["Material Name", "Material", "material_name"], "material_name"
+                )
+
                 # Robust case-insensitive lookup
                 target = clean_prod_name(material_name)
                 all_prods = ProductMaster.objects.all()
-                product_obj = next((p for p in all_prods if clean_prod_name(p.material_name) == target), None)
+                product_obj = next(
+                    (
+                        p
+                        for p in all_prods
+                        if clean_prod_name(p.material_name) == target
+                    ),
+                    None,
+                )
                 if not product_obj:
-                    errors.append(f"Row {line_no}: Material '{material_name}' is not matching any Product Master name.")
+                    errors.append(
+                        f"Row {line_no}: Material '{material_name}' is not matching any Product Master name."
+                    )
                     continue
-                    
-                qty = get_val(['qty(kg)', 'Qty(kg)', 'qty', 'Qty'], 'qty')
-                packsize = get_val(['Packsize(kg)', 'Packsize', 'packsize'], 'packsize')
-                value = get_val(['Value', 'Amount', 'Total Value', 'Assessable Value', 'Value (INR)', 'value', 'amount', 'Total Value (INR)'], 'value')
-                
+
+                qty = get_val(["qty(kg)", "Qty(kg)", "qty", "Qty"], "qty")
+                packsize = get_val(["Packsize(kg)", "Packsize", "packsize"], "packsize")
+                value = get_val(
+                    [
+                        "Value",
+                        "Amount",
+                        "Total Value",
+                        "Assessable Value",
+                        "Value (INR)",
+                        "value",
+                        "amount",
+                        "Total Value (INR)",
+                    ],
+                    "value",
+                )
+
                 try:
                     numeric_qty = int(float(qty)) if qty else 0
                 except ValueError:
                     numeric_qty = 0
-                    
+
                 try:
                     numeric_packsize = float(packsize) if packsize else 0
                 except ValueError:
                     numeric_packsize = 0
-                
+
                 try:
-                    numeric_value = float(str(value).replace(',', '')) if value else 0.0
+                    numeric_value = float(str(value).replace(",", "")) if value else 0.0
                 except ValueError:
                     numeric_value = 0.0
-                    
-                invoice_date_key = [custom_mapping['invoice_date']] if custom_mapping.get('invoice_date') else ['Invoice Date', 'Date', 'invoice_date']
+
+                invoice_date_key = (
+                    [custom_mapping["invoice_date"]]
+                    if custom_mapping.get("invoice_date")
+                    else ["Invoice Date", "Date", "invoice_date"]
+                )
                 invoice_date = None
                 for k in invoice_date_key:
                     if k in df.columns:
                         val = row.get(k)
-                        if pd.notna(val) and str(val).strip() != 'nan':
+                        if pd.notna(val) and str(val).strip() != "nan":
                             invoice_date = val
                             break
-                
-                if not invoice_date or str(invoice_date).strip() == '':
+
+                if not invoice_date or str(invoice_date).strip() == "":
                     errors.append(f"Row {line_no}: Missing Invoice Date.")
                     continue
-                    
+
                 try:
                     if isinstance(invoice_date, pd.Timestamp):
-                        invoice_date = invoice_date.strftime('%Y-%m-%d')
+                        invoice_date = invoice_date.strftime("%Y-%m-%d")
                     else:
-                        invoice_date = pd.to_datetime(invoice_date, format='mixed', dayfirst=True).strftime('%Y-%m-%d')
+                        invoice_date = pd.to_datetime(
+                            invoice_date, format="mixed", dayfirst=True
+                        ).strftime("%Y-%m-%d")
                 except Exception:
-                    errors.append(f"Row {line_no}: Unrecognized Invoice Date format '{invoice_date}'.")
+                    errors.append(
+                        f"Row {line_no}: Unrecognized Invoice Date format '{invoice_date}'."
+                    )
                     continue
-                     
-                valid_orders.append(Order(
-                    sold_to=get_val(['Sold To', 'sold_to'], 'sold_to'),
-                    ship_to=get_val(['Ship To', 'ship_to'], 'ship_to'),
-                    invoice_no=get_val(['Invoice No.', 'Invoice No', 'invoice_no'], 'invoice_no'),
-                    invoice_date=invoice_date,
-                    customer=get_val(['Customer', 'Customer Name', 'customer_name'], 'customer'),
-                    material_code=get_val(['Material Code', 'material_code'], 'material_code') or (product_obj.material_code if product_obj else ''),
-                    material_name=material_name,
-                    packsize=numeric_packsize,
-                    qty=numeric_qty,
-                    value=numeric_value
-                ))
-            
-        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
-        
+
+                valid_orders.append(
+                    Order(
+                        sold_to=get_val(["Sold To", "sold_to"], "sold_to"),
+                        ship_to=get_val(["Ship To", "ship_to"], "ship_to"),
+                        invoice_no=get_val(
+                            ["Invoice No.", "Invoice No", "invoice_no"], "invoice_no"
+                        ),
+                        invoice_date=invoice_date,
+                        customer=get_val(
+                            ["Customer", "Customer Name", "customer_name"], "customer"
+                        ),
+                        material_code=get_val(
+                            ["Material Code", "material_code"], "material_code"
+                        )
+                        or (product_obj.material_code if product_obj else ""),
+                        material_name=material_name,
+                        packsize=numeric_packsize,
+                        qty=numeric_qty,
+                        value=numeric_value,
+                    )
+                )
+
+        ignore_errors = request.POST.get("ignore_errors", "false").lower() == "true"
+
         if errors and not ignore_errors:
             error_file_base64 = None
             try:
@@ -558,8 +809,10 @@ def upload_orders(request):
                     file.seek(0)
                     wb = openpyxl.load_workbook(file)
                     ws = wb.active
-                    red_fill = PatternFill(start_color="FFFFCCCC", end_color="FFFFCCCC", fill_type="solid") # Light red
-                    
+                    red_fill = PatternFill(
+                        start_color="FFFFCCCC", end_color="FFFFCCCC", fill_type="solid"
+                    )  # Light red
+
                     for row_idx in error_rows:
                         # Apply fill to all cells in the row
                         for cell in ws[row_idx]:
@@ -568,39 +821,51 @@ def upload_orders(request):
                     out_stream = io.BytesIO()
                     wb.save(out_stream)
                     out_stream.seek(0)
-                    error_file_base64 = base64.b64encode(out_stream.read()).decode('utf-8')
+                    error_file_base64 = base64.b64encode(out_stream.read()).decode(
+                        "utf-8"
+                    )
             except Exception as ex:
                 print(f"Failed to generate error highlight Excel: {ex}")
 
-            response_data = {'message': 'Document validation immediately failed.', 'errors': errors}
+            response_data = {
+                "message": "Document validation immediately failed.",
+                "errors": errors,
+            }
             if error_file_base64:
-                response_data['error_file_base64'] = error_file_base64
-            
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-            
-        Order.objects.bulk_create(valid_orders)
-        
-        msg = f'Successfully verified and securely uploaded {len(valid_orders)} direct orders.'
-        if errors and ignore_errors:
-            msg += f' (Ignored {len(errors)} structurally conflicting rows).'
-            
-        return Response({'message': msg}, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                response_data["error_file_base64"] = error_file_base64
 
-@api_view(['POST'])
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+
+        Order.objects.bulk_create(valid_orders)
+
+        msg = f"Successfully verified and securely uploaded {len(valid_orders)} direct orders."
+        if errors and ignore_errors:
+            msg += f" (Ignored {len(errors)} structurally conflicting rows)."
+
+        return Response({"message": msg}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {"error": f"Document extraction failed completely: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
 def upload_stock(request):
-    if 'file' not in request.FILES:
-        return Response({'error': 'No document provided for upload.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    file = request.FILES['file']
+    if "file" not in request.FILES:
+        return Response(
+            {"error": "No document provided for upload."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    file = request.FILES["file"]
     filename = file.name.lower()
-    
+
     # Extract month and year from form data (used as default / fallback)
-    month_val = request.data.get('month') or request.POST.get('month')
-    year_val = request.data.get('year') or request.POST.get('year')
-    
+    month_val = request.data.get("month") or request.POST.get("month")
+    year_val = request.data.get("year") or request.POST.get("year")
+
     try:
         month = int(month_val) if month_val else None
     except ValueError:
@@ -614,59 +879,92 @@ def upload_stock(request):
     # Fallback year to current year if none provided
     if not year:
         import datetime
+
         year = datetime.date.today().year
-        
+
     try:
         # Dynamically support PDF extraction as requested
-        if filename.endswith('.pdf'):
+        if filename.endswith(".pdf"):
             try:
                 import pdfplumber
             except ImportError:
-                return Response({'error': 'PDF parser not installed natively on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+                return Response(
+                    {"error": "PDF parser not installed natively on server."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
             with pdfplumber.open(file) as pdf:
                 all_rows = []
                 for page in pdf.pages:
                     table = page.extract_table()
                     if table:
                         all_rows.extend(table)
-                        
+
             if not all_rows or len(all_rows) < 2:
-                return Response({'error': 'No tabular data could be structurally extracted from the PDF.'}, status=status.HTTP_400_BAD_REQUEST)
-                
-            headers = [str(h).replace('\n', ' ').strip() if h else '' for h in all_rows[0]]
+                return Response(
+                    {
+                        "error": "No tabular data could be structurally extracted from the PDF."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            headers = [
+                str(h).replace("\n", " ").strip() if h else "" for h in all_rows[0]
+            ]
             df = pd.DataFrame(all_rows[1:], columns=headers)
-        elif filename.endswith(('.xls', '.xlsx')):
+        elif filename.endswith((".xls", ".xlsx")):
             df = pd.read_excel(file)
         else:
-            return Response({'error': 'Unsupported file format. Please upload Excel or PDF.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"error": "Unsupported file format. Please upload Excel or PDF."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         errors = []
         valid_stocks = []
-        
-        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
-        
+
+        valid_codes = set(ProductMaster.objects.values_list("material_code", flat=True))
+
         valid_sales_pairs = set()
-        for sold_to_val, mat_code in Order.objects.values_list('sold_to', 'material_code').distinct():
+        for sold_to_val, mat_code in Order.objects.values_list(
+            "sold_to", "material_code"
+        ).distinct():
             if sold_to_val and mat_code:
-                valid_sales_pairs.add((str(sold_to_val).strip().lower(), str(mat_code).strip().lower()))
-        for sold_to_val, mat_code in PrimarySales.objects.values_list('sold_to_party', 'material_code').distinct():
+                valid_sales_pairs.add(
+                    (str(sold_to_val).strip().lower(), str(mat_code).strip().lower())
+                )
+        for sold_to_val, mat_code in PrimarySales.objects.values_list(
+            "sold_to_party", "material_code"
+        ).distinct():
             if sold_to_val and mat_code:
-                valid_sales_pairs.add((str(sold_to_val).strip().lower(), str(mat_code).strip().lower()))
-        
+                valid_sales_pairs.add(
+                    (str(sold_to_val).strip().lower(), str(mat_code).strip().lower())
+                )
+
         MONTH_NAME_MAP = {
-            'jan': 1, 'january': 1,
-            'feb': 2, 'february': 2,
-            'mar': 3, 'march': 3,
-            'apr': 4, 'april': 4,
-            'may': 5,
-            'jun': 6, 'june': 6,
-            'jul': 7, 'july': 7,
-            'aug': 8, 'august': 8,
-            'sep': 9, 'september': 9,
-            'oct': 10, 'october': 10,
-            'nov': 11, 'november': 11,
-            'dec': 12, 'december': 12
+            "jan": 1,
+            "january": 1,
+            "feb": 2,
+            "february": 2,
+            "mar": 3,
+            "march": 3,
+            "apr": 4,
+            "april": 4,
+            "may": 5,
+            "jun": 6,
+            "june": 6,
+            "jul": 7,
+            "july": 7,
+            "aug": 8,
+            "august": 8,
+            "sep": 9,
+            "september": 9,
+            "oct": 10,
+            "october": 10,
+            "nov": 11,
+            "november": 11,
+            "dec": 12,
+            "december": 12,
         }
 
         def parse_month_year(val, fallback_m, fallback_y):
@@ -675,39 +973,43 @@ def upload_stock(request):
             val_str = str(val).strip().lower()
             parsed_m = None
             parsed_y = None
-            
+
             # Match month name words
             import re
+
             for name, m_num in sorted(MONTH_NAME_MAP.items(), key=lambda x: -len(x[0])):
-                if re.search(r'\b' + name + r'\b', val_str) or name in val_str:
+                if re.search(r"\b" + name + r"\b", val_str) or name in val_str:
                     parsed_m = m_num
                     break
-            
+
             # Match 4-digit year or 2-digit year
-            y_match = re.search(r'\b(20\d{2})\b', val_str)
+            y_match = re.search(r"\b(20\d{2})\b", val_str)
             if y_match:
                 parsed_y = int(y_match.group(1))
-            elif re.search(r'[-/](\d{2})\b', val_str):
-                parsed_y = 2000 + int(re.search(r'[-/](\d{2})\b', val_str).group(1))
-                
+            elif re.search(r"[-/](\d{2})\b", val_str):
+                parsed_y = 2000 + int(re.search(r"[-/](\d{2})\b", val_str).group(1))
+
             if not parsed_m:
                 import datetime
+
                 if isinstance(val, (datetime.date, datetime.datetime, pd.Timestamp)):
                     parsed_m = val.month
                     parsed_y = val.year
-                elif re.match(r'^\d{1,2}$', val_str) and 1 <= int(val_str) <= 12:
+                elif re.match(r"^\d{1,2}$", val_str) and 1 <= int(val_str) <= 12:
                     parsed_m = int(val_str)
 
-            return (parsed_m if parsed_m is not None else fallback_m), (parsed_y if parsed_y is not None else fallback_y)
+            return (parsed_m if parsed_m is not None else fallback_m), (
+                parsed_y if parsed_y is not None else fallback_y
+            )
 
-        ignore_errors = (
-            str(request.data.get('ignore_errors', '')).lower() in ('true', '1') or
-            str(request.POST.get('ignore_errors', '')).lower() in ('true', '1')
-        )
+        ignore_errors = str(request.data.get("ignore_errors", "")).lower() in (
+            "true",
+            "1",
+        ) or str(request.POST.get("ignore_errors", "")).lower() in ("true", "1")
 
         for index, row in df.iterrows():
-            line_no = index + 2 
-            
+            line_no = index + 2
+
             def get_val(key_options):
                 norm_cols = {str(c).strip().lower(): c for c in df.columns}
                 for k in key_options:
@@ -715,41 +1017,58 @@ def upload_stock(request):
                     if norm_k in norm_cols:
                         actual_col = norm_cols[norm_k]
                         val = row.get(actual_col)
-                        if pd.isna(val) or str(val).strip() == 'nan' or val is None:
-                            return ''
+                        if pd.isna(val) or str(val).strip() == "nan" or val is None:
+                            return ""
                         string_val = str(val).strip()
-                        if string_val.endswith('.0'):
+                        if string_val.endswith(".0"):
                             return string_val[:-2]
                         return string_val
-                return ''
+                return ""
 
-            product_code = get_val(['Product Code', 'product_code', 'Material Code', 'Material'])
-            product_desc = get_val(['Prod Desc', 'product_desc', 'Product Desc', 'Material Desc', 'Description'])
-            
+            product_code = get_val(
+                ["Product Code", "product_code", "Material Code", "Material"]
+            )
+            product_desc = get_val(
+                [
+                    "Prod Desc",
+                    "product_desc",
+                    "Product Desc",
+                    "Material Desc",
+                    "Description",
+                ]
+            )
+
             # Skip genuinely empty rows safely
             if not product_code and not product_desc:
                 continue
-            
-            sold_to_val = get_val(['Sold To', 'sold_to'])
-            
+
+            sold_to_val = get_val(["Sold To", "sold_to"])
+
             if product_code and product_code not in valid_codes:
                 if not ignore_errors:
-                    errors.append(f"Row {line_no}: Product '{product_code}' does not exist in Product Master.")
-                    continue 
+                    errors.append(
+                        f"Row {line_no}: Product '{product_code}' does not exist in Product Master."
+                    )
+                    continue
                 else:
                     ProductMaster.objects.get_or_create(
                         material_code=product_code,
-                        defaults={'material_name': product_desc or product_code}
+                        defaults={"material_name": product_desc or product_code},
                     )
                     valid_codes.add(product_code)
-                
+
             if product_code and sold_to_val:
-                pair = (str(sold_to_val).strip().lower(), str(product_code).strip().lower())
+                pair = (
+                    str(sold_to_val).strip().lower(),
+                    str(product_code).strip().lower(),
+                )
                 if pair not in valid_sales_pairs:
                     if not ignore_errors:
-                        errors.append(f"Row {line_no}: Product '{product_code}' has not been sold to the distributor '{sold_to_val}'.")
+                        errors.append(
+                            f"Row {line_no}: Product '{product_code}' has not been sold to the distributor '{sold_to_val}'."
+                        )
                         continue
-                
+
             def get_float(key_options):
                 val = get_val(key_options)
                 try:
@@ -758,95 +1077,151 @@ def upload_stock(request):
                     return None
 
             # Extract month and year per row if available, or use selected dropdown fallback
-            row_month_raw = get_val(['Month End Stock', 'Month End', 'Month', 'Period', 'Month / Year', 'Month-Year'])
+            row_month_raw = get_val(
+                [
+                    "Month End Stock",
+                    "Month End",
+                    "Month",
+                    "Period",
+                    "Month / Year",
+                    "Month-Year",
+                ]
+            )
             r_month, r_year = parse_month_year(row_month_raw, month, year)
 
             if not r_month:
                 if not ignore_errors:
-                    errors.append(f"Row {line_no}: Month could not be determined. Please select a Month in the dropdown or include a Month column.")
+                    errors.append(
+                        f"Row {line_no}: Month could not be determined. Please select a Month in the dropdown or include a Month column."
+                    )
                     continue
                 else:
                     r_month = month or 1
                     r_year = year or 2026
-            
-            valid_stocks.append(StockLevel(
-                sold_to=sold_to_val,
-                ship_to=get_val(['Ship To', 'ship_to']),
-                product_code=product_code,
-                product_desc=product_desc,
-                avg_six_month_sales=get_float(['Avg Last six month sales in kg', 'Avg Last six month', 'Avg Last Six month sales in kg']),
-                month_end_inventory=get_float(['Month End Inventory', 'month_end_inventory', 'Ending Inventory']),
-                mid_month_inventory=get_float(['Mid Month Inventory', 'mid_month_inventory']),
-                remarks=get_val(['Remarks/Comments', 'Remarks', 'comments', 'Local Manufactured/Imported']),
-                month=r_month,
-                year=r_year
-            ))
-            
-        if errors and not ignore_errors:
-            return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
-            
-        StockLevel.objects.bulk_create(valid_stocks)
-        msg = f'Successfully verified and uploaded {len(valid_stocks)} stock records natively.'
-        if errors and ignore_errors:
-            msg += f' (Included {len(valid_stocks)} records by bypassing past-sales checks for new distributor).'
-        return Response({'message': msg}, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({'error': f"Document extraction failed completely: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@api_view(['POST'])
+            valid_stocks.append(
+                StockLevel(
+                    sold_to=sold_to_val,
+                    ship_to=get_val(["Ship To", "ship_to"]),
+                    product_code=product_code,
+                    product_desc=product_desc,
+                    avg_six_month_sales=get_float(
+                        [
+                            "Avg Last six month sales in kg",
+                            "Avg Last six month",
+                            "Avg Last Six month sales in kg",
+                        ]
+                    ),
+                    month_end_inventory=get_float(
+                        [
+                            "Month End Inventory",
+                            "month_end_inventory",
+                            "Ending Inventory",
+                        ]
+                    ),
+                    mid_month_inventory=get_float(
+                        ["Mid Month Inventory", "mid_month_inventory"]
+                    ),
+                    remarks=get_val(
+                        [
+                            "Remarks/Comments",
+                            "Remarks",
+                            "comments",
+                            "Local Manufactured/Imported",
+                        ]
+                    ),
+                    month=r_month,
+                    year=r_year,
+                )
+            )
+
+        if errors and not ignore_errors:
+            return Response(
+                {"message": "Document validation failed.", "errors": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        StockLevel.objects.bulk_create(valid_stocks)
+        msg = f"Successfully verified and uploaded {len(valid_stocks)} stock records natively."
+        if errors and ignore_errors:
+            msg += f" (Included {len(valid_stocks)} records by bypassing past-sales checks for new distributor)."
+        return Response({"message": msg}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {"error": f"Document extraction failed completely: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
 def upload_monthly_sales(request):
-    if 'file' not in request.FILES:
-        return Response({'error': 'No document provided for upload.'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    file = request.FILES['file']
+    if "file" not in request.FILES:
+        return Response(
+            {"error": "No document provided for upload."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    file = request.FILES["file"]
     filename = file.name.lower()
-    
+
     try:
         # Dynamically support PDF extraction as requested
-        if filename.endswith('.pdf'):
+        if filename.endswith(".pdf"):
             try:
                 import pdfplumber
             except ImportError:
-                return Response({'error': 'PDF parser not installed natively.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+                return Response(
+                    {"error": "PDF parser not installed natively."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
             with pdfplumber.open(file) as pdf:
                 all_rows = []
                 for page in pdf.pages:
                     table = page.extract_table()
                     if table:
                         all_rows.extend(table)
-                        
+
             if not all_rows or len(all_rows) < 4:
-                return Response({'error': 'No tabular data could be structurally extracted.'}, status=status.HTTP_400_BAD_REQUEST)
-                
-            headers = [str(h).replace('\n', ' ').strip() if h else '' for h in all_rows[2]] # Assuming headers are mostly row 3
+                return Response(
+                    {"error": "No tabular data could be structurally extracted."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            headers = [
+                str(h).replace("\n", " ").strip() if h else "" for h in all_rows[2]
+            ]  # Assuming headers are mostly row 3
             df = pd.DataFrame(all_rows[3:], columns=headers)
-        elif filename.endswith(('.xls', '.xlsx')):
+        elif filename.endswith((".xls", ".xlsx")):
             # Dynamically detect header row by scanning first 5 rows
             raw_df = pd.read_excel(file, header=None)
             header_row_idx = 0
-            
+
             for i, r in raw_df.head(6).iterrows():
-                row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-                if any('product code' in v or 'customer name' in v or 'product name' in v for v in row_vals):
+                row_vals = [str(v).strip().lower() if pd.notna(v) else "" for v in r]
+                if any(
+                    "product code" in v or "customer name" in v or "product name" in v
+                    for v in row_vals
+                ):
                     header_row_idx = i
                     break
-                    
+
             # Extract headers and data, gracefully handling datetime headers
             import datetime
+
             raw_headers = []
             for v in raw_df.iloc[header_row_idx]:
                 if pd.isna(v):
-                    raw_headers.append('')
+                    raw_headers.append("")
                 elif isinstance(v, (pd.Timestamp, datetime.datetime)):
-                    raw_headers.append(v.strftime('%b %Y'))
+                    raw_headers.append(v.strftime("%b %Y"))
                 else:
                     s = str(v).strip()
-                    if s.endswith('00:00:00'):
-                        s = s.replace('00:00:00', '').strip()
+                    if s.endswith("00:00:00"):
+                        s = s.replace("00:00:00", "").strip()
                     raw_headers.append(s)
-            
+
             # Deduplicate headers to avoid pandas Series ambiguity on row.get()
             # Value columns are typically next to Volume columns, receiving a duplicated header
             headers = []
@@ -860,25 +1235,27 @@ def upload_monthly_sales(request):
                 headers.append(new_h)
                 if new_h:
                     seen.add(new_h)
-                
-            df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+
+            df = raw_df.iloc[header_row_idx + 1 :].reset_index(drop=True)
             df.columns = headers
         else:
-            return Response({'error': 'Unsupported file.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"error": "Unsupported file."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         errors = []
         valid_records = []
-        
-        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
-        
-        ignore_errors = (
-            str(request.data.get('ignore_errors', '')).lower() in ('true', '1') or
-            str(request.POST.get('ignore_errors', '')).lower() in ('true', '1')
-        )
+
+        valid_codes = set(ProductMaster.objects.values_list("material_code", flat=True))
+
+        ignore_errors = str(request.data.get("ignore_errors", "")).lower() in (
+            "true",
+            "1",
+        ) or str(request.POST.get("ignore_errors", "")).lower() in ("true", "1")
 
         for index, row in df.iterrows():
-            line_no = header_row_idx + index + 2 
-            
+            line_no = header_row_idx + index + 2
+
             def get_val(key_options):
                 if isinstance(key_options, str):
                     key_options = [key_options]
@@ -888,13 +1265,15 @@ def upload_monthly_sales(request):
                         val = row.get(key_name)
                         if isinstance(val, pd.Series):
                             val = val.iloc[0]
-                        if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                        if pd.isna(val) or str(val).strip() == "nan" or val is None:
                             continue
                         string_val = str(val).strip()
-                        if string_val.endswith('.0') and not key_name.startswith('Total'):
+                        if string_val.endswith(".0") and not key_name.startswith(
+                            "Total"
+                        ):
                             return string_val[:-2]
                         return string_val
-                    
+
                     # Try case insensitive match if exact fails
                     lower_key = key_name.lower().strip()
                     for c in df.columns:
@@ -902,146 +1281,220 @@ def upload_monthly_sales(request):
                             val = row.get(c)
                             if isinstance(val, pd.Series):
                                 val = val.iloc[0]
-                            if pd.isna(val) or str(val).strip() == 'nan' or val is None:
+                            if pd.isna(val) or str(val).strip() == "nan" or val is None:
                                 continue
                             string_val = str(val).strip()
-                            if string_val.endswith('.0') and not key_name.startswith('Total'):
+                            if string_val.endswith(".0") and not key_name.startswith(
+                                "Total"
+                            ):
                                 return string_val[:-2]
                             return string_val
-                return ''
+                return ""
 
-            product_code = get_val(['Product Code', 'product_code', 'Material Code', 'Material'])
-            product_name = get_val(['Product Name', 'product_name', 'Material Name', 'Material Desc', 'Description'])
-            customer_name = get_val(['Customer Name', 'customer_name', 'Customer'])
-            
+            product_code = get_val(
+                ["Product Code", "product_code", "Material Code", "Material"]
+            )
+            product_name = get_val(
+                [
+                    "Product Name",
+                    "product_name",
+                    "Material Name",
+                    "Material Desc",
+                    "Description",
+                ]
+            )
+            customer_name = get_val(["Customer Name", "customer_name", "Customer"])
+
             if not product_code and not product_name and not customer_name:
-                continue 
-            
+                continue
+
             if product_code and product_code not in valid_codes:
                 if not ignore_errors:
-                    errors.append(f"Row {line_no}: Product Code '{product_code}' is disconnected from explicit Product Master registries.")
+                    errors.append(
+                        f"Row {line_no}: Product Code '{product_code}' is disconnected from explicit Product Master registries."
+                    )
                     continue
                 else:
                     ProductMaster.objects.get_or_create(
                         material_code=product_code,
-                        defaults={'material_name': product_name or product_code}
+                        defaults={"material_name": product_name or product_code},
                     )
                     valid_codes.add(product_code)
-                
+
             volumes = {}
             values = {}
-            
+
             # Map dynamic months horizontally natively processing pandas suffixing
             import dateutil.parser
+
             for col in df.columns:
                 col_str = str(col)
-                if 'Unnamed' in col_str or not col_str.strip(): continue
-                
+                if "Unnamed" in col_str or not col_str.strip():
+                    continue
+
                 val = row.get(col)
                 num_val = 0.0
                 if not pd.isna(val):
                     try:
-                        num_val = float(str(val).replace(',', ''))
+                        num_val = float(str(val).replace(",", ""))
                     except ValueError:
                         pass
-                
-                if col_str.endswith('_1') or col_str.endswith('.1'):
-                    month_key = col_str.replace('_1', '').replace('.1', '').strip()
-                    if 'Total' not in month_key:
+
+                if col_str.endswith("_1") or col_str.endswith(".1"):
+                    month_key = col_str.replace("_1", "").replace(".1", "").strip()
+                    if "Total" not in month_key:
                         try:
-                            month_key = dateutil.parser.parse(month_key).strftime('%Y-%m')
+                            month_key = dateutil.parser.parse(month_key).strftime(
+                                "%Y-%m"
+                            )
                         except Exception:
                             pass
                         values[month_key] = num_val
                 else:
-                    dimension_cols = ['distributor name', 'ship to code', 'customer name', 'customer classification (a+,a,b,c,d)', 'product code', 'product name', 'product bd group', 'total volume (kg)', 'total value (inr)']
-                    if col_str.lower() not in dimension_cols and 'Total' not in col_str:
+                    dimension_cols = [
+                        "distributor name",
+                        "ship to code",
+                        "customer name",
+                        "customer classification (a+,a,b,c,d)",
+                        "product code",
+                        "product name",
+                        "product bd group",
+                        "total volume (kg)",
+                        "total value (inr)",
+                    ]
+                    if col_str.lower() not in dimension_cols and "Total" not in col_str:
                         month_key = col_str.strip()
                         try:
-                            month_key = dateutil.parser.parse(month_key).strftime('%Y-%m')
+                            month_key = dateutil.parser.parse(month_key).strftime(
+                                "%Y-%m"
+                            )
                         except Exception:
                             pass
                         volumes[month_key] = num_val
-            
-            tot_vol_raw = get_val(['Total Volume (KG)', 'Total Volume', 'Total Qty', 'Total Vol'])
+
+            tot_vol_raw = get_val(
+                ["Total Volume (KG)", "Total Volume", "Total Qty", "Total Vol"]
+            )
             try:
-                total_vol = float(str(tot_vol_raw).replace(',', '')) if tot_vol_raw else sum(volumes.values())
+                total_vol = (
+                    float(str(tot_vol_raw).replace(",", ""))
+                    if tot_vol_raw
+                    else sum(volumes.values())
+                )
             except ValueError:
                 total_vol = sum(volumes.values())
 
-            tot_val_raw = get_val(['Total Value (INR)', 'Total Value', 'Total Amount', 'Total INR'])
+            tot_val_raw = get_val(
+                ["Total Value (INR)", "Total Value", "Total Amount", "Total INR"]
+            )
             try:
-                total_val = float(str(tot_val_raw).replace(',', '')) if tot_val_raw else sum(values.values())
+                total_val = (
+                    float(str(tot_val_raw).replace(",", ""))
+                    if tot_val_raw
+                    else sum(values.values())
+                )
             except ValueError:
                 total_val = sum(values.values())
-                    
-            valid_records.append(MonthlySales(
-                distributor_name=get_val(['Distributor Name', 'distributor_name']),
-                ship_to_code=get_val(['Ship to Code', 'Ship To', 'ship_to_code']),
-                customer_name=get_val(['Customer Name', 'customer_name']),
-                customer_classification=get_val(['Customer Classification (A+,A,B,C,D)', 'Classification', 'customer_classification']),
-                product_code=product_code,
-                product_name=product_name,
-                product_bd_group=get_val(['Product BD Group', 'BD Group', 'product_bd_group']),
-                volumes=volumes,
-                total_volume=total_vol,
-                values=values,
-                total_value=total_val
-            ))
-            
+
+            valid_records.append(
+                MonthlySales(
+                    distributor_name=get_val(["Distributor Name", "distributor_name"]),
+                    ship_to_code=get_val(["Ship to Code", "Ship To", "ship_to_code"]),
+                    customer_name=get_val(["Customer Name", "customer_name"]),
+                    customer_classification=get_val(
+                        [
+                            "Customer Classification (A+,A,B,C,D)",
+                            "Classification",
+                            "customer_classification",
+                        ]
+                    ),
+                    product_code=product_code,
+                    product_name=product_name,
+                    product_bd_group=get_val(
+                        ["Product BD Group", "BD Group", "product_bd_group"]
+                    ),
+                    volumes=volumes,
+                    total_volume=total_vol,
+                    values=values,
+                    total_value=total_val,
+                )
+            )
+
         if errors and not ignore_errors:
-            return Response({'message': 'Document validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"message": "Document validation failed.", "errors": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         MonthlySales.objects.bulk_create(valid_records)
         invalidate_dashboard_cache()
-        msg = f'Successfully ingested {len(valid_records)} robust Monthly Sales records.'
+        msg = (
+            f"Successfully ingested {len(valid_records)} robust Monthly Sales records."
+        )
         if errors and ignore_errors:
-            msg += f' (Included {len(valid_records)} records, auto-registering any missing product codes).'
-        return Response({'message': msg}, status=status.HTTP_200_OK)
-        
+            msg += f" (Included {len(valid_records)} records, auto-registering any missing product codes)."
+        return Response({"message": msg}, status=status.HTTP_200_OK)
+
     except Exception as e:
-        return Response({'error': f"Document pipeline failed natively: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": f"Document pipeline failed natively: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
 
 def smart_read_csv(file):
-    lines = [line.decode('utf-8', errors='ignore') for line in file.readlines()]
+    lines = [line.decode("utf-8", errors="ignore") for line in file.readlines()]
     data_lines = []
     for line in lines:
         s = line.strip()
         if not s:
             continue
-        parts = s.split('\t') if '\t' in line else (s.split(',') if ',' in s else s.split(';'))
+        parts = (
+            s.split("\t")
+            if "\t" in line
+            else (s.split(",") if "," in s else s.split(";"))
+        )
         if len(parts) >= 2:
             data_lines.append(line)
-            
+
     if not data_lines:
         data_lines = [line for line in lines if line.strip()]
-        
-    content = ''.join(data_lines)
-    first_data_line = data_lines[0] if data_lines else ''
-    sep = '\t' if '\t' in first_data_line else (',' if ',' in first_data_line else ';')
-    import io
-    return pd.read_csv(io.StringIO(content), header=None, sep=sep, engine='python', on_bad_lines='skip')
 
-@api_view(['POST'])
+    content = "".join(data_lines)
+    first_data_line = data_lines[0] if data_lines else ""
+    sep = "\t" if "\t" in first_data_line else ("," if "," in first_data_line else ";")
+    import io
+
+    return pd.read_csv(
+        io.StringIO(content), header=None, sep=sep, engine="python", on_bad_lines="skip"
+    )
+
+
+@api_view(["POST"])
 def upload_primary_sales(request):
     try:
-        file = request.FILES.get('file')
+        file = request.FILES.get("file")
         if not file:
-            return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         filename = file.name.lower()
         rows = []
-        
+
         # Fast streaming read
-        if filename.endswith(('.xls', '.xlsx')):
+        if filename.endswith((".xls", ".xlsx")):
             try:
                 from python_calamine import CalamineWorkbook
                 import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as tmp:
+
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=os.path.splitext(filename)[1]
+                ) as tmp:
                     for chunk in file.chunks():
                         tmp.write(chunk)
                     tmp_path = tmp.name
-                
+
                 try:
                     wb = CalamineWorkbook.from_path(tmp_path)
                     sheet = wb.get_sheet_by_index(0)
@@ -1051,195 +1504,376 @@ def upload_primary_sales(request):
                         os.remove(tmp_path)
             except Exception:
                 import openpyxl
+
                 file.seek(0)
                 wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
                 ws = wb.active
                 rows = list(ws.iter_rows(values_only=True))
-        elif filename.endswith('.csv'):
+        elif filename.endswith(".csv"):
             file.seek(0)
             raw_df = smart_read_csv(file)
             rows = [list(raw_df.columns)] + raw_df.values.tolist()
         else:
-            return Response({'error': 'Unsupported file format. Please upload .xlsx, .xls, or .csv.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {
+                    "error": "Unsupported file format. Please upload .xlsx, .xls, or .csv."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if not rows or len(rows) < 2:
-            return Response({'error': 'The uploaded file contains no data rows.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+            return Response(
+                {"error": "The uploaded file contains no data rows."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Dynamically locate the header row (skip top formula / title / subtotal rows)
         header_row_idx = 0
         for i in range(min(15, len(rows))):
             row_strs = [str(cell).lower() for cell in rows[i] if cell is not None]
-            row_text = ' '.join(row_strs)
-            matches = sum(1 for k in ['billing', 'sold', 'ship', 'material', 'ppc', 'order', 'plant', 'qty', 'value', 'date', 'invoice', 'product', 'sales'] if k in row_text)
+            row_text = " ".join(row_strs)
+            matches = sum(
+                1
+                for k in [
+                    "billing",
+                    "sold",
+                    "ship",
+                    "material",
+                    "ppc",
+                    "order",
+                    "plant",
+                    "qty",
+                    "value",
+                    "date",
+                    "invoice",
+                    "product",
+                    "sales",
+                ]
+                if k in row_text
+            )
             if matches >= 2:
                 header_row_idx = i
                 break
 
-        raw_headers = [str(h).strip() if h is not None else '' for h in rows[header_row_idx]]
+        raw_headers = [
+            str(h).strip() if h is not None else "" for h in rows[header_row_idx]
+        ]
         import re
-        normalized_cols = {idx: re.sub(r'[^a-z0-9]', '', h.lower()) for idx, h in enumerate(raw_headers)}
-        
+
+        normalized_cols = {
+            idx: re.sub(r"[^a-z0-9]", "", h.lower())
+            for idx, h in enumerate(raw_headers)
+        }
+
         def find_col_idx(key_options):
             if isinstance(key_options, str):
                 key_options = [key_options]
             # Exact match first
             for key_name in key_options:
-                lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
+                lower_key = re.sub(r"[^a-z0-9]", "", key_name.lower())
                 for idx, norm_col in normalized_cols.items():
                     if lower_key == norm_col:
                         return idx
             # Substring match second
             for key_name in key_options:
-                lower_key = re.sub(r'[^a-z0-9]', '', key_name.lower())
+                lower_key = re.sub(r"[^a-z0-9]", "", key_name.lower())
                 for idx, norm_col in normalized_cols.items():
                     if lower_key in norm_col:
                         return idx
             return None
 
         # Pre-locate all target columns by index
-        billing_no_idx = find_col_idx(['Billing Doc', 'Billing No', 'Invoice No', 'Billing Document', 'Bill No', 'Invoice', 'Inv No', 'Doc No', 'Voucher'])
-        billing_item_idx = find_col_idx(['Billing Item', 'Item', 'ItemNo', 'billing_item'])
-        tax_inv_idx = find_col_idx(['Tax Invoice No', 'Tax Invoice'])
-        so_idx = find_col_idx(['Sales Order', 'Sales Document', 'SO No', 'Order No', 'Order'])
-        sales_order_item_idx = find_col_idx(['Sales Document Item', 'Sales Doc Item', 'Sales doc item', 'Sales Document item', 'SO Item', 'sales_order_item'])
-        so_date_idx = find_col_idx(['SO Creation Date', 'SO date', 'SO Date', 'Creation Date'])
-        division_idx = find_col_idx(['Division', 'United Segments', 'Segment', 'Segments'])
-        sold_to_idx = find_col_idx(['SoldTo', 'Sold to party', 'Sold to party (NLZ)', 'Sold-to Party', 'Customer'])
-        sold_to_name_idx = find_col_idx(['Sold To Text', 'Sold to party Name', 'Customer Name'])
-        sold_to_addr_idx = find_col_idx(['Sold to party Address', 'Sold-to Party Address', 'Address'])
-        ship_to_idx = find_col_idx(['ShipTo', 'Ship to Party', 'Ship to party (NLZ)', 'Ship-to Party'])
-        ship_to_name_idx = find_col_idx(['Ship To Party Name', 'Ship to Party Name', 'Ship Name', 'ShipTo Name'])
-        material_code_idx = find_col_idx(['PPC', 'Material Code', 'Material', 'Item Code', 'Part No', 'Product Code'])
-        material_desc_idx = find_col_idx(['Material Text', 'Product Description', 'Material Desc', 'Description', 'Item Name', 'Item Description', 'Name', 'Product Name'])
-        billing_date_idx = find_col_idx(['Bill Date', 'Billing Date', 'Billing date', 'Date', 'billing_date', 'Invoice Date', 'Invoicing Date'])
-        plant_idx = find_col_idx(['Plant'])
-        rate_idx = find_col_idx(['ASP INR', 'Rate Per Unit', 'Rate', 'Price', 'Unit Price', 'ASP'])
-        qty_idx = find_col_idx(['Inv Qty Kgs', 'Billed Quantity', 'Invoiced Quantity', 'Quantity', 'Qty', 'Billed Qty', 'Nos', 'Pcs'])
-        sales_unit_idx = find_col_idx(['Sales Unit', 'Sales unit', 'Sales qty unit', 'UOM', 'Unit of Measure', 'sales_unit'])
-        val_idx = find_col_idx(['Inv Value INR', 'Assessable Value', 'Assesable Value', 'Net Value', 'Value', 'Amount', 'Total'])
-        country_idx = find_col_idx(['Country', 'country', 'Cntry'])
-        region_dlv_plant_idx = find_col_idx(['Region of dlv.plant', 'Region of dlv plant', 'Region of dlv. plant', 'Region of dlv', 'Region', 'region_dlv_plant'])
-        sales_exec_idx = find_col_idx(['New Sales Rep', 'New Sales Rep.', 'Sales Rep', 'Sales Exec', 'Sales Executive', 'Sales Representative', 'Sales Person', 'Executive', 'Sales Representative Name', 'New Sales Leader'])
-        
-        valid_codes = set(ProductMaster.objects.values_list('material_code', flat=True))
+        billing_no_idx = find_col_idx(
+            [
+                "Billing Doc",
+                "Billing No",
+                "Invoice No",
+                "Billing Document",
+                "Bill No",
+                "Invoice",
+                "Inv No",
+                "Doc No",
+                "Voucher",
+            ]
+        )
+        billing_item_idx = find_col_idx(
+            ["Billing Item", "Item", "ItemNo", "billing_item"]
+        )
+        tax_inv_idx = find_col_idx(["Tax Invoice No", "Tax Invoice"])
+        so_idx = find_col_idx(
+            ["Sales Order", "Sales Document", "SO No", "Order No", "Order"]
+        )
+        sales_order_item_idx = find_col_idx(
+            [
+                "Sales Document Item",
+                "Sales Doc Item",
+                "Sales doc item",
+                "Sales Document item",
+                "SO Item",
+                "sales_order_item",
+            ]
+        )
+        so_date_idx = find_col_idx(
+            ["SO Creation Date", "SO date", "SO Date", "Creation Date"]
+        )
+        division_idx = find_col_idx(
+            ["Division", "United Segments", "Segment", "Segments"]
+        )
+        sold_to_idx = find_col_idx(
+            [
+                "SoldTo",
+                "Sold to party",
+                "Sold to party (NLZ)",
+                "Sold-to Party",
+                "Customer",
+            ]
+        )
+        sold_to_name_idx = find_col_idx(
+            ["Sold To Text", "Sold to party Name", "Customer Name"]
+        )
+        sold_to_addr_idx = find_col_idx(
+            ["Sold to party Address", "Sold-to Party Address", "Address"]
+        )
+        ship_to_idx = find_col_idx(
+            ["ShipTo", "Ship to Party", "Ship to party (NLZ)", "Ship-to Party"]
+        )
+        ship_to_name_idx = find_col_idx(
+            ["Ship To Party Name", "Ship to Party Name", "Ship Name", "ShipTo Name"]
+        )
+        material_code_idx = find_col_idx(
+            ["PPC", "Material Code", "Material", "Item Code", "Part No", "Product Code"]
+        )
+        material_desc_idx = find_col_idx(
+            [
+                "Material Text",
+                "Product Description",
+                "Material Desc",
+                "Description",
+                "Item Name",
+                "Item Description",
+                "Name",
+                "Product Name",
+            ]
+        )
+        billing_date_idx = find_col_idx(
+            [
+                "Bill Date",
+                "Billing Date",
+                "Billing date",
+                "Date",
+                "billing_date",
+                "Invoice Date",
+                "Invoicing Date",
+            ]
+        )
+        plant_idx = find_col_idx(["Plant"])
+        rate_idx = find_col_idx(
+            ["ASP INR", "Rate Per Unit", "Rate", "Price", "Unit Price", "ASP"]
+        )
+        qty_idx = find_col_idx(
+            [
+                "Inv Qty Kgs",
+                "Billed Quantity",
+                "Invoiced Quantity",
+                "Quantity",
+                "Qty",
+                "Billed Qty",
+                "Nos",
+                "Pcs",
+            ]
+        )
+        sales_unit_idx = find_col_idx(
+            [
+                "Sales Unit",
+                "Sales unit",
+                "Sales qty unit",
+                "UOM",
+                "Unit of Measure",
+                "sales_unit",
+            ]
+        )
+        val_idx = find_col_idx(
+            [
+                "Inv Value INR",
+                "Assessable Value",
+                "Assesable Value",
+                "Net Value",
+                "Value",
+                "Amount",
+                "Total",
+            ]
+        )
+        country_idx = find_col_idx(["Country", "country", "Cntry"])
+        region_dlv_plant_idx = find_col_idx(
+            [
+                "Region of dlv.plant",
+                "Region of dlv plant",
+                "Region of dlv. plant",
+                "Region of dlv",
+                "Region",
+                "region_dlv_plant",
+            ]
+        )
+        sales_exec_idx = find_col_idx(
+            [
+                "New Sales Rep",
+                "New Sales Rep.",
+                "Sales Rep",
+                "Sales Exec",
+                "Sales Executive",
+                "Sales Representative",
+                "Sales Person",
+                "Executive",
+                "Sales Representative Name",
+                "New Sales Leader",
+            ]
+        )
+
+        valid_codes = set(ProductMaster.objects.values_list("material_code", flat=True))
         new_products = {}
 
         def get_str(row, idx):
-            if idx is None or idx >= len(row): return ''
+            if idx is None or idx >= len(row):
+                return ""
             v = row[idx]
-            if v is None: return ''
+            if v is None:
+                return ""
             s = str(v).strip()
-            return s[:-2] if s.endswith('.0') else s
+            return s[:-2] if s.endswith(".0") else s
 
         def get_float(row, idx):
-            if idx is None or idx >= len(row): return 0.0
+            if idx is None or idx >= len(row):
+                return 0.0
             v = row[idx]
-            if v is None: return 0.0
-            if isinstance(v, (int, float)): return float(v)
+            if v is None:
+                return 0.0
+            if isinstance(v, (int, float)):
+                return float(v)
             try:
-                clean = re.sub(r'[^\d.-]', '', str(v))
+                clean = re.sub(r"[^\d.-]", "", str(v))
                 return float(clean) if clean else 0.0
-            except: return 0.0
+            except:
+                return 0.0
 
         def get_date(row, idx):
-            if idx is None or idx >= len(row): return None
+            if idx is None or idx >= len(row):
+                return None
             v = row[idx]
-            if v is None: return None
-            if hasattr(v, 'year') and hasattr(v, 'month') and hasattr(v, 'day'):
-                return v if hasattr(v, 'hour') is False else v.date()
+            if v is None:
+                return None
+            if hasattr(v, "year") and hasattr(v, "month") and hasattr(v, "day"):
+                return v if hasattr(v, "hour") is False else v.date()
             try:
                 dt = pd.to_datetime(v).date()
-                if dt and 2000 < dt.year < 2050: return dt
-            except: pass
+                if dt and 2000 < dt.year < 2050:
+                    return dt
+            except:
+                pass
             return None
 
         records_to_create = []
         batch_size = 5000
         total_created = 0
 
-        for index, row in enumerate(rows[header_row_idx + 1:]):
+        for index, row in enumerate(rows[header_row_idx + 1 :]):
             billing_no = get_str(row, billing_no_idx)
             material_code = get_str(row, material_code_idx)
             material_desc = get_str(row, material_desc_idx)
-            
+
             if not billing_no and not material_code and not material_desc:
                 continue
-                
+
             if not billing_no:
-                billing_no = f"INV-{index+1:05d}"
-                
+                billing_no = f"INV-{index + 1:05d}"
+
             if not material_code and material_desc:
-                material_code = re.sub(r'[^A-Za-z0-9]', '', material_desc)[:20].upper()
+                material_code = re.sub(r"[^A-Za-z0-9]", "", material_desc)[:20].upper()
 
             if not material_code:
-                material_code = f"MAT-{index+1:05d}"
+                material_code = f"MAT-{index + 1:05d}"
 
             if material_code and material_code not in valid_codes:
                 if material_code not in new_products:
                     new_products[material_code] = ProductMaster(
                         material_code=material_code,
-                        material_name=material_desc or material_code
+                        material_name=material_desc or material_code,
                     )
 
             sold_to_address_val = get_str(row, sold_to_addr_idx)
             if not sold_to_address_val and sold_to_name_idx is not None:
                 sold_to_address_val = get_str(row, sold_to_name_idx)
 
-            records_to_create.append(PrimarySales(
-                billing_no=billing_no,
-                billing_item=get_str(row, billing_item_idx),
-                tax_invoice_no=get_str(row, tax_inv_idx),
-                sales_order=get_str(row, so_idx),
-                sales_order_item=get_str(row, sales_order_item_idx),
-                so_creation_date=get_date(row, so_date_idx),
-                division=get_str(row, division_idx),
-                sold_to_party=get_str(row, sold_to_idx),
-                sold_to_party_address=sold_to_address_val,
-                ship_to_party=get_str(row, ship_to_idx),
-                ship_to_party_name=get_str(row, ship_to_name_idx),
-                material_code=material_code,
-                material_desc=material_desc,
-                billing_date=get_date(row, billing_date_idx),
-                plant=get_str(row, plant_idx),
-                rate_per_unit=get_float(row, rate_idx),
-                billed_quantity=get_float(row, qty_idx),
-                sales_unit=get_str(row, sales_unit_idx) or 'KG',
-                assessable_value=get_float(row, val_idx),
-                country=get_str(row, country_idx),
-                region_dlv_plant=get_str(row, region_dlv_plant_idx),
-                sales_exec=get_str(row, sales_exec_idx)
-            ))
+            records_to_create.append(
+                PrimarySales(
+                    billing_no=billing_no,
+                    billing_item=get_str(row, billing_item_idx),
+                    tax_invoice_no=get_str(row, tax_inv_idx),
+                    sales_order=get_str(row, so_idx),
+                    sales_order_item=get_str(row, sales_order_item_idx),
+                    so_creation_date=get_date(row, so_date_idx),
+                    division=get_str(row, division_idx),
+                    sold_to_party=get_str(row, sold_to_idx),
+                    sold_to_party_address=sold_to_address_val,
+                    ship_to_party=get_str(row, ship_to_idx),
+                    ship_to_party_name=get_str(row, ship_to_name_idx),
+                    material_code=material_code,
+                    material_desc=material_desc,
+                    billing_date=get_date(row, billing_date_idx),
+                    plant=get_str(row, plant_idx),
+                    rate_per_unit=get_float(row, rate_idx),
+                    billed_quantity=get_float(row, qty_idx),
+                    sales_unit=get_str(row, sales_unit_idx) or "KG",
+                    assessable_value=get_float(row, val_idx),
+                    country=get_str(row, country_idx),
+                    region_dlv_plant=get_str(row, region_dlv_plant_idx),
+                    sales_exec=get_str(row, sales_exec_idx),
+                )
+            )
 
             if len(records_to_create) >= batch_size:
                 if new_products:
-                    ProductMaster.objects.bulk_create(list(new_products.values()), ignore_conflicts=True)
+                    ProductMaster.objects.bulk_create(
+                        list(new_products.values()), ignore_conflicts=True
+                    )
                     valid_codes.update(new_products.keys())
                     new_products.clear()
-                PrimarySales.objects.bulk_create(records_to_create, batch_size=batch_size, ignore_conflicts=True)
+                PrimarySales.objects.bulk_create(
+                    records_to_create, batch_size=batch_size, ignore_conflicts=True
+                )
                 total_created += len(records_to_create)
                 records_to_create.clear()
 
         if new_products:
-            ProductMaster.objects.bulk_create(list(new_products.values()), ignore_conflicts=True)
+            ProductMaster.objects.bulk_create(
+                list(new_products.values()), ignore_conflicts=True
+            )
             valid_codes.update(new_products.keys())
             new_products.clear()
 
         if records_to_create:
-            PrimarySales.objects.bulk_create(records_to_create, batch_size=batch_size, ignore_conflicts=True)
+            PrimarySales.objects.bulk_create(
+                records_to_create, batch_size=batch_size, ignore_conflicts=True
+            )
             total_created += len(records_to_create)
             records_to_create.clear()
 
         invalidate_dashboard_cache()
 
-        return Response({
-            'message': f'Successfully secured and parsed {total_created:,} Primary Sales records with all 5 new fields.'
-        }, status=status.HTTP_200_OK)
-        
+        return Response(
+            {
+                "message": f"Successfully secured and parsed {total_created:,} Primary Sales records with all 5 new fields."
+            },
+            status=status.HTTP_200_OK,
+        )
+
     except Exception as e:
-        return Response({'error': f"Primary Sales parser error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": f"Primary Sales parser error: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def dashboard_metrics(request):
     try:
         from django.db.models import Sum, Q
@@ -1247,32 +1881,64 @@ def dashboard_metrics(request):
         from django.core.cache import cache
 
         user = request.user
-        dist_code = getattr(user, 'distributor_code', '') if user else ''
+        dist_code = getattr(user, "distributor_code", "") if user else ""
         is_dist = is_distributor(user)
+        dist_param = request.GET.get("distributor", "").strip()
+        if not dist_param and not is_dist:
+            dist_param = "CHEMIELINK"
 
-        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else 'all'}"
+        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
 
         if is_dist:
-            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=dist_code) | Q(distributor_name=dist_code))
-            stock_level_qs = StockLevel.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+            monthly_sales_qs = MonthlySales.objects.filter(
+                Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
+            )
+            stock_level_qs = StockLevel.objects.filter(
+                Q(sold_to=dist_code) | Q(ship_to=dist_code)
+            )
+        elif dist_param and dist_param.upper() != "ALL":
+            if "CHEMI" in dist_param.upper():
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    Q(distributor_name__icontains="chemi")
+                    | Q(ship_to_code__in=["438498", "441522"])
+                )
+                stock_level_qs = StockLevel.objects.filter(
+                    Q(sold_to__in=["438498", "441522"])
+                    | Q(ship_to__in=["438498", "441522"])
+                )
+            else:
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    distributor_name__icontains=dist_param
+                )
+                stock_level_qs = StockLevel.objects.all()
         else:
             monthly_sales_qs = MonthlySales.objects.all()
             stock_level_qs = StockLevel.objects.all()
 
         # Top 5 Products by Total Volume
-        top_products_qs = monthly_sales_qs.values('product_name')\
-                            .annotate(volume=Sum('total_volume'))\
-                            .order_by('-volume')[:5]
-        top_products = [{'name': item['product_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_products_qs]
+        top_products_qs = (
+            monthly_sales_qs.values("product_name")
+            .annotate(volume=Sum("total_volume"))
+            .order_by("-volume")[:5]
+        )
+        top_products = [
+            {"name": item["product_name"] or "Unknown", "volume": item["volume"] or 0}
+            for item in top_products_qs
+        ]
 
         # Top 5 Customers by Total Volume
-        top_customers_qs = monthly_sales_qs.values('customer_name')\
-                            .annotate(volume=Sum('total_volume'))\
-                            .order_by('-volume')[:5]
-        top_customers = [{'name': item['customer_name'] or 'Unknown', 'volume': item['volume'] or 0} for item in top_customers_qs]
+        top_customers_qs = (
+            monthly_sales_qs.values("customer_name")
+            .annotate(volume=Sum("total_volume"))
+            .order_by("-volume")[:5]
+        )
+        top_customers = [
+            {"name": item["customer_name"] or "Unknown", "volume": item["volume"] or 0}
+            for item in top_customers_qs
+        ]
 
         # Monthly Progression extracted dynamically
         monthly_vols = defaultdict(float)
@@ -1283,28 +1949,36 @@ def dashboard_metrics(request):
                     monthly_vols[m_str] += vol_float
                 except:
                     pass
-        
-        monthly_progression = [{'name': k, 'volume': v} for k, v in sorted(monthly_vols.items())]
+
+        monthly_progression = [
+            {"name": k, "volume": v} for k, v in sorted(monthly_vols.items())
+        ]
 
         # Top 5 Stock Levels by Month End Inventory
-        stock_qs = stock_level_qs.values('product_desc')\
-                    .annotate(stock=Sum('month_end_inventory'))\
-                    .order_by('-stock')[:5]
-        stock_levels = [{'name': item['product_desc'] or 'Unknown', 'stock': item['stock'] or 0} for item in stock_qs]
+        stock_qs = (
+            stock_level_qs.values("product_desc")
+            .annotate(stock=Sum("month_end_inventory"))
+            .order_by("-stock")[:5]
+        )
+        stock_levels = [
+            {"name": item["product_desc"] or "Unknown", "stock": item["stock"] or 0}
+            for item in stock_qs
+        ]
 
         response_data = {
-            'top_products': top_products,
-            'top_customers': top_customers,
-            'monthly_progression': monthly_progression,
-            'stock_levels': stock_levels
+            "top_products": top_products,
+            "top_customers": top_customers,
+            "monthly_progression": monthly_progression,
+            "stock_levels": stock_levels,
         }
 
         cache.set(cache_key, response_data, 3600)
         return Response(response_data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 def primary_vs_secondary_analytics(request):
     try:
         from django.db.models import Sum, Q
@@ -1313,56 +1987,104 @@ def primary_vs_secondary_analytics(request):
         import datetime
 
         user = request.user
-        dist_code = getattr(user, 'distributor_code', '') if user else ''
+        dist_code = getattr(user, "distributor_code", "") if user else ""
         is_dist = is_distributor(user)
+        dist_param = request.GET.get("distributor", "").strip()
+        if not dist_param and not is_dist:
+            dist_param = "CHEMIELINK"
 
-        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else 'all'}"
+        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
 
         if is_dist:
-            primary_sales_qs = PrimarySales.objects.filter(Q(sold_to_party=dist_code) | Q(ship_to_party=dist_code))
-            monthly_sales_qs = MonthlySales.objects.filter(Q(ship_to_code=dist_code) | Q(distributor_name=dist_code))
+            primary_sales_qs = PrimarySales.objects.filter(
+                Q(sold_to_party=dist_code) | Q(ship_to_party=dist_code)
+            )
+            monthly_sales_qs = MonthlySales.objects.filter(
+                Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
+            )
+        elif dist_param and dist_param.upper() != "ALL":
+            if "CHEMI" in dist_param.upper():
+                primary_sales_qs = PrimarySales.objects.filter(
+                    Q(sold_to_party__in=["438498", "441522"])
+                    | Q(ship_to_party__in=["438498", "441522"])
+                    | Q(sold_to_party_address__iexact="Chemielink")
+                    | Q(sold_to_party_address__iexact="Chemie Link")
+                    | Q(ship_to_party_name__iexact="Chemielink")
+                    | Q(ship_to_party_name__iexact="Chemie Link")
+                )
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    Q(distributor_name__icontains="chemi")
+                    | Q(ship_to_code__in=["438498", "441522"])
+                )
+            else:
+                primary_sales_qs = PrimarySales.objects.filter(
+                    Q(sold_to_party_address__icontains=dist_param)
+                    | Q(ship_to_party_name__icontains=dist_param)
+                )
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    distributor_name__icontains=dist_param
+                )
         else:
             primary_sales_qs = PrimarySales.objects.all()
             monthly_sales_qs = MonthlySales.objects.all()
 
         # Build product code to clean name map
-        code_to_name = {p.material_code: clean_prod_name(p.material_name) for p in ProductMaster.objects.all() if p.material_code}
-        name_to_clean_name = {clean_prod_name(p.material_name): clean_prod_name(p.material_name) for p in ProductMaster.objects.all()}
+        code_to_name = {
+            p.material_code: clean_prod_name(p.material_name)
+            for p in ProductMaster.objects.all()
+            if p.material_code
+        }
+        name_to_clean_name = {
+            clean_prod_name(p.material_name): clean_prod_name(p.material_name)
+            for p in ProductMaster.objects.all()
+        }
 
         # Canonical name cache to prevent running regex 120,000 times
         canonical_cache = {}
+
         def get_canonical_name(name):
             if not name:
                 return ""
             if name in canonical_cache:
                 return canonical_cache[name]
             n = str(name).strip().upper()
-            n = re.sub(r'[\s\xa0]+', ' ', n)
-            n = re.sub(r'\b\d{4,}\b$', '', n).strip()
-            n = re.sub(r'\b\d+\s*(KG|KGS)\b', '', n, flags=re.IGNORECASE)
-            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', n, flags=re.IGNORECASE)
-            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b', '', n, flags=re.IGNORECASE)
-            n = n.replace('-', ' ').replace('.', ' ')
-            n = re.sub(r'[^A-Z0-9\s%]', '', n)
-            res = re.sub(r'\s+', ' ', n).strip()
+            n = re.sub(r"[\s\xa0]+", " ", n)
+            n = re.sub(r"\b\d{4,}\b$", "", n).strip()
+            n = re.sub(r"\b\d+\s*(KG|KGS)\b", "", n, flags=re.IGNORECASE)
+            n = re.sub(
+                r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b", "", n, flags=re.IGNORECASE
+            )
+            n = re.sub(r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b", "", n, flags=re.IGNORECASE)
+            n = n.replace("-", " ").replace(".", " ")
+            n = re.sub(r"[^A-Z0-9\s%]", "", n)
+            res = re.sub(r"\s+", " ", n).strip()
             canonical_cache[name] = res
             return res
 
         # Dynamic distributor group normalization cache
         group_cache = {}
+
         def get_group_name(raw_name):
-            if not raw_name: return ''
+            if not raw_name:
+                return ""
             if raw_name in group_cache:
                 return group_cache[raw_name]
             n = str(raw_name).upper()
-            if 'VIKRAM' in n: res = 'VIKRAM TRADING'
-            elif 'MIKHAIL' in n: res = 'MIKHAIL ENTERPRISES'
-            elif 'JAKHARIA' in n: res = 'JAKHARIA INDUSTRIES'
+            if "VIKRAM" in n:
+                res = "VIKRAM TRADING"
+            elif "MIKHAIL" in n:
+                res = "MIKHAIL ENTERPRISES"
+            elif "JAKHARIA" in n:
+                res = "JAKHARIA INDUSTRIES"
+            elif "CHEMI" in n or "438498" in n or "441522" in n:
+                res = "CHEMIELINK"
             else:
-                res = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
+                res = re.sub(
+                    r"\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$", "", n
+                ).strip()
             group_cache[raw_name] = res
             return res
 
@@ -1375,40 +2097,53 @@ def primary_vs_secondary_analytics(request):
                     return get_canonical_name(clean_m_name)
             return get_canonical_name(prod_clean)
 
-        trend_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
-        month_products_map = defaultdict(lambda: defaultdict(lambda: {'ps': 0.0, 'ss': 0.0, 'ps_qty': 0.0, 'ss_qty': 0.0}))
+        trend_map = defaultdict(lambda: {"ps": 0.0, "ss": 0.0})
+        month_products_map = defaultdict(
+            lambda: defaultdict(
+                lambda: {"ps": 0.0, "ss": 0.0, "ps_qty": 0.0, "ss_qty": 0.0}
+            )
+        )
         ps_dist_months = defaultdict(lambda: defaultdict(float))
         ss_dist_months = defaultdict(lambda: defaultdict(float))
         all_ps_months = set()
         all_ss_months = set()
-        prod_map = defaultdict(lambda: {'ps': 0.0, 'ss': 0.0})
+        prod_map = defaultdict(lambda: {"ps": 0.0, "ss": 0.0})
 
-        dist_map = defaultdict(lambda: {
-            'ps': 0.0, 
-            'ss': 0.0, 
-            'zone': 'All', 
-            'sold_to': set(), 
-            'ship_to': set(),
-            'products': defaultdict(lambda: {'ps_val': 0.0, 'ss_val': 0.0})
-        })
+        dist_map = defaultdict(
+            lambda: {
+                "ps": 0.0,
+                "ss": 0.0,
+                "zone": "All",
+                "sold_to": set(),
+                "ship_to": set(),
+                "products": defaultdict(lambda: {"ps_val": 0.0, "ss_val": 0.0}),
+            }
+        )
 
         # Single optimized pass over PrimarySales using .values()
         ps_values = primary_sales_qs.values(
-            'billing_date', 'ship_to_party_name', 'sold_to_party_address', 
-            'assessable_value', 'billed_quantity', 'material_code', 'material_desc',
-            'division', 'sold_to_party', 'ship_to_party'
+            "billing_date",
+            "ship_to_party_name",
+            "sold_to_party_address",
+            "assessable_value",
+            "billed_quantity",
+            "material_code",
+            "material_desc",
+            "division",
+            "sold_to_party",
+            "ship_to_party",
         )
 
         for ps in ps_values:
-            val = ps['assessable_value'] or 0.0
-            b_date = ps['billing_date']
-            ship_name = ps['ship_to_party_name']
-            sold_addr = ps['sold_to_party_address']
-            sold_party = ps['sold_to_party']
-            ship_party = ps['ship_to_party']
-            division = ps['division']
-            mat_code = ps['material_code']
-            mat_desc = ps['material_desc']
+            val = ps["assessable_value"] or 0.0
+            b_date = ps["billing_date"]
+            ship_name = ps["ship_to_party_name"]
+            sold_addr = ps["sold_to_party_address"]
+            sold_party = ps["sold_to_party"]
+            ship_party = ps["ship_to_party"]
+            division = ps["division"]
+            mat_code = ps["material_code"]
+            mat_desc = ps["material_desc"]
 
             # Product name resolution
             if mat_code and mat_code in code_to_name:
@@ -1420,41 +2155,52 @@ def primary_vs_secondary_analytics(request):
                 else:
                     prod_name = get_canonical_name(desc_clean)
             else:
-                prod_name = 'Unknown Product'
+                prod_name = "Unknown Product"
 
             # Monthly aggregation
             if b_date:
-                m_str = b_date.strftime('%Y-%m')
+                m_str = b_date.strftime("%Y-%m")
                 grp = get_group_name(ship_name or sold_addr)
                 ps_dist_months[m_str][grp] += val
                 all_ps_months.add(m_str)
-                trend_map[m_str]['ps'] += val
+                trend_map[m_str]["ps"] += val
 
-                qty = ps['billed_quantity'] or 0.0
-                month_products_map[m_str][prod_name]['ps'] += val
-                month_products_map[m_str][prod_name]['ps_qty'] += qty
+                qty = ps["billed_quantity"] or 0.0
+                month_products_map[m_str][prod_name]["ps"] += val
+                month_products_map[m_str][prod_name]["ps_qty"] += qty
 
             # Product group
-            group = prod_name.split(' ')[0] if prod_name != 'Unknown Product' else 'Unknown Product'
-            prod_map[group]['ps'] += val
+            group = (
+                prod_name.split(" ")[0]
+                if prod_name != "Unknown Product"
+                else "Unknown Product"
+            )
+            prod_map[group]["ps"] += val
 
             # Distributor mapping (calculated in single pass)
-            sold = sold_addr or sold_party or ''
-            ship = ship_name or ship_party or ''
+            sold = sold_addr or sold_party or ""
+            ship = ship_name or ship_party or ""
             raw_name = ship if ship else sold
             if raw_name:
                 d_grp = get_group_name(raw_name)
-                dist_map[d_grp]['ps'] += val
-                if division: dist_map[d_grp]['zone'] = division
-                if sold: dist_map[d_grp]['sold_to'].add(str(sold).strip().title())
-                if ship: dist_map[d_grp]['ship_to'].add(str(ship).strip().title())
-                dist_map[d_grp]['products'][prod_name]['ps_val'] += val
+                dist_map[d_grp]["ps"] += val
+                if division:
+                    dist_map[d_grp]["zone"] = division
+                if sold:
+                    dist_map[d_grp]["sold_to"].add(str(sold).strip().title())
+                if ship:
+                    dist_map[d_grp]["ship_to"].add(str(ship).strip().title())
+                dist_map[d_grp]["products"][prod_name]["ps_val"] += val
 
         for ms in monthly_sales_qs:
             grp = get_group_name(ms.distributor_name)
-            prod_name = get_clean_ms_product(ms) or 'Unknown Product'
-            group = prod_name.split(' ')[0] if prod_name != 'Unknown Product' else 'Unknown Product'
-            prod_map[group]['ss'] += (ms.total_value or 0)
+            prod_name = get_clean_ms_product(ms) or "Unknown Product"
+            group = (
+                prod_name.split(" ")[0]
+                if prod_name != "Unknown Product"
+                else "Unknown Product"
+            )
+            prod_map[group]["ss"] += ms.total_value or 0
 
             for m_str, val in ms.values.items():
                 try:
@@ -1462,28 +2208,34 @@ def primary_vs_secondary_analytics(request):
                     if val_float > 0:
                         ss_dist_months[m_str][grp] += val_float
                         all_ss_months.add(m_str)
-                        trend_map[m_str]['ss'] += val_float
-                        month_products_map[m_str][prod_name]['ss'] += val_float
-                except: pass
+                        trend_map[m_str]["ss"] += val_float
+                        month_products_map[m_str][prod_name]["ss"] += val_float
+                except:
+                    pass
             for m_str, vol in ms.volumes.items():
                 try:
                     vol_float = float(vol)
                     if vol_float > 0:
-                        month_products_map[m_str][prod_name]['ss_qty'] += vol_float
-                except: pass
+                        month_products_map[m_str][prod_name]["ss_qty"] += vol_float
+                except:
+                    pass
 
-            raw_name = str(ms.customer_name or ms.ship_to_code or ms.distributor_name).strip()
-            if raw_name and raw_name != 'None':
+            raw_name = str(
+                ms.distributor_name or ms.ship_to_code or ms.customer_name
+            ).strip()
+            if raw_name and raw_name != "None":
                 d_grp = get_group_name(raw_name)
                 val = ms.total_value or 0
-                dist_map[d_grp]['ss'] += val
-                if ms.customer_name: dist_map[d_grp]['sold_to'].add(str(ms.customer_name).title())
-                if ms.ship_to_code: dist_map[d_grp]['ship_to'].add(str(ms.ship_to_code).title())
-                dist_map[d_grp]['products'][prod_name]['ss_val'] += val
+                dist_map[d_grp]["ss"] += val
+                if ms.customer_name:
+                    dist_map[d_grp]["sold_to"].add(str(ms.customer_name).title())
+                if ms.ship_to_code:
+                    dist_map[d_grp]["ship_to"].add(str(ms.ship_to_code).title())
+                dist_map[d_grp]["products"][prod_name]["ss_val"] += val
 
         # 2. KPI EXTRACTION (Strictly common distributors in common months)
         common_months = sorted(list(all_ps_months.intersection(all_ss_months)))
-        
+
         total_ps = 0.0
         total_ss = 0.0
         trend_array = []
@@ -1499,116 +2251,150 @@ def primary_vs_secondary_analytics(request):
                 total_ps += m_ps
                 total_ss += m_ss
                 eff = (m_ss / m_ps * 100) if m_ps > 0 else 0
-                trend_array.append({
-                    'month': m,
-                    'Primary Sales': round(m_ps, 2),
-                    'Secondary Sales': round(m_ss, 2),
-                    'Efficiency %': round(eff, 2)
-                })
+                trend_array.append(
+                    {
+                        "month": m,
+                        "Primary Sales": round(m_ps, 2),
+                        "Secondary Sales": round(m_ss, 2),
+                        "Efficiency %": round(eff, 2),
+                    }
+                )
 
         channel_efficiency = (total_ss / total_ps * 100) if total_ps > 0 else 0
-        
+
         def parse_my(my_str):
             try:
                 import dateutil.parser
+
                 return dateutil.parser.parse(my_str)
             except:
                 return datetime.datetime.min
 
-        trend_array.sort(key=lambda x: parse_my(x['month']))
+        trend_array.sort(key=lambda x: parse_my(x["month"]))
 
         # 3. DISTRIBUTOR COMPARISONS
         distributor_array = []
         for k, v in dist_map.items():
-            if v['ps'] == 0 and v['ss'] == 0: continue
-            eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
-            
-            prod_list = [{
-                'name': p_name,
-                'primary_val': round(p_data['ps_val'], 2),
-                'secondary_val': round(p_data['ss_val'], 2)
-            } for p_name, p_data in v['products'].items()]
-            prod_list.sort(key=lambda x: x['primary_val'] + x['secondary_val'], reverse=True)
-            
-            distributor_array.append({
-                'group': k,
-                'sold_to': ', '.join(list(v['sold_to']))[:100],
-                'ship_to': ', '.join(list(v['ship_to']))[:100],
-                'primary': round(v['ps'], 2),
-                'secondary': round(v['ss'], 2),
-                'efficiency': round(eff, 2),
-                'products': prod_list
-            })
-        
-        dist_only = sorted([r for r in distributor_array if r['primary'] > 0], key=lambda x: x['primary'], reverse=True)
-        cust_only = sorted([r for r in distributor_array if r['primary'] == 0], key=lambda x: x['secondary'], reverse=True)
+            if v["ps"] == 0 and v["ss"] == 0:
+                continue
+            eff = (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else 0
+
+            prod_list = [
+                {
+                    "name": p_name,
+                    "primary_val": round(p_data["ps_val"], 2),
+                    "secondary_val": round(p_data["ss_val"], 2),
+                }
+                for p_name, p_data in v["products"].items()
+            ]
+            prod_list.sort(
+                key=lambda x: x["primary_val"] + x["secondary_val"], reverse=True
+            )
+
+            distributor_array.append(
+                {
+                    "group": k,
+                    "sold_to": ", ".join(list(v["sold_to"]))[:100],
+                    "ship_to": ", ".join(list(v["ship_to"]))[:100],
+                    "primary": round(v["ps"], 2),
+                    "secondary": round(v["ss"], 2),
+                    "efficiency": round(eff, 2),
+                    "products": prod_list,
+                }
+            )
+
+        dist_only = sorted(
+            [r for r in distributor_array if r["primary"] > 0],
+            key=lambda x: x["primary"],
+            reverse=True,
+        )
+        cust_only = sorted(
+            [r for r in distributor_array if r["primary"] == 0],
+            key=lambda x: x["secondary"],
+            reverse=True,
+        )
 
         # 4. PRODUCT GROUP BREAKDOWN
-        product_array = [{'group': k, 'Primary Sales': round(v['ps'], 2), 'Secondary Sales': round(v['ss'], 2)} 
-                         for k, v in prod_map.items() if (v['ps'] > 0 or v['ss'] > 0)]
-        product_array.sort(key=lambda x: x['Primary Sales'] + x['Secondary Sales'], reverse=True)
+        product_array = [
+            {
+                "group": k,
+                "Primary Sales": round(v["ps"], 2),
+                "Secondary Sales": round(v["ss"], 2),
+            }
+            for k, v in prod_map.items()
+            if (v["ps"] > 0 or v["ss"] > 0)
+        ]
+        product_array.sort(
+            key=lambda x: x["Primary Sales"] + x["Secondary Sales"], reverse=True
+        )
 
         all_months_comparison = []
         raw_total_ps = 0.0
         raw_total_ss = 0.0
 
         for k, v in trend_map.items():
-            if v['ps'] > 0 or v['ss'] > 0:
-                raw_total_ps += v['ps']
-                raw_total_ss += v['ss']
-                eff = (v['ss'] / v['ps'] * 100) if v['ps'] > 0 else 0
-                
+            if v["ps"] > 0 or v["ss"] > 0:
+                raw_total_ps += v["ps"]
+                raw_total_ss += v["ss"]
+                eff = (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else 0
+
                 month_prods = []
                 for p_name, p_vals in month_products_map[k].items():
-                    p_ps = p_vals['ps']
-                    p_ss = p_vals['ss']
-                    p_ps_qty = p_vals.get('ps_qty', 0.0)
-                    p_ss_qty = p_vals.get('ss_qty', 0.0)
+                    p_ps = p_vals["ps"]
+                    p_ss = p_vals["ss"]
+                    p_ps_qty = p_vals.get("ps_qty", 0.0)
+                    p_ss_qty = p_vals.get("ss_qty", 0.0)
                     if p_ps > 0 or p_ss > 0 or p_ps_qty > 0 or p_ss_qty > 0:
                         p_eff = (p_ss / p_ps * 100) if p_ps > 0 else 0
                         p_qty_eff = (p_ss_qty / p_ps_qty * 100) if p_ps_qty > 0 else 0
-                        month_prods.append({
-                            'name': p_name,
-                            'ps': round(p_ps, 2),
-                            'ss': round(p_ss, 2),
-                            'efficiency': round(p_eff, 2),
-                            'difference': round(p_ss - p_ps, 2),
-                            'ps_qty': round(p_ps_qty, 2),
-                            'ss_qty': round(p_ss_qty, 2),
-                            'qty_efficiency': round(p_qty_eff, 2),
-                            'qty_difference': round(p_ss_qty - p_ps_qty, 2)
-                        })
-                month_prods.sort(key=lambda x: x['ps'] + x['ss'], reverse=True)
+                        month_prods.append(
+                            {
+                                "name": p_name,
+                                "ps": round(p_ps, 2),
+                                "ss": round(p_ss, 2),
+                                "efficiency": round(p_eff, 2),
+                                "difference": round(p_ss - p_ps, 2),
+                                "ps_qty": round(p_ps_qty, 2),
+                                "ss_qty": round(p_ss_qty, 2),
+                                "qty_efficiency": round(p_qty_eff, 2),
+                                "qty_difference": round(p_ss_qty - p_ps_qty, 2),
+                            }
+                        )
+                month_prods.sort(key=lambda x: x["ps"] + x["ss"], reverse=True)
 
-                all_months_comparison.append({
-                    'month': k,
-                    'ps': round(v['ps'], 2),
-                    'ss': round(v['ss'], 2),
-                    'efficiency': round(eff, 2),
-                    'difference': round(v['ss'] - v['ps'], 2),
-                    'included': v['ps'] > 0 and v['ss'] > 0,
-                    'products': month_prods
-                })
-        
-        all_months_comparison.sort(key=lambda x: parse_my(x['month']))
-        raw_channel_efficiency = (raw_total_ss / raw_total_ps * 100) if raw_total_ps > 0 else 0
+                all_months_comparison.append(
+                    {
+                        "month": k,
+                        "ps": round(v["ps"], 2),
+                        "ss": round(v["ss"], 2),
+                        "efficiency": round(eff, 2),
+                        "difference": round(v["ss"] - v["ps"], 2),
+                        "included": v["ps"] > 0 and v["ss"] > 0,
+                        "products": month_prods,
+                    }
+                )
+
+        all_months_comparison.sort(key=lambda x: parse_my(x["month"]))
+        raw_channel_efficiency = (
+            (raw_total_ss / raw_total_ps * 100) if raw_total_ps > 0 else 0
+        )
 
         response_data = {
-            'kpis': {
-                'total_primary': round(total_ps, 2),
-                'total_secondary': round(total_ss, 2),
-                'channel_efficiency': round(channel_efficiency, 2),
+            "kpis": {
+                "total_primary": round(total_ps, 2),
+                "total_secondary": round(total_ss, 2),
+                "channel_efficiency": round(channel_efficiency, 2),
             },
-            'raw_kpis': {
-                'total_primary': round(raw_total_ps, 2),
-                'total_secondary': round(raw_total_ss, 2),
-                'channel_efficiency': round(raw_channel_efficiency, 2),
+            "raw_kpis": {
+                "total_primary": round(raw_total_ps, 2),
+                "total_secondary": round(raw_total_ss, 2),
+                "channel_efficiency": round(raw_channel_efficiency, 2),
             },
-            'monthly_trend': trend_array,
-            'monthly_comparison': all_months_comparison,
-            'distributor_performance': dist_only[:20],
-            'customer_performance': cust_only[:50],
-            'product_group': product_array[:15]
+            "monthly_trend": trend_array,
+            "monthly_comparison": all_months_comparison,
+            "distributor_performance": dist_only[:20],
+            "customer_performance": cust_only[:50],
+            "product_group": product_array[:15],
         }
 
         # Cache response in Redis for 1 hour
@@ -1616,10 +2402,580 @@ def primary_vs_secondary_analytics(request):
         return Response(response_data, status=status.HTTP_200_OK)
 
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
+def _apply_distributor_filter(request):
+    """Return (primary_sales_qs, monthly_sales_qs, stock_level_qs) using CHEMIELINK default for non-distributor users."""
+    from django.db.models import Q
+
+    user = request.user
+    dist_code = getattr(user, "distributor_code", "") if user else ""
+    is_dist = is_distributor(user)
+    dist_param = request.GET.get("distributor", "").strip()
+    if not dist_param and not is_dist:
+        dist_param = "CHEMIELINK"
+
+    if is_dist:
+        ps_qs = PrimarySales.objects.filter(
+            Q(sold_to_party=dist_code) | Q(ship_to_party=dist_code)
+        )
+        ms_qs = MonthlySales.objects.filter(
+            Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
+        )
+        sl_qs = StockLevel.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+        return ps_qs, ms_qs, sl_qs
+
+    if dist_param and dist_param.upper() != "ALL":
+        if "CHEMI" in dist_param.upper():
+            ps_qs = PrimarySales.objects.filter(
+                Q(sold_to_party__in=["438498", "441522"])
+                | Q(ship_to_party__in=["438498", "441522"])
+                | Q(sold_to_party_address__iexact="Chemielink")
+                | Q(sold_to_party_address__iexact="Chemie Link")
+                | Q(ship_to_party_name__iexact="Chemielink")
+                | Q(ship_to_party_name__iexact="Chemie Link")
+            )
+            ms_qs = MonthlySales.objects.filter(
+                Q(distributor_name__icontains="chemi")
+                | Q(ship_to_code__in=["438498", "441522"])
+            )
+            sl_qs = StockLevel.objects.filter(
+                Q(sold_to__in=["438498", "441522"])
+                | Q(ship_to__in=["438498", "441522"])
+            )
+        else:
+            ps_qs = PrimarySales.objects.filter(
+                Q(sold_to_party_address__icontains=dist_param)
+                | Q(ship_to_party_name__icontains=dist_param)
+            )
+            ms_qs = MonthlySales.objects.filter(distributor_name__icontains=dist_param)
+            sl_qs = StockLevel.objects.all()
+        return ps_qs, ms_qs, sl_qs
+
+    return (
+        PrimarySales.objects.all(),
+        MonthlySales.objects.all(),
+        StockLevel.objects.all(),
+    )
+
+
+def _product_name_maps():
+    code_to_name = {
+        p.material_code: clean_prod_name(p.material_name)
+        for p in ProductMaster.objects.all()
+        if p.material_code
+    }
+    clean_to_canonical = {}
+    canonical_cache = {}
+
+    def get_canonical_name(name):
+        if not name:
+            return ""
+        if name in canonical_cache:
+            return canonical_cache[name]
+        n = str(name).strip().upper()
+        n = re.sub(r"[\s\xa0]+", " ", n)
+        n = re.sub(r"\b\d{4,}\b$", "", n).strip()
+        n = re.sub(r"\b\d+\s*(KG|KGS)\b", "", n, flags=re.IGNORECASE)
+        n = re.sub(
+            r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b", "", n, flags=re.IGNORECASE
+        )
+        n = re.sub(r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b", "", n, flags=re.IGNORECASE)
+        n = n.replace("-", " ").replace(".", " ")
+        n = re.sub(r"[^A-Z0-9\s%]", "", n)
+        res = re.sub(r"\s+", " ", n).strip()
+        canonical_cache[name] = res
+        return res
+
+    for p in ProductMaster.objects.all():
+        c = clean_prod_name(p.material_name)
+        clean_to_canonical[c] = get_canonical_name(c)
+    return code_to_name, clean_to_canonical, get_canonical_name
+
+
+def _group_name(raw_name):
+    n = str(raw_name or "").upper()
+    if "VIKRAM" in n:
+        return "VIKRAM TRADING"
+    if "MIKHAIL" in n:
+        return "MIKHAIL ENTERPRISES"
+    if "JAKHARIA" in n:
+        return "JAKHARIA INDUSTRIES"
+    if "CHEMI" in n or "438498" in n or "441522" in n:
+        return "CHEMIELINK"
+    if "436741" in n or "436757" in n or "JK ASSOCIATES" in n:
+        return "JK ASSOCIATES"
+    return re.sub(r"\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$", "", n).strip()
+
+
+@api_view(["GET"])
+def primary_sales_analysis(request):
+    """Complete standalone Primary Sales analysis (KPIs, monthly trend, top products/customers/divisions)."""
+    try:
+        from django.db.models import Sum
+        from collections import defaultdict
+        from django.core.cache import cache
+
+        user = request.user
+        dist_code = getattr(user, "distributor_code", "") if user else ""
+        is_dist = is_distributor(user)
+        dist_param = request.GET.get("distributor", "").strip()
+        if not dist_param and not is_dist:
+            dist_param = "CHEMIELINK"
+        product_param = request.GET.get("product", "").strip()
+        cache_key = (
+            f"dash_ps_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
+            f"{dist_code if is_dist else dist_param}_{product_param}"
+        )
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
+        ps_qs, _, _ = _apply_distributor_filter(request)
+
+        code_to_name, clean_to_canonical, get_canonical = _product_name_maps()
+        product_q = get_canonical(product_param) if product_param else ""
+
+        def resolve_product(mat_code, mat_desc):
+            if mat_code and mat_code in code_to_name:
+                return get_canonical(code_to_name[mat_code])
+            if mat_desc:
+                c = clean_prod_name(mat_desc)
+                if c in clean_to_canonical:
+                    return clean_to_canonical[c]
+                return get_canonical(c)
+            return "Unknown Product"
+
+        def product_matches(p_name):
+            if not product_q:
+                return True
+            return product_q in p_name or p_name in product_q
+
+        total_value = 0.0
+        total_qty = 0.0
+        total_invoices = 0
+        months_set = set()
+        divisions_set = set()
+        customers_set = set()
+
+        monthly = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "invoices": 0})
+        products = defaultdict(lambda: {"value": 0.0, "qty": 0.0})
+        customers = defaultdict(
+            lambda: {"value": 0.0, "qty": 0.0, "sold_to": "", "ship_to": ""}
+        )
+        divisions = defaultdict(lambda: {"value": 0.0, "qty": 0.0})
+        sales_execs = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "invoices": 0})
+
+        ps_values = ps_qs.values(
+            "billing_date",
+            "ship_to_party_name",
+            "sold_to_party_address",
+            "assessable_value",
+            "billed_quantity",
+            "material_code",
+            "material_desc",
+            "division",
+            "sold_to_party",
+            "ship_to_party",
+            "sales_exec",
+            "billing_no",
+        )
+        for ps in ps_values:
+            val = float(ps["assessable_value"] or 0.0)
+            qty = float(ps["billed_quantity"] or 0.0)
+            if val <= 0 and qty <= 0:
+                continue
+            p_name = resolve_product(ps["material_code"], ps["material_desc"])
+            if not product_matches(p_name):
+                continue
+            total_value += val
+            total_qty += qty
+            total_invoices += 1
+
+            b_date = ps["billing_date"]
+            m_str = b_date.strftime("%Y-%m") if b_date else "Unknown"
+            months_set.add(m_str)
+            monthly[m_str]["value"] += val
+            monthly[m_str]["qty"] += qty
+            monthly[m_str]["invoices"] += 1
+
+            products[p_name]["value"] += val
+            products[p_name]["qty"] += qty
+
+            ship = ps["ship_to_party_name"] or ""
+            sold = ps["sold_to_party_address"] or ""
+            c_key = (
+                ship
+                if ship
+                else sold
+                if sold
+                else (ps["ship_to_party"] or ps["sold_to_party"] or "Unknown")
+            )
+            c_name = ship if ship else sold if sold else str(c_key)
+            c_group = _group_name(c_name)
+            customers[c_group]["value"] += val
+            customers[c_group]["qty"] += qty
+            if ps["sold_to_party"]:
+                customers[c_group]["sold_to"] = str(ps["sold_to_party"]).strip()
+            if ps["ship_to_party"]:
+                customers[c_group]["ship_to"] = str(ps["ship_to_party"]).strip()
+            if c_name:
+                customers_set.add(c_group)
+
+            division = (ps["division"] or "General").strip() or "General"
+            divisions[division]["value"] += val
+            divisions[division]["qty"] += qty
+            divisions_set.add(division)
+
+            exec_name = (ps["sales_exec"] or "").strip()
+            if exec_name:
+                sales_execs[exec_name]["value"] += val
+                sales_execs[exec_name]["qty"] += qty
+                sales_execs[exec_name]["invoices"] += 1
+
+        asp = (total_value / total_qty) if total_qty > 0 else 0.0
+
+        def parse_month(s):
+            try:
+                import dateutil.parser
+
+                return dateutil.parser.parse(s)
+            except Exception:
+                import datetime
+
+                return datetime.datetime.min
+
+        monthly_list = sorted(
+            [
+                {
+                    "month": k,
+                    "value": round(v["value"], 2),
+                    "qty": round(v["qty"], 2),
+                    "invoices": v["invoices"],
+                    "asp": round((v["value"] / v["qty"]), 2) if v["qty"] > 0 else 0,
+                }
+                for k, v in monthly.items()
+            ],
+            key=lambda x: parse_month(x["month"]),
+        )
+
+        top_products = sorted(
+            [
+                {"name": k, "value": round(v["value"], 2), "qty": round(v["qty"], 2)}
+                for k, v in products.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )[:20]
+
+        top_customers = sorted(
+            [
+                {
+                    "name": k,
+                    "value": round(v["value"], 2),
+                    "qty": round(v["qty"], 2),
+                    "sold_to": v["sold_to"],
+                    "ship_to": v["ship_to"],
+                }
+                for k, v in customers.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )[:20]
+
+        division_list = sorted(
+            [
+                {"name": k, "value": round(v["value"], 2), "qty": round(v["qty"], 2)}
+                for k, v in divisions.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )
+
+        top_execs = sorted(
+            [
+                {
+                    "name": k,
+                    "value": round(v["value"], 2),
+                    "qty": round(v["qty"], 2),
+                    "invoices": v["invoices"],
+                    "asp": round((v["value"] / v["qty"]), 2) if v["qty"] > 0 else 0,
+                }
+                for k, v in sales_execs.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )[:15]
+
+        response_data = {
+            "kpis": {
+                "total_value": round(total_value, 2),
+                "total_qty": round(total_qty, 2),
+                "total_invoices": total_invoices,
+                "avg_asp": round(asp, 2),
+                "months_count": len(months_set),
+                "customers_count": len(customers_set),
+                "products_count": len(products),
+                "divisions_count": len(divisions_set),
+            },
+            "monthly_trend": monthly_list,
+            "top_products": top_products,
+            "top_customers": top_customers,
+            "divisions": division_list,
+            "top_sales_execs": top_execs,
+        }
+        cache.set(cache_key, response_data, 3600)
+        return Response(response_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+def secondary_sales_analysis(request):
+    """Complete standalone Secondary Sales analysis (KPIs, monthly trend, top products/customers). Uses both MonthlySales + Orders (CSI)."""
+    try:
+        from django.db.models import Sum, Q
+        from collections import defaultdict
+        from django.core.cache import cache
+
+        user = request.user
+        dist_code = getattr(user, "distributor_code", "") if user else ""
+        is_dist = is_distributor(user)
+        dist_param = request.GET.get("distributor", "").strip()
+        if not dist_param and not is_dist:
+            dist_param = "CHEMIELINK"
+        product_param = request.GET.get("product", "").strip()
+        cache_key = (
+            f"dash_ss_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
+            f"{dist_code if is_dist else dist_param}_{product_param}"
+        )
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
+        _, ms_qs, sl_qs = _apply_distributor_filter(request)
+        if is_dist:
+            order_qs = Order.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+        elif dist_param and dist_param.upper() != "ALL":
+            if "CHEMI" in dist_param.upper():
+                order_qs = Order.objects.filter(
+                    Q(sold_to__in=["438498", "441522"])
+                    | Q(ship_to__in=["438498", "441522"])
+                    | Q(ship_to__icontains="chemi")
+                )
+            else:
+                order_qs = Order.objects.filter(
+                    Q(ship_to__icontains=dist_param) | Q(sold_to__icontains=dist_param)
+                )
+        else:
+            order_qs = Order.objects.all()
+
+        _, clean_to_canonical, get_canonical = _product_name_maps()
+        product_q = get_canonical(product_param) if product_param else ""
+
+        def product_matches(p_name):
+            if not product_q:
+                return True
+            return product_q in p_name or p_name in product_q
+
+        def resolve_ms_product(ms):
+            c = clean_prod_name(ms.product_name)
+            if c in clean_to_canonical:
+                return clean_to_canonical[c]
+            for cm in clean_to_canonical:
+                if c.startswith(cm) or cm in c:
+                    return clean_to_canonical[cm]
+            return get_canonical(c)
+
+        def resolve_order_product(mat_code, mat_name):
+            if mat_name:
+                c = clean_prod_name(mat_name)
+                if c in clean_to_canonical:
+                    return clean_to_canonical[c]
+                return get_canonical(c)
+            return "Unknown Product"
+
+        total_value = 0.0
+        total_qty = 0.0
+        total_records = 0
+        months_set = set()
+        customers_set = set()
+        products_set = set()
+
+        monthly = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "records": 0})
+        products = defaultdict(lambda: {"value": 0.0, "qty": 0.0})
+        customers = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "ship_to": ""})
+
+        import datetime as _dt
+
+        for ms in ms_qs:
+            p_name = resolve_ms_product(ms) or "Unknown Product"
+            if not product_matches(p_name):
+                continue
+            products_set.add(p_name)
+            dist_raw = ms.distributor_name or ms.ship_to_code or ""
+            dist_grp = _group_name(dist_raw)
+
+            for m_str, val in (ms.values or {}).items():
+                try:
+                    vf = float(val)
+                    if vf <= 0:
+                        continue
+                    parsed = None
+                    try:
+                        import dateutil.parser
+
+                        parsed = dateutil.parser.parse(
+                            m_str, default=_dt.datetime(2020, 1, 1)
+                        )
+                    except Exception:
+                        parsed = None
+                    std = parsed.strftime("%Y-%m") if parsed else m_str
+                    months_set.add(std)
+                    monthly[std]["value"] += vf
+                    monthly[std]["records"] += 1
+                    total_value += vf
+                    products[p_name]["value"] += vf
+                    cust_key = ms.customer_name or dist_grp or "Unknown"
+                    cust_grp = _group_name(cust_key) or cust_key
+                    customers[cust_grp]["value"] += vf
+                    customers_set.add(cust_grp)
+                    if ms.ship_to_code:
+                        customers[cust_grp]["ship_to"] = str(ms.ship_to_code).strip()
+                    total_records += 1
+                except Exception:
+                    pass
+            for m_str, vol in (ms.volumes or {}).items():
+                try:
+                    vf = float(vol)
+                    if vf <= 0:
+                        continue
+                    parsed = None
+                    try:
+                        import dateutil.parser
+
+                        parsed = dateutil.parser.parse(
+                            m_str, default=_dt.datetime(2020, 1, 1)
+                        )
+                    except Exception:
+                        parsed = None
+                    std = parsed.strftime("%Y-%m") if parsed else m_str
+                    monthly[std]["qty"] += vf
+                    total_qty += vf
+                    products[p_name]["qty"] += vf
+                    cust_key = ms.customer_name or dist_grp or "Unknown"
+                    cust_grp = _group_name(cust_key) or cust_key
+                    customers[cust_grp]["qty"] += vf
+                except Exception:
+                    pass
+
+        for o in order_qs:
+            val = float(o.value or 0.0)
+            qty = float(o.qty or 0.0)
+            if val <= 0 and qty <= 0:
+                continue
+            p_name = resolve_order_product(o.material_code, o.material_name)
+            if not product_matches(p_name):
+                continue
+            products_set.add(p_name)
+            m_str = o.invoice_date.strftime("%Y-%m") if o.invoice_date else "Unknown"
+            months_set.add(m_str)
+            monthly[m_str]["value"] += val
+            monthly[m_str]["qty"] += qty
+            monthly[m_str]["records"] += 1
+            total_value += val
+            total_qty += qty
+            total_records += 1
+            products[p_name]["value"] += val
+            products[p_name]["qty"] += qty
+            c_name = o.customer or o.ship_to or "Unknown"
+            c_grp = _group_name(c_name) or c_name
+            customers[c_grp]["value"] += val
+            customers[c_grp]["qty"] += qty
+            if o.ship_to:
+                customers[c_grp]["ship_to"] = str(o.ship_to).strip()
+            customers_set.add(c_grp)
+
+        asp = (total_value / total_qty) if total_qty > 0 else 0.0
+
+        stock_total = 0.0
+        if product_q:
+            for sl in sl_qs.values("month_end_inventory", "product_desc"):
+                sl_prod = get_canonical(clean_prod_name(sl.get("product_desc") or ""))
+                if product_matches(sl_prod):
+                    stock_total += float(sl["month_end_inventory"] or 0.0)
+        else:
+            for sl in sl_qs.values("month_end_inventory"):
+                stock_total += float(sl["month_end_inventory"] or 0.0)
+
+        def parse_month(s):
+            try:
+                import dateutil.parser
+
+                return dateutil.parser.parse(s)
+            except Exception:
+                return _dt.datetime.min
+
+        monthly_list = sorted(
+            [
+                {
+                    "month": k,
+                    "value": round(v["value"], 2),
+                    "qty": round(v["qty"], 2),
+                    "records": v["records"],
+                    "asp": round((v["value"] / v["qty"]), 2) if v["qty"] > 0 else 0,
+                }
+                for k, v in monthly.items()
+            ],
+            key=lambda x: parse_month(x["month"]),
+        )
+
+        top_products = sorted(
+            [
+                {"name": k, "value": round(v["value"], 2), "qty": round(v["qty"], 2)}
+                for k, v in products.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )[:20]
+
+        top_customers = sorted(
+            [
+                {
+                    "name": k,
+                    "value": round(v["value"], 2),
+                    "qty": round(v["qty"], 2),
+                    "ship_to": v["ship_to"],
+                }
+                for k, v in customers.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )[:20]
+
+        response_data = {
+            "kpis": {
+                "total_value": round(total_value, 2),
+                "total_qty": round(total_qty, 2),
+                "total_records": total_records,
+                "avg_asp": round(asp, 2),
+                "months_count": len(months_set),
+                "customers_count": len(customers_set),
+                "products_count": len(products_set),
+                "total_stock": round(stock_total, 2),
+            },
+            "monthly_trend": monthly_list,
+            "top_products": top_products,
+            "top_customers": top_customers,
+        }
+        cache.set(cache_key, response_data, 3600)
+        return Response(response_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
 def upload_csi_sales(request):
     """
     Upload a CSI (Customer Sales Intelligence) Excel file.
@@ -1628,13 +2984,18 @@ def upload_csi_sales(request):
     Feeds directly into the existing secondary sales analytics.
     """
     try:
-        file = request.FILES.get('file')
+        file = request.FILES.get("file")
         if not file:
-            return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         filename = file.name.lower()
-        if not filename.endswith(('.xls', '.xlsx')):
-            return Response({'error': 'Only .xlsx or .xls files are supported.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not filename.endswith((".xls", ".xlsx")):
+            return Response(
+                {"error": "Only .xlsx or .xls files are supported."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         import datetime
         import re
@@ -1646,8 +3007,11 @@ def upload_csi_sales(request):
         # Detect header row: look for 'product name', 'customer name', 'distributor name'
         header_row_idx = 0
         for i, r in raw_df.head(8).iterrows():
-            row_vals = [str(v).strip().lower() if pd.notna(v) else '' for v in r]
-            if any('product name' in v or 'customer name' in v or 'distributor name' in v for v in row_vals):
+            row_vals = [str(v).strip().lower() if pd.notna(v) else "" for v in r]
+            if any(
+                "product name" in v or "customer name" in v or "distributor name" in v
+                for v in row_vals
+            ):
                 header_row_idx = i
                 break
 
@@ -1655,31 +3019,38 @@ def upload_csi_sales(request):
         raw_headers = []
         for v in raw_df.iloc[header_row_idx]:
             if pd.isna(v):
-                raw_headers.append('')
+                raw_headers.append("")
             elif isinstance(v, (pd.Timestamp, datetime.datetime)):
-                raw_headers.append(v.strftime('%Y-%m'))
+                raw_headers.append(v.strftime("%Y-%m"))
             else:
                 s = str(v).strip()
                 # Try parsing short month strings like "Oct-25", "Nov-25"
                 try:
-                    parsed = dateutil.parser.parse(s, default=datetime.datetime(2000, 1, 1))
+                    parsed = dateutil.parser.parse(
+                        s, default=datetime.datetime(2000, 1, 1)
+                    )
                     # Only treat as month if the string looks like a month label
-                    if re.search(r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)', s.lower()):
-                        raw_headers.append(parsed.strftime('%Y-%m'))
+                    if re.search(
+                        r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)", s.lower()
+                    ):
+                        raw_headers.append(parsed.strftime("%Y-%m"))
                     else:
                         raw_headers.append(s)
                 except Exception:
                     raw_headers.append(s)
 
-        df = raw_df.iloc[header_row_idx + 1:].reset_index(drop=True)
+        df = raw_df.iloc[header_row_idx + 1 :].reset_index(drop=True)
         df.columns = raw_headers
 
         # Identify month columns (YYYY-MM format)
-        month_col_pattern = re.compile(r'^\d{4}-\d{2}$')
+        month_col_pattern = re.compile(r"^\d{4}-\d{2}$")
         month_cols = [c for c in df.columns if month_col_pattern.match(str(c))]
 
         if not month_cols:
-            return Response({'error': 'No month columns (e.g. Oct-25, Nov-25) found in the file.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "No month columns (e.g. Oct-25, Nov-25) found in the file."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         def get_col(possible_names):
             """Find the first column that matches any of the given names (case-insensitive)."""
@@ -1689,50 +3060,61 @@ def upload_csi_sales(request):
                         return c
             return None
 
-        distributor_col = get_col(['Distributor Name', 'Distributor'])
-        ship_to_col     = get_col(['Ship To Code', 'Ship To'])
-        customer_col    = get_col(['Customer Name', 'Customer'])
-        product_col     = get_col(['Product Name', 'Product'])
-        product_code_col= get_col(['Product Code'])
-        value_col       = get_col(['Value', 'Amount', 'Total Value'])
+        distributor_col = get_col(["Distributor Name", "Distributor"])
+        ship_to_col = get_col(["Ship To Code", "Ship To"])
+        customer_col = get_col(["Customer Name", "Customer"])
+        product_col = get_col(["Product Name", "Product"])
+        product_code_col = get_col(["Product Code"])
+        value_col = get_col(["Value", "Amount", "Total Value"])
 
         if not customer_col or not product_col:
-            return Response({'error': 'Could not find Customer Name or Product Name columns.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Could not find Customer Name or Product Name columns."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         errors = []
         valid_orders = []
-        ignore_errors = request.POST.get('ignore_errors', 'false').lower() == 'true'
-        valid_names_map = {clean_prod_name(name): name for name in ProductMaster.objects.values_list('material_name', flat=True)}
-        prod_code_map = {clean_prod_name(p.material_name): p.material_code for p in ProductMaster.objects.all()}
-        
+        ignore_errors = request.POST.get("ignore_errors", "false").lower() == "true"
+        valid_names_map = {
+            clean_prod_name(name): name
+            for name in ProductMaster.objects.values_list("material_name", flat=True)
+        }
+        prod_code_map = {
+            clean_prod_name(p.material_name): p.material_code
+            for p in ProductMaster.objects.all()
+        }
+
         # Pre-fetch derived rates from Primary Sales to estimate CSI values (Derive from Value/Qty)
         from django.db.models import Sum
+
         rate_map = {}
-        ps_data = PrimarySales.objects.values('material_desc').annotate(
-            total_val=Sum('assessable_value'),
-            total_qty=Sum('billed_quantity')
+        ps_data = PrimarySales.objects.values("material_desc").annotate(
+            total_val=Sum("assessable_value"), total_qty=Sum("billed_quantity")
         )
         for r in ps_data:
-            if r['total_qty'] and r['total_qty'] > 0:
-                rate_map[clean_prod_name(r['material_desc'])] = r['total_val'] / r['total_qty']
+            if r["total_qty"] and r["total_qty"] > 0:
+                rate_map[clean_prod_name(r["material_desc"])] = (
+                    r["total_val"] / r["total_qty"]
+                )
 
         for index, row in df.iterrows():
             line_no = header_row_idx + index + 2
 
             def cell(col):
                 if col is None:
-                    return ''
-                val = row.get(col, '')
+                    return ""
+                val = row.get(col, "")
                 if isinstance(val, pd.Series):
-                    val = val.iloc[0] if not val.empty else ''
+                    val = val.iloc[0] if not val.empty else ""
                 if pd.isna(val):
-                    return ''
+                    return ""
                 s = str(val).strip()
-                return '' if s.lower() == 'nan' else s
+                return "" if s.lower() == "nan" else s
 
-            customer    = cell(customer_col)
-            product     = cell(product_col)
-            sold_to     = cell(ship_to_col)   # Ship To Code used as sold_to identifier
+            customer = cell(customer_col)
+            product = cell(product_col)
+            sold_to = cell(ship_to_col)  # Ship To Code used as sold_to identifier
             distributor = cell(distributor_col)
 
             # Skip empty/total rows
@@ -1741,20 +3123,30 @@ def upload_csi_sales(request):
 
             # Validate product name against Product Master (Case-insensitive matching)
             product_clean = clean_prod_name(product)
-            if product_clean and valid_names_map and product_clean not in valid_names_map:
-                errors.append(f"Row {line_no}: Product '{product}' not in Product Master.")
+            if (
+                product_clean
+                and valid_names_map
+                and product_clean not in valid_names_map
+            ):
+                errors.append(
+                    f"Row {line_no}: Product '{product}' not in Product Master."
+                )
                 if not ignore_errors:
                     continue
 
             # Create one Order per month column that has a non-zero quantity
             for month_col in month_cols:
-                qty_raw = row.get(month_col, '')
+                qty_raw = row.get(month_col, "")
                 if isinstance(qty_raw, pd.Series):
-                    qty_raw = qty_raw.iloc[0] if not qty_raw.empty else ''
-                if pd.isna(qty_raw) or str(qty_raw).strip() == '' or str(qty_raw).strip() == '0':
+                    qty_raw = qty_raw.iloc[0] if not qty_raw.empty else ""
+                if (
+                    pd.isna(qty_raw)
+                    or str(qty_raw).strip() == ""
+                    or str(qty_raw).strip() == "0"
+                ):
                     continue
                 try:
-                    qty = int(float(str(qty_raw).replace(',', '')))
+                    qty = int(float(str(qty_raw).replace(",", "")))
                 except (ValueError, TypeError):
                     continue
 
@@ -1763,68 +3155,125 @@ def upload_csi_sales(request):
 
                 # invoice_date = 1st of the month
                 try:
-                    invoice_date = datetime.date(int(month_col[:4]), int(month_col[5:7]), 1)
+                    invoice_date = datetime.date(
+                        int(month_col[:4]), int(month_col[5:7]), 1
+                    )
                 except Exception:
                     continue
 
-                valid_orders.append(Order(
-                    sold_to=sold_to,
-                    ship_to=distributor,
-                    invoice_no='',
-                    invoice_date=invoice_date,
-                    customer=customer,
-                    material_code=cell(product_code_col) if product_code_col else prod_code_map.get(product_clean, ''),
-                    material_name=product,
-                    packsize=0,
-                    qty=qty,
-                    value=qty * next((rate for name, rate in rate_map.items() if name in product_clean or product_clean in name), 0.0) # Smart substring matching for rates
-                ))
+                valid_orders.append(
+                    Order(
+                        sold_to=sold_to,
+                        ship_to=distributor,
+                        invoice_no="",
+                        invoice_date=invoice_date,
+                        customer=customer,
+                        material_code=cell(product_code_col)
+                        if product_code_col
+                        else prod_code_map.get(product_clean, ""),
+                        material_name=product,
+                        packsize=0,
+                        qty=qty,
+                        value=qty
+                        * next(
+                            (
+                                rate
+                                for name, rate in rate_map.items()
+                                if name in product_clean or product_clean in name
+                            ),
+                            0.0,
+                        ),  # Smart substring matching for rates
+                    )
+                )
 
         if errors and not ignore_errors:
-            return Response({'message': 'Validation failed.', 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Validation failed.", "errors": errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         Order.objects.bulk_create(valid_orders)
-        msg = f'Successfully uploaded {len(valid_orders)} CSI sales records as secondary sales.'
+        msg = f"Successfully uploaded {len(valid_orders)} CSI sales records as secondary sales."
         if errors and ignore_errors:
-            msg += f' (Ignored {len(errors)} product master mismatches.)'
-        return Response({'message': msg}, status=status.HTTP_200_OK)
+            msg += f" (Ignored {len(errors)} product master mismatches.)"
+        return Response({"message": msg}, status=status.HTTP_200_OK)
 
     except Exception as e:
-        return Response({'error': f'CSI upload failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": f"CSI upload failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 def sales_exec_analytics(request):
     try:
         from collections import defaultdict
         from django.core.cache import cache
 
-        month_filter = request.GET.get('month', '').strip()
-        division_filter = request.GET.get('division', '').strip()
-        exec_filter = request.GET.get('exec', '').strip()
+        month_filter = request.GET.get("month", "").strip()
+        division_filter = request.GET.get("division", "").strip()
+        exec_filter = request.GET.get("exec", "").strip()
+        dist_param = request.GET.get("distributor", "").strip()
+        is_dist = is_distributor(request.user)
+        dist_code = (
+            getattr(request.user, "distributor_code", "") if request.user else ""
+        )
+        if not dist_param and not is_dist:
+            dist_param = "CHEMIELINK"
 
-        cache_key = f"sales_exec_analytics_{month_filter}_{division_filter}_{exec_filter}"
+        cache_key = f"sales_exec_analytics_{month_filter}_{division_filter}_{exec_filter}_{dist_code if is_dist else dist_param}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
 
-        qs = PrimarySales.objects.filter(sales_exec__isnull=False).exclude(sales_exec='')
-        if month_filter and month_filter != 'all':
+        qs = PrimarySales.objects.filter(sales_exec__isnull=False).exclude(
+            sales_exec=""
+        )
+        if is_dist:
+            qs = qs.filter(Q(sold_to_party=dist_code) | Q(ship_to_party=dist_code))
+        elif dist_param and dist_param.upper() != "ALL":
+            if "CHEMI" in dist_param.upper():
+                qs = qs.filter(
+                    Q(sold_to_party__in=["438498", "441522"])
+                    | Q(ship_to_party__in=["438498", "441522"])
+                    | Q(sold_to_party_address__iexact="Chemielink")
+                    | Q(sold_to_party_address__iexact="Chemie Link")
+                    | Q(ship_to_party_name__iexact="Chemielink")
+                    | Q(ship_to_party_name__iexact="Chemie Link")
+                )
+            else:
+                qs = qs.filter(
+                    Q(sold_to_party_address__icontains=dist_param)
+                    | Q(ship_to_party_name__icontains=dist_param)
+                    | Q(sold_to_party=dist_param)
+                    | Q(ship_to_party=dist_param)
+                )
+        if month_filter and month_filter != "all":
             try:
-                parts = month_filter.split('-')
-                qs = qs.filter(billing_date__year=int(parts[0]), billing_date__month=int(parts[1]))
+                parts = month_filter.split("-")
+                qs = qs.filter(
+                    billing_date__year=int(parts[0]), billing_date__month=int(parts[1])
+                )
             except Exception:
                 pass
 
-        if division_filter and division_filter != 'all':
+        if division_filter and division_filter != "all":
             qs = qs.filter(division__iexact=division_filter)
 
         if exec_filter:
             qs = qs.filter(sales_exec__iexact=exec_filter)
 
         values_iter = qs.values(
-            'sales_exec', 'assessable_value', 'billed_quantity', 'billing_date', 
-            'material_desc', 'ship_to_party_name', 'sold_to_party_address', 'division', 'billing_no'
+            "sales_exec",
+            "assessable_value",
+            "billed_quantity",
+            "billing_date",
+            "material_desc",
+            "ship_to_party_name",
+            "sold_to_party_address",
+            "division",
+            "billing_no",
         )
 
         all_months_set = set()
@@ -1833,29 +3282,36 @@ def sales_exec_analytics(request):
         total_vol_all = 0.0
         total_tx_all = 0
 
-        exec_summary = defaultdict(lambda: {
-            'name': '',
-            'total_val': 0.0,
-            'total_qty': 0.0,
-            'invoices': 0,
-            'customers': set(),
-            'products': set(),
-            'divisions': defaultdict(float),
-            'monthly': defaultdict(lambda: {'val': 0.0, 'qty': 0.0}),
-            'top_products': defaultdict(lambda: {'val': 0.0, 'qty': 0.0}),
-            'top_customers': defaultdict(lambda: {'val': 0.0, 'qty': 0.0}),
-        })
+        exec_summary = defaultdict(
+            lambda: {
+                "name": "",
+                "total_val": 0.0,
+                "total_qty": 0.0,
+                "invoices": 0,
+                "customers": set(),
+                "products": set(),
+                "divisions": defaultdict(float),
+                "monthly": defaultdict(lambda: {"val": 0.0, "qty": 0.0}),
+                "top_products": defaultdict(lambda: {"val": 0.0, "qty": 0.0}),
+                "top_customers": defaultdict(lambda: {"val": 0.0, "qty": 0.0}),
+            }
+        )
 
         for row in values_iter:
-            e_name = (row['sales_exec'] or '').strip()
-            if not e_name: continue
-            
-            val = float(row['assessable_value'] or 0.0)
-            qty = float(row['billed_quantity'] or 0.0)
-            b_date = row['billing_date']
-            p_name = (row['material_desc'] or 'Unknown Product').strip()
-            c_name = (row['ship_to_party_name'] or row['sold_to_party_address'] or 'Unknown Customer').strip()
-            div = (row['division'] or 'General').strip()
+            e_name = (row["sales_exec"] or "").strip()
+            if not e_name:
+                continue
+
+            val = float(row["assessable_value"] or 0.0)
+            qty = float(row["billed_quantity"] or 0.0)
+            b_date = row["billing_date"]
+            p_name = (row["material_desc"] or "Unknown Product").strip()
+            c_name = (
+                row["ship_to_party_name"]
+                or row["sold_to_party_address"]
+                or "Unknown Customer"
+            ).strip()
+            div = (row["division"] or "General").strip()
 
             total_rev_all += val
             total_vol_all += qty
@@ -1864,122 +3320,167 @@ def sales_exec_analytics(request):
                 all_divisions_set.add(div)
 
             item = exec_summary[e_name]
-            item['name'] = e_name
-            item['total_val'] += val
-            item['total_qty'] += qty
-            item['invoices'] += 1
-            item['customers'].add(c_name)
-            item['products'].add(p_name)
-            item['divisions'][div] += val
-            item['top_products'][p_name]['val'] += val
-            item['top_products'][p_name]['qty'] += qty
-            item['top_customers'][c_name]['val'] += val
-            item['top_customers'][c_name]['qty'] += qty
-            
+            item["name"] = e_name
+            item["total_val"] += val
+            item["total_qty"] += qty
+            item["invoices"] += 1
+            item["customers"].add(c_name)
+            item["products"].add(p_name)
+            item["divisions"][div] += val
+            item["top_products"][p_name]["val"] += val
+            item["top_products"][p_name]["qty"] += qty
+            item["top_customers"][c_name]["val"] += val
+            item["top_customers"][c_name]["qty"] += qty
+
             if b_date:
-                m_str = b_date.strftime('%Y-%m')
+                m_str = b_date.strftime("%Y-%m")
                 all_months_set.add(m_str)
-                item['monthly'][m_str]['val'] += val
-                item['monthly'][m_str]['qty'] += qty
+                item["monthly"][m_str]["val"] += val
+                item["monthly"][m_str]["qty"] += qty
 
         exec_list = []
         for e_name, data in exec_summary.items():
-            tot_val = data['total_val']
-            tot_qty = data['total_qty']
+            tot_val = data["total_val"]
+            tot_qty = data["total_qty"]
             asp = (tot_val / tot_qty) if tot_qty > 0 else 0.0
 
-            sorted_divs = sorted(data['divisions'].items(), key=lambda x: x[1], reverse=True)
-            primary_div = sorted_divs[0][0] if sorted_divs else 'General'
-            div_breakdown = [{'division': d, 'revenue': round(v, 2), 'share': round(v / tot_val * 100, 1) if tot_val > 0 else 0} for d, v in sorted_divs]
+            sorted_divs = sorted(
+                data["divisions"].items(), key=lambda x: x[1], reverse=True
+            )
+            primary_div = sorted_divs[0][0] if sorted_divs else "General"
+            div_breakdown = [
+                {
+                    "division": d,
+                    "revenue": round(v, 2),
+                    "share": round(v / tot_val * 100, 1) if tot_val > 0 else 0,
+                }
+                for d, v in sorted_divs
+            ]
 
             monthly_trend = []
-            for m_str in sorted(data['monthly'].keys()):
-                m_val = data['monthly'][m_str]['val']
-                m_qty = data['monthly'][m_str]['qty']
-                monthly_trend.append({
-                    'month': m_str,
-                    'revenue': round(m_val, 2),
-                    'volume': round(m_qty, 2),
-                    'asp': round(m_val / m_qty, 2) if m_qty > 0 else 0.0
-                })
+            for m_str in sorted(data["monthly"].keys()):
+                m_val = data["monthly"][m_str]["val"]
+                m_qty = data["monthly"][m_str]["qty"]
+                monthly_trend.append(
+                    {
+                        "month": m_str,
+                        "revenue": round(m_val, 2),
+                        "volume": round(m_qty, 2),
+                        "asp": round(m_val / m_qty, 2) if m_qty > 0 else 0.0,
+                    }
+                )
 
-            top_prods = sorted(data['top_products'].items(), key=lambda x: x[1]['val'], reverse=True)[:10]
-            top_prods_list = [{
-                'name': p,
-                'revenue': round(v['val'], 2),
-                'volume': round(v['qty'], 2),
-                'asp': round(v['val'] / v['qty'], 2) if v['qty'] > 0 else 0.0
-            } for p, v in top_prods]
+            top_prods = sorted(
+                data["top_products"].items(), key=lambda x: x[1]["val"], reverse=True
+            )[:10]
+            top_prods_list = [
+                {
+                    "name": p,
+                    "revenue": round(v["val"], 2),
+                    "volume": round(v["qty"], 2),
+                    "asp": round(v["val"] / v["qty"], 2) if v["qty"] > 0 else 0.0,
+                }
+                for p, v in top_prods
+            ]
 
-            top_custs = sorted(data['top_customers'].items(), key=lambda x: x[1]['val'], reverse=True)[:10]
-            top_custs_list = [{
-                'name': c,
-                'revenue': round(v['val'], 2),
-                'volume': round(v['qty'], 2)
-            } for c, v in top_custs]
+            top_custs = sorted(
+                data["top_customers"].items(), key=lambda x: x[1]["val"], reverse=True
+            )[:10]
+            top_custs_list = [
+                {"name": c, "revenue": round(v["val"], 2), "volume": round(v["qty"], 2)}
+                for c, v in top_custs
+            ]
 
-            exec_list.append({
-                'name': e_name,
-                'total_revenue': round(tot_val, 2),
-                'total_volume': round(tot_qty, 2),
-                'asp': round(asp, 2),
-                'invoices_count': data['invoices'],
-                'unique_customers_count': len(data['customers']),
-                'unique_products_count': len(data['products']),
-                'primary_division': primary_div,
-                'divisions': div_breakdown,
-                'monthly_trend': monthly_trend,
-                'top_products': top_prods_list,
-                'top_customers': top_custs_list
-            })
+            exec_list.append(
+                {
+                    "name": e_name,
+                    "total_revenue": round(tot_val, 2),
+                    "total_volume": round(tot_qty, 2),
+                    "asp": round(asp, 2),
+                    "invoices_count": data["invoices"],
+                    "unique_customers_count": len(data["customers"]),
+                    "unique_products_count": len(data["products"]),
+                    "primary_division": primary_div,
+                    "divisions": div_breakdown,
+                    "monthly_trend": monthly_trend,
+                    "top_products": top_prods_list,
+                    "top_customers": top_custs_list,
+                }
+            )
 
-        exec_list.sort(key=lambda x: x['total_revenue'], reverse=True)
+        exec_list.sort(key=lambda x: x["total_revenue"], reverse=True)
 
         for i, item in enumerate(exec_list):
-            item['rank'] = i + 1
+            item["rank"] = i + 1
 
-        leaderboard_chart = [{
-            'name': item['name'],
-            'Revenue': round(item['total_revenue'], 2),
-            'Volume': round(item['total_volume'], 2),
-            'ASP': item['asp']
-        } for item in exec_list[:15]]
+        leaderboard_chart = [
+            {
+                "name": item["name"],
+                "Revenue": round(item["total_revenue"], 2),
+                "Volume": round(item["total_volume"], 2),
+                "ASP": item["asp"],
+            }
+            for item in exec_list[:15]
+        ]
 
         top_performer = {
-            'name': exec_list[0]['name'] if exec_list else 'N/A',
-            'revenue': exec_list[0]['total_revenue'] if exec_list else 0,
-            'volume': exec_list[0]['total_volume'] if exec_list else 0
+            "name": exec_list[0]["name"] if exec_list else "N/A",
+            "revenue": exec_list[0]["total_revenue"] if exec_list else 0,
+            "volume": exec_list[0]["total_volume"] if exec_list else 0,
         }
 
-        all_avail_months = sorted(list(PrimarySales.objects.filter(billing_date__isnull=False).dates('billing_date', 'month')))
-        month_strings = [d.strftime('%Y-%m') for d in all_avail_months]
-        division_strings = sorted([d for d in PrimarySales.objects.values_list('division', flat=True).distinct() if d])
+        all_avail_months = sorted(
+            list(
+                PrimarySales.objects.filter(billing_date__isnull=False).dates(
+                    "billing_date", "month"
+                )
+            )
+        )
+        month_strings = [d.strftime("%Y-%m") for d in all_avail_months]
+        division_strings = sorted(
+            [
+                d
+                for d in PrimarySales.objects.values_list(
+                    "division", flat=True
+                ).distinct()
+                if d
+            ]
+        )
 
         response_data = {
-            'kpis': {
-                'total_executives': len(exec_list),
-                'total_revenue': round(total_rev_all, 2),
-                'total_volume': round(total_vol_all, 2),
-                'total_transactions': total_tx_all,
-                'top_performer': top_performer,
-                'avg_revenue_per_exec': round(total_rev_all / len(exec_list), 2) if exec_list else 0.0
+            "kpis": {
+                "total_executives": len(exec_list),
+                "total_revenue": round(total_rev_all, 2),
+                "total_volume": round(total_vol_all, 2),
+                "total_transactions": total_tx_all,
+                "top_performer": top_performer,
+                "avg_revenue_per_exec": round(total_rev_all / len(exec_list), 2)
+                if exec_list
+                else 0.0,
             },
-            'available_months': month_strings if month_strings else sorted(list(all_months_set)),
-            'available_divisions': division_strings if division_strings else sorted(list(all_divisions_set)),
-            'leaderboard': leaderboard_chart,
-            'executives': exec_list
+            "available_months": month_strings
+            if month_strings
+            else sorted(list(all_months_set)),
+            "available_divisions": division_strings
+            if division_strings
+            else sorted(list(all_divisions_set)),
+            "leaderboard": leaderboard_chart,
+            "executives": exec_list,
         }
 
         cache.set(cache_key, response_data, 3600)
         return Response(response_data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({'error': f'Sales Exec analytics error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": f"Sales Exec analytics error: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  STOCK ANALYSIS  –  primary_qty − secondary_qty  vs  actual stock on hand
 # ─────────────────────────────────────────────────────────────────────────────
-@api_view(['GET'])
+@api_view(["GET"])
 def stock_analysis(request):
     """
     Returns a per-product, per-distributor stock reconciliation.
@@ -1999,45 +3500,65 @@ def stock_analysis(request):
         from collections import defaultdict
         import datetime
 
-        month_filter = request.GET.get('month')
-        year_filter  = request.GET.get('year')
-        dist_filter  = request.GET.get('dist', '').strip().lower()
+        month_filter = request.GET.get("month")
+        year_filter = request.GET.get("year")
+        dist_filter = request.GET.get("dist", "").strip().lower()
 
-        ANOMALY_TOLERANCE_PCT = 5.0   # flag if discrepancy > 5 % of expected
+        ANOMALY_TOLERANCE_PCT = 5.0  # flag if discrepancy > 5 % of expected
 
         # ── 1. Product master lookup ──────────────────────────────────────────
-        prod_master = {p.material_code: clean_prod_name(p.material_name)
-                       for p in ProductMaster.objects.all() if p.material_code}
+        prod_master = {
+            p.material_code: clean_prod_name(p.material_name)
+            for p in ProductMaster.objects.all()
+            if p.material_code
+        }
 
         canonical_cache = {}
+
         def get_canonical(name):
-            if not name: return ''
-            if name in canonical_cache: return canonical_cache[name]
-            n = re.sub(r'[\s\xa0]+', ' ', str(name)).strip().upper()
-            n = re.sub(r'\s+M?\d{4,5}$', '', n).strip()
-            n = re.sub(r'\b\d{4,}\b$', '', n).strip()
-            n = re.sub(r'\b\d+\s*(KG|KGS)\b', '', n, flags=re.IGNORECASE)
-            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b', '', n, flags=re.IGNORECASE)
-            n = re.sub(r'\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b', '', n, flags=re.IGNORECASE)
-            n = n.replace('-', ' ').replace('.', ' ')
-            n = re.sub(r'[^A-Z0-9\s%]', '', n)
-            res = re.sub(r'\s+', ' ', n).strip()
+            if not name:
+                return ""
+            if name in canonical_cache:
+                return canonical_cache[name]
+            n = re.sub(r"[\s\xa0]+", " ", str(name)).strip().upper()
+            n = re.sub(r"\s+M?\d{4,5}$", "", n).strip()
+            n = re.sub(r"\b\d{4,}\b$", "", n).strip()
+            n = re.sub(r"\b\d+\s*(KG|KGS)\b", "", n, flags=re.IGNORECASE)
+            n = re.sub(
+                r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b", "", n, flags=re.IGNORECASE
+            )
+            n = re.sub(r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b", "", n, flags=re.IGNORECASE)
+            n = n.replace("-", " ").replace(".", " ")
+            n = re.sub(r"[^A-Z0-9\s%]", "", n)
+            res = re.sub(r"\s+", " ", n).strip()
             canonical_cache[name] = res
             return res
 
         group_cache = {}
+
         def get_group_name(raw_name):
-            if not raw_name: return ''
-            if raw_name in group_cache: return group_cache[raw_name]
+            if not raw_name:
+                return ""
+            if raw_name in group_cache:
+                return group_cache[raw_name]
             n = str(raw_name).upper().strip()
-            n_clean = n.replace(' ', '')
-            if 'VIKRAM' in n: res = 'VIKRAM TRADING'
-            elif 'MIKHAIL' in n: res = 'MIKHAIL ENTERPRISES'
-            elif 'CHEMIE' in n or 'CHEMIELINK' in n_clean or any(c in n for c in ['438498', '438499', '441522']):
-                res = 'CHEMIELINK'
-            elif '436741' in n or '436757' in n or 'JK ASSOCIATES' in n: res = 'JK ASSOCIATES'
+            n_clean = n.replace(" ", "")
+            if "VIKRAM" in n:
+                res = "VIKRAM TRADING"
+            elif "MIKHAIL" in n:
+                res = "MIKHAIL ENTERPRISES"
+            elif (
+                "CHEMIE" in n
+                or "CHEMIELINK" in n_clean
+                or any(c in n for c in ["438498", "438499", "441522"])
+            ):
+                res = "CHEMIELINK"
+            elif "436741" in n or "436757" in n or "JK ASSOCIATES" in n:
+                res = "JK ASSOCIATES"
             else:
-                res = re.sub(r'\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$', '', n).strip()
+                res = re.sub(
+                    r"\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$", "", n
+                ).strip()
             group_cache[raw_name] = res
             return res
 
@@ -2046,96 +3567,142 @@ def stock_analysis(request):
                 return get_canonical(prod_master[str(mat_code).strip()])
             if mat_desc:
                 return get_canonical(mat_desc)
-            return 'Unknown'
+            return "Unknown"
 
         # ── 2. Identify distributors who have uploaded stock reports or secondary sales ──
         ss_dists = set()
-        for d in MonthlySales.objects.exclude(distributor_name='').values_list('distributor_name', flat=True).distinct():
+        for d in (
+            MonthlySales.objects.exclude(distributor_name="")
+            .values_list("distributor_name", flat=True)
+            .distinct()
+        ):
             grp = get_group_name(d)
-            if grp: ss_dists.add(grp)
-        for s in MonthlySales.objects.exclude(ship_to_code='').values_list('ship_to_code', flat=True).distinct():
+            if grp:
+                ss_dists.add(grp)
+        for s in (
+            MonthlySales.objects.exclude(ship_to_code="")
+            .values_list("ship_to_code", flat=True)
+            .distinct()
+        ):
             grp = get_group_name(s)
-            if grp: ss_dists.add(grp)
+            if grp:
+                ss_dists.add(grp)
 
         stock_dists = set()
-        for sl in StockLevel.objects.values('ship_to', 'sold_to').distinct():
-            grp = get_group_name(sl.get('sold_to') or '') or get_group_name(sl.get('ship_to') or '')
-            if grp: stock_dists.add(grp)
+        for sl in StockLevel.objects.values("ship_to", "sold_to").distinct():
+            grp = get_group_name(sl.get("sold_to") or "") or get_group_name(
+                sl.get("ship_to") or ""
+            )
+            if grp:
+                stock_dists.add(grp)
 
         # Stock Analysis strictly tracks distributors who have uploaded stock reports.
         # Distributors without stock reports are not tracked to prevent inflating company-wide expected stock.
-        if dist_filter:
-            filt_dists = {d for d in (ss_dists | stock_dists) if dist_filter.lower() in d.lower()}
+        if dist_filter and dist_filter.upper() != "ALL":
+            filt_dists = {
+                d for d in (ss_dists | stock_dists) if dist_filter.lower() in d.lower()
+            }
             tracked_dists = stock_dists | filt_dists
         else:
-            tracked_dists = stock_dists
+            if not dist_filter:
+                tracked_dists = {"CHEMIELINK"} & (stock_dists | ss_dists)
+                if not tracked_dists:
+                    tracked_dists = stock_dists
+            else:
+                tracked_dists = stock_dists
 
         # ── 3. Primary Sales  →  qty per (distributor, product, year-month) ──
         ps_qs = PrimarySales.objects.all()
         if month_filter and year_filter:
             ps_qs = ps_qs.filter(
                 billing_date__month=int(month_filter),
-                billing_date__year=int(year_filter)
+                billing_date__year=int(year_filter),
             )
         elif year_filter:
             ps_qs = ps_qs.filter(billing_date__year=int(year_filter))
         elif month_filter:
             ps_qs = ps_qs.filter(billing_date__month=int(month_filter))
 
-        ps_agg = defaultdict(float)   # key: (dist_key, prod_name, ym)
+        ps_agg = defaultdict(float)  # key: (dist_key, prod_name, ym)
         ps_val_agg = defaultdict(float)
-        ps_months  = set()
+        ps_months = set()
 
-        for ps in ps_qs.values('ship_to_party', 'ship_to_party_name', 'material_code',
-                                'material_desc', 'billed_quantity', 'assessable_value',
-                                'billing_date', 'sold_to_party'):
-            dist  = get_group_name(ps['ship_to_party_name'] or ps['ship_to_party'] or '')
+        for ps in ps_qs.values(
+            "ship_to_party",
+            "ship_to_party_name",
+            "material_code",
+            "material_desc",
+            "billed_quantity",
+            "assessable_value",
+            "billing_date",
+            "sold_to_party",
+        ):
+            dist = get_group_name(ps["ship_to_party_name"] or ps["ship_to_party"] or "")
             if dist not in tracked_dists:
                 continue
-            ym    = ps['billing_date'].strftime('%Y-%m') if ps['billing_date'] else 'Unknown'
-            prod  = resolve_prod_name(ps['material_code'], ps['material_desc'])
-            qty   = float(ps['billed_quantity'] or 0)
-            val   = float(ps['assessable_value'] or 0)
-            key   = (dist, prod, ym)
-            ps_agg[key]     += qty
+            ym = (
+                ps["billing_date"].strftime("%Y-%m")
+                if ps["billing_date"]
+                else "Unknown"
+            )
+            prod = resolve_prod_name(ps["material_code"], ps["material_desc"])
+            qty = float(ps["billed_quantity"] or 0)
+            val = float(ps["assessable_value"] or 0)
+            key = (dist, prod, ym)
+            ps_agg[key] += qty
             ps_val_agg[key] += val
             ps_months.add(ym)
 
         # ── 3. Secondary Sales  →  qty per (distributor, product, year-month) ─
-        ss_agg     = defaultdict(float)
+        ss_agg = defaultdict(float)
         ss_val_agg = defaultdict(float)
 
         ms_qs = MonthlySales.objects.all()
         for ms in ms_qs:
-            dist     = get_group_name(ms.distributor_name or ms.ship_to_code or ms.customer_name or '')
+            dist = get_group_name(
+                ms.distributor_name or ms.ship_to_code or ms.customer_name or ""
+            )
             prod_raw = get_canonical(ms.product_name)
 
             # Match to product master canonical name
             matched_prod = prod_raw
             for mc, mp in prod_master.items():
-                if get_canonical(mp) == prod_raw or prod_raw.startswith(get_canonical(mp)):
+                if get_canonical(mp) == prod_raw or prod_raw.startswith(
+                    get_canonical(mp)
+                ):
                     matched_prod = get_canonical(mp)
                     break
 
             for ym, vol in (ms.volumes or {}).items():
                 # Filter out non-volume columns like currency values, potential, market share
-                if any(bad in ym.lower() for bad in ['value', 'potential', 'share', 'fy26', 'avg']):
+                if any(
+                    bad in ym.lower()
+                    for bad in ["value", "potential", "share", "fy26", "avg"]
+                ):
                     continue
                 try:
                     vol_f = float(vol or 0)
-                    if vol_f <= 0: continue
+                    if vol_f <= 0:
+                        continue
 
                     # parse ym to standard YYYY-MM
                     try:
                         import dateutil.parser
-                        parsed = dateutil.parser.parse(ym, default=datetime.datetime(2020, 1, 1))
-                        std_ym = parsed.strftime('%Y-%m')
+
+                        parsed = dateutil.parser.parse(
+                            ym, default=datetime.datetime(2020, 1, 1)
+                        )
+                        std_ym = parsed.strftime("%Y-%m")
                     except Exception:
                         std_ym = ym
 
-                    if month_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').month) != str(month_filter):
+                    if month_filter and str(
+                        datetime.datetime.strptime(std_ym, "%Y-%m").month
+                    ) != str(month_filter):
                         continue
-                    if year_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').year) != str(year_filter):
+                    if year_filter and str(
+                        datetime.datetime.strptime(std_ym, "%Y-%m").year
+                    ) != str(year_filter):
                         continue
 
                     key = (dist, matched_prod, std_ym)
@@ -2146,16 +3713,24 @@ def stock_analysis(request):
             for ym, val_v in (ms.values or {}).items():
                 try:
                     val_f = float(val_v or 0)
-                    if val_f <= 0: continue
+                    if val_f <= 0:
+                        continue
                     try:
                         import dateutil.parser
-                        parsed = dateutil.parser.parse(ym, default=datetime.datetime(2020, 1, 1))
-                        std_ym = parsed.strftime('%Y-%m')
+
+                        parsed = dateutil.parser.parse(
+                            ym, default=datetime.datetime(2020, 1, 1)
+                        )
+                        std_ym = parsed.strftime("%Y-%m")
                     except Exception:
                         std_ym = ym
-                    if month_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').month) != str(month_filter):
+                    if month_filter and str(
+                        datetime.datetime.strptime(std_ym, "%Y-%m").month
+                    ) != str(month_filter):
                         continue
-                    if year_filter and str(datetime.datetime.strptime(std_ym, '%Y-%m').year) != str(year_filter):
+                    if year_filter and str(
+                        datetime.datetime.strptime(std_ym, "%Y-%m").year
+                    ) != str(year_filter):
                         continue
                     key = (dist, matched_prod, std_ym)
                     ss_val_agg[key] += val_f
@@ -2169,42 +3744,78 @@ def stock_analysis(request):
         if year_filter:
             sl_qs = sl_qs.filter(year=int(year_filter))
 
-        stock_actual = defaultdict(float)   # key: (dist_key, prod_name, ym)
-        stock_meta   = {}
+        stock_actual = defaultdict(float)  # key: (dist_key, prod_name, ym)
+        stock_meta = {}
 
         for sl in sl_qs:
-            dist  = get_group_name(sl.sold_to or '') or get_group_name(sl.ship_to or '')
-            prod  = resolve_prod_name(sl.product_code, sl.product_desc)
-            ym    = f"{sl.year:04d}-{sl.month:02d}" if sl.year and sl.month else 'Unknown'
-            qty   = float(sl.month_end_inventory or 0)
-            key   = (dist, prod, ym)
+            dist = get_group_name(sl.sold_to or "") or get_group_name(sl.ship_to or "")
+            prod = resolve_prod_name(sl.product_code, sl.product_desc)
+            ym = f"{sl.year:04d}-{sl.month:02d}" if sl.year and sl.month else "Unknown"
+            qty = float(sl.month_end_inventory or 0)
+            key = (dist, prod, ym)
             stock_actual[key] = qty
-            stock_meta[key]   = {
-                'avg_six_month_sales': sl.avg_six_month_sales,
-                'mid_month_inventory': sl.mid_month_inventory,
-                'remarks': sl.remarks or '',
-                'ship_to': sl.ship_to or '',
-                'sold_to': sl.sold_to or '',
+            stock_meta[key] = {
+                "avg_six_month_sales": sl.avg_six_month_sales,
+                "mid_month_inventory": sl.mid_month_inventory,
+                "remarks": sl.remarks or "",
+                "ship_to": sl.ship_to or "",
+                "sold_to": sl.sold_to or "",
             }
 
         # ── 5. Common distributors & reconciliation ───────────────────────────
-        common_dists = set(k[0] for k in ps_agg.keys()).intersection(set(k[0] for k in ss_agg.keys()))
+        common_dists = set(k[0] for k in ps_agg.keys()).intersection(
+            set(k[0] for k in ss_agg.keys())
+        )
         all_keys = set(ps_agg.keys()) | set(ss_agg.keys()) | set(stock_actual.keys())
 
         rows = []
-        summary_total_ps_qty       = 0.0
-        summary_total_ss_qty       = 0.0
-        summary_total_expected     = 0.0
-        summary_total_actual       = 0.0
-        summary_anomaly_count      = 0
+        summary_total_ps_qty = 0.0
+        summary_total_ss_qty = 0.0
+        summary_total_expected = 0.0
+        summary_total_actual = 0.0
+        summary_anomaly_count = 0
         # Discrepancy-specific counters — only where actual stock was uploaded
-        disc_total_expected        = 0.0
-        disc_total_actual          = 0.0
-        disc_count                 = 0
+        disc_total_expected = 0.0
+        disc_total_actual = 0.0
+        disc_count = 0
         # PS-SS reconciled rows (both sides exist)
-        ps_ss_matched_count        = 0
+        ps_ss_matched_count = 0
+        # Month-wise gap breakdown for the Monthly Gaps tab
+        # Keys are canonical YYYY-MM; values track excess/missing/net + counts
+        monthly_gaps = defaultdict(
+            lambda: {
+                "excess": 0.0,
+                "missing": 0.0,
+                "net": 0.0,
+                "excess_rows": 0,
+                "missing_rows": 0,
+                "anomaly_rows": 0,
+                "stock_rows": 0,
+                "products_excess": [],  # up to 5 tuples (prod, disc)
+                "products_missing": [],  # up to 5 tuples (prod, disc)
+            }
+        )
 
-        for (dist, prod, ym) in all_keys:
+        def ym_sortable(ym):
+            """Return a sortable (yyyy, mm) tuple for YYYY-MM or best-effort 'Mon-YY Volume...' labels."""
+            if (
+                ym
+                and isinstance(ym, str)
+                and len(ym) >= 7
+                and ym[4] == "-"
+                and ym[:4].isdigit()
+                and ym[5:7].isdigit()
+            ):
+                return (int(ym[:4]), int(ym[5:7]))
+            try:
+                from dateutil.parser import parse as _dp
+
+                dt = _dp(ym, default=defaultdate, fuzzy=True)
+                return (dt.year, dt.month)
+            except Exception:
+                return (9999, 12, ym)
+
+        for dist, prod, ym in all_keys:
             # Only track distributors who have uploaded stock reports or secondary sales
             if dist not in tracked_dists:
                 continue
@@ -2213,19 +3824,21 @@ def stock_analysis(request):
             if dist_filter and dist_filter not in dist.lower():
                 continue
 
-            ps_qty  = ps_agg.get((dist, prod, ym), 0.0)
-            ss_qty  = ss_agg.get((dist, prod, ym), 0.0)
-            ps_val  = ps_val_agg.get((dist, prod, ym), 0.0)
-            ss_val  = ss_val_agg.get((dist, prod, ym), 0.0)
-            actual  = stock_actual.get((dist, prod, ym), None)
-            meta    = stock_meta.get((dist, prod, ym), {})
+            ps_qty = ps_agg.get((dist, prod, ym), 0.0)
+            ss_qty = ss_agg.get((dist, prod, ym), 0.0)
+            ps_val = ps_val_agg.get((dist, prod, ym), 0.0)
+            ss_val = ss_val_agg.get((dist, prod, ym), 0.0)
+            actual = stock_actual.get((dist, prod, ym), None)
+            meta = stock_meta.get((dist, prod, ym), {})
 
             # Common distributor logic: only subtract when distributor is common
             if dist not in common_dists:
                 ss_qty = 0.0
 
             # Skip secondary sales without matching primary sales
-            if ss_qty and not ps_qty:
+            # (Chemeilink is exempt — SS uploaded at summary level with blank product keys,
+            #  matched distributor-level data is still visible in analysis.)
+            if ss_qty and not ps_qty and "CHEMIELINK" not in (dist or "").upper():
                 continue
 
             # Compute expected stock left
@@ -2239,81 +3852,136 @@ def stock_analysis(request):
 
             if has_actual:
                 discrepancy = round(actual_val - expected, 4)
-                tol_qty     = abs(expected) * ANOMALY_TOLERANCE_PCT / 100 if expected != 0 else 1.0
-                is_anomaly  = abs(discrepancy) > tol_qty
+                tol_qty = (
+                    abs(expected) * ANOMALY_TOLERANCE_PCT / 100
+                    if expected != 0
+                    else 1.0
+                )
+                is_anomaly = abs(discrepancy) > tol_qty
             else:
                 discrepancy = None
-                is_anomaly  = False
+                is_anomaly = False
 
             # Skip rows where everything is zero and no stock record
             if ps_qty == 0 and ss_qty == 0 and not has_actual:
                 continue
 
-            summary_total_ps_qty   += ps_qty
-            summary_total_ss_qty   += ss_qty
+            summary_total_ps_qty += ps_qty
+            summary_total_ss_qty += ss_qty
             summary_total_expected += expected
             if has_actual:
                 summary_total_actual += actual_val
-                disc_total_expected  += expected
-                disc_total_actual    += actual_val
-                disc_count           += 1
+                disc_total_expected += expected
+                disc_total_actual += actual_val
+                disc_count += 1
+
+                # Aggregate month-wise gap (excess = actual > expected, missing = actual < expected)
+                mg = monthly_gaps[ym]
+                mg["stock_rows"] += 1
+                mg["net"] += discrepancy
+                if discrepancy > 0:
+                    mg["excess"] += discrepancy
+                    mg["excess_rows"] += 1
+                    mg["products_excess"].append((prod or "—", discrepancy))
+                elif discrepancy < 0:
+                    mg["missing"] += -discrepancy
+                    mg["missing_rows"] += 1
+                    mg["products_missing"].append((prod or "—", discrepancy))
+                if is_anomaly:
+                    mg["anomaly_rows"] += 1
+
             if ps_qty > 0 and ss_qty > 0:
-                ps_ss_matched_count  += 1
+                ps_ss_matched_count += 1
             if is_anomaly:
                 summary_anomaly_count += 1
 
-            rows.append({
-                'distributor':   dist or '—',
-                'product':       prod or '—',
-                'month':         ym,
-                'primary_qty':   round(ps_qty, 4),
-                'secondary_qty': round(ss_qty, 4),
-                'primary_val':   round(ps_val, 2),
-                'secondary_val': round(ss_val, 2),
-                'expected_stock_left': expected,
-                'actual_stock':  actual_val,
-                'discrepancy':   discrepancy,
-                'is_anomaly':    is_anomaly,
-                'has_stock_data': has_actual,
-                # meta from stock upload
-                'avg_six_month_sales': meta.get('avg_six_month_sales'),
-                'mid_month_inventory': meta.get('mid_month_inventory'),
-                'remarks':             meta.get('remarks', ''),
-                'ship_to':             meta.get('ship_to', ''),
-                'sold_to':             meta.get('sold_to', ''),
-            })
+            rows.append(
+                {
+                    "distributor": dist or "—",
+                    "product": prod or "—",
+                    "month": ym,
+                    "primary_qty": round(ps_qty, 4),
+                    "secondary_qty": round(ss_qty, 4),
+                    "primary_val": round(ps_val, 2),
+                    "secondary_val": round(ss_val, 2),
+                    "expected_stock_left": expected,
+                    "actual_stock": actual_val,
+                    "discrepancy": discrepancy,
+                    "is_anomaly": is_anomaly,
+                    "has_stock_data": has_actual,
+                    # meta from stock upload
+                    "avg_six_month_sales": meta.get("avg_six_month_sales"),
+                    "mid_month_inventory": meta.get("mid_month_inventory"),
+                    "remarks": meta.get("remarks", ""),
+                    "ship_to": meta.get("ship_to", ""),
+                    "sold_to": meta.get("sold_to", ""),
+                }
+            )
 
         # Sort: anomalies first, then by month desc, then distributor
-        rows.sort(key=lambda r: (
-            0 if r['is_anomaly'] else 1,
-            r['month'],
-            r['distributor']
-        ))
+        rows.sort(
+            key=lambda r: (0 if r["is_anomaly"] else 1, r["month"], r["distributor"])
+        )
 
         # Gather available months for filter dropdown
-        available_months = sorted(list(set(r['month'] for r in rows) - {'Unknown'}))
+        available_months = sorted(list(set(r["month"] for r in rows) - {"Unknown"}))
 
-        return Response({
-            'summary': {
-                'total_rows':              len(rows),
-                'anomaly_count':           summary_anomaly_count,
-                'total_primary_qty':       round(summary_total_ps_qty, 4),
-                'total_secondary_qty':     round(summary_total_ss_qty, 4),
-                'total_expected_left':     round(summary_total_expected, 4),
-                'total_actual_stock':      round(summary_total_actual, 4),
-                # Overall discrepancy only where stock report was uploaded
-                'stock_discrepancy':       round(disc_total_actual - disc_total_expected, 4),
-                'disc_rows_count':         disc_count,
-                'ps_ss_matched_count':     ps_ss_matched_count,
-                # Distributors being tracked
-                'tracked_distributors':    sorted(list(tracked_dists)),
+        # Shape monthly gaps into a sorted list for the chart tab
+        monthly_gaps_list = []
+        for ym, v in monthly_gaps.items():
+            v["products_excess"].sort(key=lambda t: -t[1])
+            v["products_missing"].sort(key=lambda t: t[1])
+            monthly_gaps_list.append(
+                {
+                    "month": ym,
+                    "excess": round(v["excess"], 4),
+                    "missing": round(v["missing"], 4),
+                    "net": round(v["net"], 4),
+                    "excess_rows": v["excess_rows"],
+                    "missing_rows": v["missing_rows"],
+                    "anomaly_rows": v["anomaly_rows"],
+                    "stock_rows": v["stock_rows"],
+                    "top_excess": [
+                        {"product": p, "discrepancy": round(float(d), 4)}
+                        for p, d in v["products_excess"][:5]
+                    ],
+                    "top_missing": [
+                        {"product": p, "discrepancy": round(float(d), 4)}
+                        for p, d in v["products_missing"][:5]
+                    ],
+                }
+            )
+        monthly_gaps_list.sort(key=lambda m: ym_sortable(m["month"]))
+
+        return Response(
+            {
+                "summary": {
+                    "total_rows": len(rows),
+                    "anomaly_count": summary_anomaly_count,
+                    "total_primary_qty": round(summary_total_ps_qty, 4),
+                    "total_secondary_qty": round(summary_total_ss_qty, 4),
+                    "total_expected_left": round(summary_total_expected, 4),
+                    "total_actual_stock": round(summary_total_actual, 4),
+                    # Overall discrepancy only where stock report was uploaded
+                    "stock_discrepancy": round(
+                        disc_total_actual - disc_total_expected, 4
+                    ),
+                    "disc_rows_count": disc_count,
+                    "ps_ss_matched_count": ps_ss_matched_count,
+                    # Distributors being tracked
+                    "tracked_distributors": sorted(list(tracked_dists)),
+                },
+                "available_months": available_months,
+                "monthly_gaps": monthly_gaps_list,
+                "rows": rows,
             },
-            'available_months':     available_months,
-            'rows': rows,
-        }, status=status.HTTP_200_OK)
+            status=status.HTTP_200_OK,
+        )
 
     except Exception as e:
         import traceback
-        return Response({'error': str(e), 'detail': traceback.format_exc()},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        return Response(
+            {"error": str(e), "detail": traceback.format_exc()},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

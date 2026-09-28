@@ -1,35 +1,99 @@
-import { useState, useEffect } from 'react'
-import API from '../api'
+import { useState, useEffect } from "react";
+import API from "../api";
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Cell
-} from 'recharts'
-import { Activity, Package, Map, ShoppingCart, RefreshCcw, X, Search } from 'lucide-react'
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  ComposedChart,
+  Cell,
+  PieChart,
+  Pie,
+} from "recharts";
+import {
+  Package,
+  Map,
+  ShoppingCart,
+  RefreshCcw,
+  X,
+  Search,
+  TrendingUp,
+  Users,
+  BarChart2,
+  DollarSign,
+  FileText,
+} from "lucide-react";
 
-// Custom Premium Tooltip Component
-const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }) => {
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+  prefix = "",
+  suffix = "",
+}) => {
   if (active && payload && payload.length) {
     return (
-      <div className="custom-chart-tooltip" style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        padding: '12px 16px',
-        borderRadius: '12px',
-        boxShadow: 'var(--shadow-lg)'
-      }}>
-        {label && <p style={{ margin: '0 0 6px 0', fontSize: '11px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>}
+      <div
+        className="custom-chart-tooltip"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          padding: "12px 16px",
+          borderRadius: "12px",
+          boxShadow: "var(--shadow-lg)",
+        }}
+      >
+        {label && (
+          <p
+            style={{
+              margin: "0 0 6px 0",
+              fontSize: "11px",
+              color: "var(--text-dim)",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {label}
+          </p>
+        )}
         {payload.map((pld, idx) => {
-          const isPercentage = Boolean(pld.name?.includes('%') || pld.name?.toLowerCase().includes('efficiency'))
-          const itemPrefix = isPercentage ? '' : prefix
-          const itemSuffix = isPercentage ? '%' : suffix
-          const formattedVal = new Intl.NumberFormat('en-IN', { 
-            maximumFractionDigits: isPercentage ? 2 : 0 
-          }).format(pld.value)
-
+          const isPercentage = Boolean(
+            pld.name?.includes("%") ||
+            pld.name?.toLowerCase().includes("efficiency") ||
+            pld.name?.toLowerCase().includes("asp"),
+          );
+          const itemPrefix = isPercentage ? "" : prefix;
+          const itemSuffix = isPercentage ? "%" : suffix;
+          const formattedVal = new Intl.NumberFormat("en-IN", {
+            maximumFractionDigits: isPercentage ? 2 : 0,
+          }).format(pld.value);
           return (
-            <p key={idx} style={{ margin: '4px 0 0 0', fontSize: '13.5px', fontWeight: 700, color: pld.color || 'var(--primary)' }}>
-              {pld.name}: <span style={{ color: 'var(--text)' }}>{itemPrefix}{formattedVal}{itemSuffix}</span>
+            <p
+              key={idx}
+              style={{
+                margin: "4px 0 0 0",
+                fontSize: "13.5px",
+                fontWeight: 700,
+                color: pld.color || "var(--primary)",
+              }}
+            >
+              {pld.name}:{" "}
+              <span style={{ color: "var(--text)" }}>
+                {itemPrefix}
+                {formattedVal}
+                {itemSuffix}
+              </span>
             </p>
-          )
+          );
         })}
       </div>
     );
@@ -37,844 +101,1940 @@ const CustomTooltip = ({ active, payload, label, prefix = '', suffix = '' }) => 
   return null;
 };
 
-// Sub-component: Overview Tab
-const OverviewTab = ({ metrics }) => {
-  if (!metrics) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading metrics securely...</div>
-  const { top_products, top_customers, monthly_progression, stock_levels } = metrics
+const formatLakhs = (val) =>
+  val >= 100000
+    ? `₹${(val / 100000).toFixed(1)}L`
+    : `₹${Math.round(val || 0).toLocaleString("en-IN")}`;
+const formatCrores = (val) =>
+  val >= 10000000 ? `₹${(val / 10000000).toFixed(2)} Cr` : formatLakhs(val);
+const formatKG = (val) =>
+  val !== undefined && val !== null
+    ? `${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(val || 0)} KG`
+    : "0 KG";
 
-  const formatNumber = (val) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val)
+const COLORS = [
+  "#0B3B2C",
+  "#2F7A60",
+  "#5BA28A",
+  "#3D6A8A",
+  "#7B5E7B",
+  "#A78BFA",
+  "#F59E0B",
+  "#EF4444",
+];
 
-  return (
-    <div>
-      {/* Top Cards Grid */}
-      <div className="stats-row">
-        <div className="stat-card" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span className="stat-label">Top Product</span>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '4px 0', color: 'var(--text)' }}>
-              {top_products && top_products.length > 0 ? top_products[0].name : 'N/A'}
-            </h3>
-            <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '20px', margin: 0 }}>
-              {top_products && top_products.length > 0 ? formatNumber(top_products[0].volume) : 0}{' '}
-              <span style={{fontSize: 13, color: 'var(--text-dim)', fontWeight: 500}}>KGs</span>
-            </p>
-          </div>
-          <div style={{ padding: 12, backgroundColor: 'var(--accent-soft)', borderRadius: 12, color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Package size={24} />
-          </div>
+const SectionHeader = ({ title, subtitle }) => (
+  <div style={{ marginBottom: 16 }}>
+    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>{title}</h3>
+    {subtitle && (
+      <p
+        style={{
+          color: "var(--text-dim)",
+          fontSize: 12.5,
+          margin: "4px 0 0 0",
+        }}
+      >
+        {subtitle}
+      </p>
+    )}
+  </div>
+);
+
+const KpiCard = ({ label, value, sub, icon: Icon, accent }) => (
+  <div className="stat-card" style={{ borderLeft: `4px solid ${accent}` }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: 8,
+      }}
+    >
+      <span className="stat-label">{label}</span>
+      {Icon && (
+        <div
+          style={{
+            padding: 8,
+            borderRadius: 10,
+            background: `${accent}1A`,
+            color: accent,
+            display: "flex",
+          }}
+        >
+          <Icon size={16} />
         </div>
+      )}
+    </div>
+    <span className="stat-value" style={{ color: accent, display: "block" }}>
+      {value}
+    </span>
+    {sub && (
+      <span
+        style={{
+          fontSize: 12,
+          color: "var(--text-dim)",
+          marginTop: 4,
+          display: "block",
+        }}
+      >
+        {sub}
+      </span>
+    )}
+  </div>
+);
 
-        <div className="stat-card" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span className="stat-label">Top Customer</span>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '4px 0', color: 'var(--text)' }}>
-              {top_customers && top_customers.length > 0 ? top_customers[0].name : 'N/A'}
-            </h3>
-            <p style={{ color: '#2F7A60', fontWeight: 800, fontSize: '20px', margin: 0 }}>
-              {top_customers && top_customers.length > 0 ? formatNumber(top_customers[0].volume) : 0}{' '}
-              <span style={{fontSize: 13, color: 'var(--text-dim)', fontWeight: 500}}>KGs</span>
-            </p>
+const DataTable = ({ columns, rows, footer }) => (
+  <div className="table-wrapper">
+    <table className="data-table" style={{ width: "100%", minWidth: 600 }}>
+      <thead>
+        <tr>
+          {columns.map((c) => (
+            <th key={c.key} style={c.thStyle || {}}>
+              {c.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {(rows || []).length === 0 ? (
+          <tr>
+            <td
+              colSpan={columns.length}
+              style={{
+                textAlign: "center",
+                padding: "24px",
+                color: "var(--text-dim)",
+              }}
+            >
+              No data available.
+            </td>
+          </tr>
+        ) : (
+          rows.map((r, i) => (
+            <tr key={i} style={r._style || {}}>
+              {columns.map((c) => (
+                <td key={c.key} style={c.tdStyle || {}}>
+                  {c.render ? c.render(r) : r[c.key]}
+                </td>
+              ))}
+            </tr>
+          ))
+        )}
+      </tbody>
+      {footer && footer}
+    </table>
+  </div>
+);
+
+/* ============================================================
+   PRIMARY SALES ANALYSIS TAB
+   ============================================================ */
+const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [rowKind, setRowKind] = useState(null);
+
+  if (!data)
+    return (
+      <div
+        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+      >
+        Loading Primary Sales data...
+      </div>
+    );
+
+  const {
+    kpis,
+    monthly_trend,
+    top_products,
+    top_customers,
+    divisions,
+    top_sales_execs,
+  } = data;
+
+  const productQ = productFilter.trim().toLowerCase();
+  const distQ = distFilter.trim().toLowerCase();
+
+  const filteredProducts = productQ
+    ? (top_products || []).filter((p) =>
+        (p.name || "").toLowerCase().includes(productQ),
+      )
+    : top_products || [];
+  const filteredCustomers = distQ
+    ? (top_customers || []).filter(
+        (c) =>
+          (c.name || "").toLowerCase().includes(distQ) ||
+          (c.sold_to || "").toLowerCase().includes(distQ) ||
+          (c.ship_to || "").toLowerCase().includes(distQ),
+      )
+    : top_customers || [];
+
+  const productsTotalValue = filteredProducts.reduce(
+    (s, p) => s + Number(p.value || 0),
+    0,
+  );
+  const productsTotalQty = filteredProducts.reduce(
+    (s, p) => s + Number(p.qty || 0),
+    0,
+  );
+  const customersTotalValue = filteredCustomers.reduce(
+    (s, c) => s + Number(c.value || 0),
+    0,
+  );
+  const customersTotalQty = filteredCustomers.reduce(
+    (s, c) => s + Number(c.qty || 0),
+    0,
+  );
+
+  const totalPS = productQ
+    ? productsTotalValue
+    : distQ
+      ? customersTotalValue
+      : kpis?.total_value || 0;
+  const totalQty = productQ
+    ? productsTotalQty
+    : distQ
+      ? customersTotalQty
+      : kpis?.total_qty || 0;
+
+  const totalASP = totalQty > 0 ? totalPS / totalQty : 0;
+
+  const valueTrend =
+    monthly_trend?.map((m) => ({
+      month: m.month,
+      Value: m.value,
+      ASP: m.asp || 0,
+    })) || [];
+
+  const qtyTrend =
+    monthly_trend?.map((m) => ({
+      month: m.month,
+      Qty: m.qty,
+      Invoices: m.invoices,
+    })) || [];
+
+  const pieData = productQ
+    ? []
+    : (divisions || [])
+        .filter((d) => d.value > 0)
+        .map((d) => ({ name: d.name, value: d.value }))
+        .slice(0, 8);
+
+  const renderCustomerModal = () => {
+    if (rowKind !== "customer") return null;
+    return (
+      <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+        <div
+          className="modal"
+          style={{ maxWidth: 640 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderBottom: "1px solid var(--border)",
+              paddingBottom: 14,
+              marginBottom: 20,
+            }}
+          >
+            <h2 className="modal-title" style={{ margin: 0 }}>
+              Customer — Primary Sales
+            </h2>
+            <button
+              className="btn btn-outline"
+              style={{ padding: "6px 8px", borderRadius: "50%" }}
+              onClick={() => setSelectedRow(null)}
+            >
+              <X size={18} />
+            </button>
           </div>
-          <div style={{ padding: 12, backgroundColor: 'rgba(47, 122, 96, 0.1)', borderRadius: 12, color: '#2F7A60', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShoppingCart size={24} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 16,
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Customer
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                {selectedRow?.name || "-"}
+              </div>
+            </div>
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Value
+              </span>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#0B3B2C",
+                  marginTop: 2,
+                }}
+              >
+                {formatCrores(selectedRow?.value || 0)}
+              </div>
+            </div>
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Quantity
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                {formatKG(selectedRow?.qty || 0)}
+              </div>
+            </div>
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Ship To
+              </span>
+              <div
+                style={{ fontSize: 13, marginTop: 2, wordBreak: "break-all" }}
+              >
+                {selectedRow?.ship_to || "-"}
+              </div>
+            </div>
+          </div>
+          {selectedRow?.sold_to && (
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+                marginBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Sold To
+              </span>
+              <div style={{ fontSize: 13, marginTop: 2 }}>
+                {selectedRow.sold_to}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderProductModal = () => {
+    if (rowKind !== "product") return null;
+    return (
+      <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+        <div
+          className="modal"
+          style={{ maxWidth: 640 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderBottom: "1px solid var(--border)",
+              paddingBottom: 14,
+              marginBottom: 20,
+            }}
+          >
+            <h2 className="modal-title" style={{ margin: 0 }}>
+              Product — Primary Sales
+            </h2>
+            <button
+              className="btn btn-outline"
+              style={{ padding: "6px 8px", borderRadius: "50%" }}
+              onClick={() => setSelectedRow(null)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 16,
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Product
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                {selectedRow?.name || "-"}
+              </div>
+            </div>
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Total Value
+              </span>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#0B3B2C",
+                  marginTop: 2,
+                }}
+              >
+                {formatCrores(selectedRow?.value || 0)}
+              </div>
+            </div>
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Total Quantity
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                {formatKG(selectedRow?.qty || 0)}
+              </div>
+            </div>
+            <div
+              style={{
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Avg. ASP
+              </span>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#3D6A8A",
+                  marginTop: 2,
+                }}
+              >
+                ₹
+                {selectedRow?.qty > 0
+                  ? Math.round(
+                      selectedRow.value / selectedRow.qty,
+                    ).toLocaleString("en-IN")
+                  : 0}
+                /KG
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    );
+  };
 
-      {/* Progression Area Chart */}
-      <div className="card" style={{ padding: 24, height: 420 }}>
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Monthly Progression Overview</h3>
-          <p style={{ color: 'var(--text-dim)', fontSize: 13.5, margin: '4px 0 0 0' }}>Volume fluctuations extracted from monthly sales</p>
-        </div>
-        {monthly_progression && monthly_progression.length > 0 ? (
-          <ResponsiveContainer width="100%" height="80%">
-            <AreaChart data={monthly_progression} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+  return (
+    <div>
+      {/* KPIs */}
+      <div className="stats-row">
+        <KpiCard
+          label="Total Primary Sales"
+          value={formatCrores(totalPS)}
+          sub={`${kpis?.months_count || 0} months of data`}
+          icon={DollarSign}
+          accent="#0B3B2C"
+        />
+        <KpiCard
+          label="Total Volume"
+          value={formatKG(totalQty)}
+          sub={`Total billed quantity`}
+          icon={Package}
+          accent="#2F7A60"
+        />
+        <KpiCard
+          label="Average ASP"
+          value={`₹${Math.round(totalASP || 0).toLocaleString("en-IN")}/KG`}
+          sub={`${kpis?.total_invoices || 0} invoices`}
+          icon={TrendingUp}
+          accent="#3D6A8A"
+        />
+        <KpiCard
+          label="Active Customers"
+          value={kpis?.customers_count || 0}
+          sub={`${kpis?.products_count || 0} products sold across ${kpis?.divisions_count || 0} divisions`}
+          icon={Users}
+          accent="#7B5E7B"
+        />
+      </div>
+
+      {/* Monthly trend charts */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
+          gap: 24,
+          marginTop: 24,
+        }}
+      >
+        <div className="card" style={{ padding: 22, height: 380 }}>
+          <SectionHeader
+            title="Monthly Primary Sales (Value)"
+            subtitle="Value in INR Lakhs + Average ASP"
+          />
+          <ResponsiveContainer width="100%" height="78%">
+            <ComposedChart
+              data={valueTrend}
+              margin={{ top: 6, right: 4, bottom: 0, left: -10 }}
+            >
               <defs>
-                <linearGradient id="colorProg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0B3B2C" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#0B3B2C" stopOpacity={0.0}/>
+                <linearGradient id="psVal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0B3B2C" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.5} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <XAxis dataKey="name" tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => val ? String(val).substring(0, 10) : ''} />
-              <YAxis tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} width={60} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip suffix=" KGs" />} />
-              <Area type="monotone" dataKey="volume" name="Volume" stroke="#0B3B2C" strokeWidth={3} fillOpacity={1} fill="url(#colorProg)" />
-            </AreaChart>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="var(--border)"
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tickFormatter={(v) => `₹${Math.round(v / 1000)}k`}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip prefix="₹" />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar
+                yAxisId="left"
+                name="Sales Value"
+                dataKey="Value"
+                fill="url(#psVal)"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={34}
+              />
+              <Line
+                yAxisId="right"
+                name="Avg ASP"
+                dataKey="ASP"
+                type="monotone"
+                stroke="#3D6A8A"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: "#3D6A8A" }}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
-        ) : (
-          <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>No monthly sales data found natively.</div>
-        )}
-      </div>
-
-      {/* Split Bars Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
-        <div className="card" style={{ padding: 24, height: 380 }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: '800' }}>Top Products by Volume</h3>
-          {top_products && top_products.length > 0 ? (
-            <ResponsiveContainer width="100%" height="85%">
-              <BarChart layout="vertical" data={top_products} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-                <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-muted)', fontSize: 11}} width={100} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip suffix=" KGs" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
-                <Bar dataKey="volume" name="Volume" radius={[0, 6, 6, 0]} maxBarSize={20}>
-                  {(top_products || []).map((entry, index) => {
-                    const colors = ['#0B3B2C', '#2F7A60', '#5BA28A', '#3D6A8A'];
-                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                  })}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ height: '85%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>No products found structurally.</div>
-          )}
         </div>
 
-        <div className="card" style={{ padding: 24, height: 380 }}>
-          <h3 style={{ margin: '0 0 20px 0', fontSize: 16, fontWeight: '800' }}>Top Current Monthly Stock Levels</h3>
-          {stock_levels && stock_levels.length > 0 ? (
-            <ResponsiveContainer width="100%" height="85%">
-              <BarChart layout="vertical" data={stock_levels.slice(0, 5)} margin={{ top: 5, right: 10, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-                <XAxis type="number" tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" tick={{fill: 'var(--text-muted)', fontSize: 11}} width={110} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip suffix=" KGs" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
-                <Bar dataKey="stock" name="Stock" radius={[0, 6, 6, 0]} maxBarSize={20}>
-                  {(stock_levels || []).slice(0, 5).map((entry, index) => {
-                    const colors = ['#0B3B2C', '#2F7A60', '#5BA28A', '#3D6A8A'];
-                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                  })}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ height: '85%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>No stock levels extracted.</div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Sub-component: Analytics Tab
-const AnalyticsTab = ({ data }) => {
-  const [selectedRow, setSelectedRow] = useState(null)
-  const [prodSearch, setProdSearch] = useState('')
-
-  useEffect(() => {
-    if (!selectedRow) {
-      setProdSearch('')
-    }
-  }, [selectedRow])
-
-  if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading Analytics Pipeline...</div>
-
-  const { kpis, monthly_trend, distributor_performance, customer_performance } = data
-
-  const formatLakhs = (val) => val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : `₹${val.toLocaleString()}`
-  const formatCrores = (val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)} Cr` : formatLakhs(val)
-
-  return (
-    <div>
-      {/* Time filters */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button className="btn btn-secondary" style={{ padding: '8px 18px' }}>MTD</button>
-        <button className="btn btn-secondary" style={{ padding: '8px 18px' }}>QTD</button>
-        <button className="btn btn-primary" style={{ padding: '8px 18px' }}>YTD</button>
-        <button className="btn btn-secondary" style={{ padding: '8px 18px' }}>Last Year</button>
-        <div style={{ flex: 1 }}></div>
-        <select className="form-control" style={{ width: 150, padding: '8px 12px' }}><option>All Zones</option></select>
-        <select className="form-control" style={{ width: 180, padding: '8px 12px' }}><option>All Distributors</option></select>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="stats-row">
-        <div className="stat-card" style={{ borderLeft: '4px solid #0B3B2C' }}>
-          <span className="stat-label">Primary Sales (PS)</span>
-          <span className="stat-value" style={{ color: '#0B3B2C' }}>{formatCrores(kpis?.total_primary || 0)}</span>
-        </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid #2F7A60' }}>
-          <span className="stat-label">Secondary Sales (SS)</span>
-          <span className="stat-value" style={{ color: '#2F7A60' }}>{formatCrores(kpis?.total_secondary || 0)}</span>
-        </div>
-        <div className="stat-card" style={{ borderLeft: '4px solid #3D6A8A' }}>
-          <span className="stat-label">Channel Efficiency (SS/PS)</span>
-          <span className="stat-value" style={{ color: '#3D6A8A' }}>{kpis?.channel_efficiency || 0}%</span>
+        <div className="card" style={{ padding: 22, height: 380 }}>
+          <SectionHeader
+            title="Monthly Primary Sales (Volume)"
+            subtitle="Quantity (KGs) + Invoice count"
+          />
+          <ResponsiveContainer width="100%" height="78%">
+            <ComposedChart
+              data={qtyTrend}
+              margin={{ top: 6, right: 14, bottom: 0, left: -10 }}
+            >
+              <defs>
+                <linearGradient id="psQty" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2F7A60" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#2F7A60" stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="var(--border)"
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip suffix=" KG" />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Area
+                type="monotone"
+                name="Quantity (KG)"
+                dataKey="Qty"
+                stroke="#2F7A60"
+                fill="url(#psQty)"
+                strokeWidth={2}
+              />
+              <Line
+                name="Invoices"
+                dataKey="Invoices"
+                type="monotone"
+                stroke="#F59E0B"
+                strokeWidth={2.2}
+                dot={{ r: 3, fill: "#F59E0B" }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Composed Chart */}
-      <div className="card" style={{ padding: 24, height: 420, marginBottom: '32px' }}>
-        <div style={{ marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Monthly Primary vs Secondary Sales Trend</h3>
-          <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>
-            Primary & Secondary Sales (Left Axis, INR Lakhs) vs. Channel Efficiency (Right Axis, %)
-          </p>
-        </div>
-        <ResponsiveContainer width="100%" height="78%">
-          <ComposedChart data={monthly_trend} margin={{ top: 10, right: -10, bottom: 20, left: -10 }}>
-            <defs>
-              <linearGradient id="colorPrimarySales" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0B3B2C" stopOpacity={1}/>
-                <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.7}/>
-              </linearGradient>
-              <linearGradient id="colorSecondarySales" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2F7A60" stopOpacity={1}/>
-                <stop offset="100%" stopColor="#2F7A60" stopOpacity={0.7}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-            <XAxis dataKey="month" tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="left" tickFormatter={(val) => `₹${(val/100000).toFixed(0)}L`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="right" orientation="right" tickFormatter={(val) => `${val}%`} tick={{fill: 'var(--text-dim)', fontSize: 11}} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip prefix="₹" />} cursor={{fill: 'var(--bg)', opacity: 0.5}} />
-            <Legend wrapperStyle={{ paddingTop: 10, fontSize: 12 }} />
-            <Bar yAxisId="left" name="Primary Sales" dataKey="Primary Sales" fill="url(#colorPrimarySales)" radius={[4, 4, 0, 0]} maxBarSize={30} />
-            <Bar yAxisId="left" name="Secondary Sales" dataKey="Secondary Sales" fill="url(#colorSecondarySales)" radius={[4, 4, 0, 0]} maxBarSize={30} />
-            <Line yAxisId="right" name="Efficiency %" type="monotone" dataKey="Efficiency %" stroke="#3D6A8A" strokeWidth={3} dot={{r: 4, fill: '#3D6A8A'}} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Floating tables */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
-        <div className="card" style={{ padding: '32px' }}>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-             <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Distributors Performance</h3>
-             <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Grouped by Network</span>
-          </div>
-          <div className="table-wrapper" style={{ marginBottom: 32 }}>
-            <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
-               <thead>
-                 <tr>
-                   <th>Distributor Name</th>
-                   <th>Sold To</th>
-                   <th>Ship To</th>
-                   <th>Primary Sales</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {(distributor_performance || []).map((row, i) => (
-                   <tr key={i} onClick={() => setSelectedRow(row)} style={{ cursor: 'pointer' }}>
-                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.group}</td>
-                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
-                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
-                     <td style={{ fontWeight: 700 }}>{formatLakhs(row.primary)}</td>
-                   </tr>
-                 ))}
-                 {!(distributor_performance?.length > 0) && (
-                   <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No distributor metrics extracted.</td></tr>
-                 )}
-               </tbody>
-               <tfoot>
-                 <tr style={{ backgroundColor: 'transparent' }}>
-                   <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px', border: 'none' }}>TOTAL PRIMARY KPI:</td>
-                   <td style={{ fontWeight: '800', fontSize: 16, color: 'var(--primary)', border: 'none', padding: '16px' }}>{formatCrores(kpis?.total_primary || 0)}</td>
-                 </tr>
-               </tfoot>
-            </table>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-             <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Customers Performance</h3>
-             <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Top 50 by Secondary Sales</span>
-          </div>
-          <div className="table-wrapper">
-            <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
-               <thead>
-                 <tr>
-                   <th>Customer Name</th>
-                   <th>Sold To</th>
-                   <th>Ship To</th>
-                   <th>Secondary Sales</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {(customer_performance || []).map((row, i) => (
-                   <tr key={i} onClick={() => setSelectedRow(row)} style={{ cursor: 'pointer' }}>
-                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.group}</td>
-                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.sold_to}</td>
-                     <td style={{ color: 'var(--text-muted)', fontSize: 13.5, maxWidth: 200, wordWrap: 'break-word', whiteSpace: 'normal' }}>{row.ship_to}</td>
-                     <td style={{ fontWeight: 700 }}>{formatLakhs(row.secondary)}</td>
-                   </tr>
-                 ))}
-                 {!(customer_performance?.length > 0) && (
-                   <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>No customer metrics extracted.</td></tr>
-                 )}
-               </tbody>
-               <tfoot>
-                 <tr style={{ backgroundColor: 'transparent' }}>
-                   <td colSpan="3" style={{ fontWeight: 'bold', textAlign: 'right', padding: '16px', border: 'none' }}>TOTAL SECONDARY KPI:</td>
-                   <td style={{ fontWeight: '800', fontSize: 16, color: 'var(--green)', border: 'none', padding: '16px' }}>{formatCrores(kpis?.total_secondary || 0)}</td>
-                 </tr>
-               </tfoot>
-            </table>
-          </div>
-        </div>
-      </div>
-      {selectedRow && (
-        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
-          <div className="modal" style={{ maxWidth: '700px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
-              <h2 className="modal-title" style={{ margin: 0 }}>Performance details</h2>
-              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedRow(null)}>
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-              {Object.entries(selectedRow)
-                .filter(([key]) => key !== 'products')
-                .map(([key, val]) => {
-                  const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                  return (
-                    <div key={key} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                      <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>{formattedKey}</span>
-                      <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', wordBreak: 'break-all' }}>
-                        {key === 'primary' || key === 'secondary' 
-                          ? `₹${Number(val).toLocaleString('en-IN')}` 
-                          : key === 'efficiency'
-                            ? `${val}%`
-                            : String(val ?? '-')}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-
-            {selectedRow.products && selectedRow.products.length > 0 && (
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--primary)' }}>Products Sold</h3>
-                  <div style={{ position: 'relative', width: '220px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="Search products..." 
-                      value={prodSearch}
-                      onChange={e => setProdSearch(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 12px 6px 30px',
-                        fontSize: '13px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface)',
-                        color: 'var(--text)',
-                        outline: 'none'
-                      }}
-                    />
-                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
-                  </div>
-                </div>
-
-                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
-                  <table className="data-table" style={{ width: '100%', minWidth: 'auto', fontSize: '13px', margin: 0 }}>
-                    <thead style={{ background: 'var(--bg)' }}>
-                      <tr>
-                        <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Product Name</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Primary Sales</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Secondary Sales</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedRow.products
-                        .filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase()))
-                        .map((p, idx, arr) => (
-                          <tr key={idx} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border)', background: 'transparent' }}>
-                            <td style={{ padding: '8px 12px', color: 'var(--text)', fontWeight: '600' }}>{p.name}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                              {p.primary_val > 0 ? `₹${p.primary_val.toLocaleString('en-IN')}` : '-'}
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                              {p.secondary_val > 0 ? `₹${p.secondary_val.toLocaleString('en-IN')}` : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      {selectedRow.products.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase())).length === 0 && (
-                        <tr>
-                          <td colSpan="3" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                            No matching products found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Sub-component: Variance Tab for mismatch details
-const VarianceTab = ({ data }) => {
-  const [selectedMonth, setSelectedMonth] = useState(null)
-  const [prodSearch, setProdSearch] = useState('')
-  const [oversoldMonthFilter, setOversoldMonthFilter] = useState('All')
-  const [oversoldSearch, setOversoldSearch] = useState('')
-  const [minOversoldVal, setMinOversoldVal] = useState(0)
-
-  useEffect(() => {
-    if (!selectedMonth) {
-      setProdSearch('')
-    }
-  }, [selectedMonth])
-
-  if (!data) return <div style={{textAlign: 'center', padding: 40, color: 'var(--text-muted)'}}>Loading asymmetry details...</div>
-
-  const { kpis, raw_kpis, monthly_comparison } = data
-
-  const formatLakhs = (val) => val >= 100000 ? `₹${(val / 100000).toFixed(1)}L` : `₹${val.toLocaleString()}`
-  const formatCrores = (val) => val >= 10000000 ? `₹${(val / 10000000).toFixed(1)} Cr` : formatLakhs(val)
-  const formatKG = (val) => val !== undefined && val !== null ? `${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val)} KG` : '0 KG'
-
-  const diffPrimary = (raw_kpis?.total_primary || 0) - (kpis?.total_primary || 0)
-
-  // Calculate matched months totals for table footer
-  const matchedMonths = (monthly_comparison || []).filter(row => row.included)
-  const totalPSMatched = matchedMonths.reduce((sum, row) => sum + row.ps, 0)
-  const totalSSMatched = matchedMonths.reduce((sum, row) => sum + row.ss, 0)
-  const totalDiffMatched = totalSSMatched - totalPSMatched
-
-  // Extract all product records across all months
-  const allProductMonths = [];
-  (monthly_comparison || []).forEach(m => {
-    if (m.products) {
-      m.products.forEach(p => {
-        const psQty = p.ps_qty !== undefined ? p.ps_qty : 0;
-        const ssQty = p.ss_qty !== undefined ? p.ss_qty : 0;
-        if (ssQty > psQty) {
-          allProductMonths.push({
-            month: m.month,
-            name: p.name,
-            ps: psQty,
-            ss: ssQty,
-            efficiency: p.qty_efficiency !== undefined ? p.qty_efficiency : (psQty > 0 ? (ssQty / psQty * 100) : 0),
-            difference: p.qty_difference !== undefined ? p.qty_difference : (ssQty - psQty)
-          });
-        }
-      });
-    }
-  });
-
-  // Sort by difference descending
-  allProductMonths.sort((a, b) => b.difference - a.difference)
-
-  const uniqueMonths = Array.from(new Set(allProductMonths.map(p => p.month))).sort()
-
-  const filteredOversold = allProductMonths.filter(p => {
-    const matchesMonth = oversoldMonthFilter === 'All' || p.month === oversoldMonthFilter;
-    const matchesSearch = p.name.toLowerCase().includes(oversoldSearch.toLowerCase());
-    const matchesVal = p.difference >= minOversoldVal;
-    return matchesMonth && matchesSearch && matchesVal;
-  })
-
-  return (
-    <div>
-      {/* Comparison KPI Cards */}
-      <div className="stats-row" style={{ marginBottom: 32 }}>
-        <div className="stat-card" style={{ borderLeft: '4px solid #0B3B2C', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <span className="stat-label" style={{ display: 'block', marginBottom: 4 }}>Filtered KPI (Matched Months)</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>PS: <strong>{formatCrores(kpis?.total_primary || 0)}</strong></span>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>SS: <strong>{formatCrores(kpis?.total_secondary || 0)}</strong></span>
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <span className="stat-value" style={{ color: '#0B3B2C', fontSize: 24 }}>{kpis?.channel_efficiency || 0}%</span>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', display: 'block' }}>Oct 25 - Feb 26 (Shared)</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Monthly Breakdown Table */}
-      <div className="card" style={{ padding: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Variance Month-by-Month Details</h3>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>Comparing Primary vs Secondary Sales (Click row for details)</span>
-        </div>
-
-        <div className="table-wrapper">
-          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Primary Sales (PS)</th>
-                <th>Secondary Sales (SS)</th>
-                <th>Efficiency %</th>
-                <th>Difference (SS - PS)</th>
-                <th>Inclusion Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(monthly_comparison || []).filter(row => row.included).map((row, i) => (
-                <tr key={i} onClick={() => setSelectedMonth(row)} style={{ transition: 'all 0.2s', cursor: 'pointer' }}>
-                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.month}</td>
-                  <td>{formatLakhs(row.ps)}</td>
-                  <td>{row.ss > 0 ? formatLakhs(row.ss) : '₹0.0'}</td>
-                  <td style={{ fontWeight: 700, color: row.efficiency > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>
-                    {row.efficiency > 0 ? `${row.efficiency}%` : '0%'}
-                  </td>
-                  <td style={{ 
-                    fontWeight: 600, 
-                    color: row.difference > 0 ? '#10B981' : row.difference < 0 ? '#EF4444' : 'var(--text-muted)'
-                  }}>
-                    {row.difference !== 0 ? `${row.difference > 0 ? '+' : ''}${formatLakhs(row.difference)}` : '₹0.0'}
-                  </td>
-                  <td>
-                    <span style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      padding: '4px 10px', 
-                      borderRadius: '12px', 
-                      fontSize: '12px', 
-                      fontWeight: '700', 
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                      color: '#10B981' 
-                    }}>
-                      Included (Matched)
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {!(monthly_comparison?.length > 0) && (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>
-                    No comparison data available.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            <tfoot>
-              <tr style={{ backgroundColor: 'var(--surface-alt)', borderTop: '2px solid var(--border)', fontWeight: '800' }}>
-                <td style={{ padding: '16px 12px', color: 'var(--text)' }}>TOTALS:</td>
-                <td style={{ padding: '16px 12px', color: 'var(--text)' }}>{formatLakhs(totalPSMatched)}</td>
-                <td style={{ padding: '16px 12px', color: 'var(--text)' }}>{formatLakhs(totalSSMatched)}</td>
-                <td style={{ padding: '16px 12px', color: 'var(--primary)' }}>
-                  {totalPSMatched > 0 ? `${((totalSSMatched / totalPSMatched) * 100).toFixed(2)}%` : '0%'}
-                </td>
-                <td style={{ 
-                  padding: '16px 12px', 
-                  color: totalDiffMatched > 0 ? '#10B981' : totalDiffMatched < 0 ? '#EF4444' : 'var(--text-muted)'
-                }}>
-                  {totalDiffMatched !== 0 ? `${totalDiffMatched > 0 ? '+' : ''}${formatLakhs(totalDiffMatched)}` : '₹0.0'}
-                </td>
-                <td style={{ padding: '16px 12px' }}></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-      {/* Oversold Products Section */}
-      <div className="card" style={{ padding: '32px', marginTop: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: '800' }}>Oversold Products Analysis (All Months)</h3>
-            <p style={{ color: 'var(--text-dim)', fontSize: 13, margin: '4px 0 0 0' }}>Products where Secondary Sales (SS) Volume exceeds Primary Sales (PS) Volume</p>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Filter Month</span>
-              <select 
-                className="form-control" 
-                value={oversoldMonthFilter} 
-                onChange={e => setOversoldMonthFilter(e.target.value)}
-                style={{ padding: '6px 12px', fontSize: '13px', minWidth: '120px' }}
-              >
-                <option value="All">All Months</option>
-                {uniqueMonths.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Search Product</span>
-              <div style={{ position: 'relative', width: '200px' }}>
-                <input 
-                  type="text" 
-                  placeholder="Search..." 
-                  value={oversoldSearch}
-                  onChange={e => setOversoldSearch(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 12px 6px 30px',
-                    fontSize: '13px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                    outline: 'none'
+      {/* Division pie + Top execs */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
+          gap: 24,
+          marginTop: 24,
+        }}
+      >
+        <div className="card" style={{ padding: 22, height: 420 }}>
+          <SectionHeader
+            title="Division-wise Split"
+            subtitle="Share of total primary sales value"
+          />
+          {pieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="82%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={58}
+                  outerRadius={96}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, percent }) =>
+                    `${name}  ${(percent * 100).toFixed(0)}%`
+                  }
+                  labelLine={{ stroke: "var(--border)" }}
+                >
+                  {pieData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const p = payload[0];
+                    return (
+                      <div
+                        style={{
+                          background: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          boxShadow: "var(--shadow-lg)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            marginBottom: 4,
+                            color: "var(--text-dim)",
+                          }}
+                        >
+                          {label || p.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 800,
+                            color: p.color,
+                          }}
+                        >
+                          {formatCrores(p.value)}
+                        </div>
+                      </div>
+                    );
                   }}
                 />
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
-              </div>
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "82%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-dim)",
+              }}
+            >
+              No division data.
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Min Difference</span>
-              <select 
-                className="form-control" 
-                value={minOversoldVal} 
-                onChange={e => setMinOversoldVal(Number(e.target.value))}
-                style={{ padding: '6px 12px', fontSize: '13px', minWidth: '130px' }}
-              >
-                <option value={0}>Show All</option>
-                <option value={500}>&ge; 500 KG</option>
-                <option value={1000}>&ge; 1,000 KG</option>
-                <option value={5000}>&ge; 5,000 KG</option>
-                <option value={10000}>&ge; 10,000 KG</option>
-              </select>
-            </div>
-          </div>
+          )}
         </div>
 
-        <div className="table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <table className="data-table" style={{ width: '100%', minWidth: 800 }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-              <tr>
-                <th>Product Name</th>
-                <th>Month</th>
-                <th>Primary Sales Volume (PS)</th>
-                <th>Secondary Sales Volume (SS)</th>
-                <th>Oversold Difference (Volume)</th>
-                <th>Efficiency %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOversold.map((row, i) => (
-                <tr key={i} style={{ transition: 'all 0.2s' }}>
-                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{row.name}</td>
-                  <td style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{row.month}</td>
-                  <td>{row.ps > 0 ? formatKG(row.ps) : '-'}</td>
-                  <td>{row.ss > 0 ? formatKG(row.ss) : '0 KG'}</td>
-                  <td style={{ fontWeight: 700, color: '#10B981' }}>
-                    +{formatKG(row.difference)}
-                  </td>
-                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                    {row.ps > 0 ? `${row.efficiency.toFixed(1)}%` : 'SS Only'}
-                  </td>
-                </tr>
-              ))}
-              {filteredOversold.length === 0 && (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
-                    No oversold products found matching the criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="card" style={{ padding: 22 }}>
+          <SectionHeader
+            title="Top Sales Executives"
+            subtitle="Ranked by primary sales value (Top 15)"
+          />
+          <DataTable
+            columns={[
+              { key: "name", label: "Executive" },
+              {
+                key: "value",
+                label: "Value",
+                tdStyle: {
+                  fontWeight: 700,
+                  color: "#0B3B2C",
+                  textAlign: "right",
+                },
+                thStyle: { textAlign: "right" },
+                render: (r) => formatCrores(r.value),
+              },
+              {
+                key: "qty",
+                label: "Qty",
+                tdStyle: { textAlign: "right" },
+                thStyle: { textAlign: "right" },
+                render: (r) => formatKG(r.qty),
+              },
+              {
+                key: "invoices",
+                label: "Invoices",
+                tdStyle: { textAlign: "right" },
+                thStyle: { textAlign: "right" },
+              },
+              {
+                key: "asp",
+                label: "ASP",
+                tdStyle: {
+                  fontWeight: 600,
+                  textAlign: "right",
+                  color: "#3D6A8A",
+                },
+                thStyle: { textAlign: "right" },
+                render: (r) =>
+                  `₹${Math.round(r.asp || 0).toLocaleString("en-IN")}`,
+              },
+            ]}
+            rows={top_sales_execs || []}
+          />
         </div>
       </div>
 
-      {/* Selected Month Details Modal */}
-      {selectedMonth && (
-        <div className="modal-overlay" onClick={() => setSelectedMonth(null)}>
-          <div className="modal" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '24px' }}>
-              <h2 className="modal-title" style={{ margin: 0 }}>Sales Details for {selectedMonth.month}</h2>
-              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedMonth(null)}>
-                <X size={18} />
-              </button>
-            </div>
+      {/* Top products table */}
+      <div className="card" style={{ padding: 24, marginTop: 24 }}>
+        <SectionHeader
+          title="Top Products — Primary Sales"
+          subtitle="Ranked by billed value (Top 20)"
+        />
+        <DataTable
+          columns={[
+            {
+              key: "rank",
+              label: "#",
+              thStyle: { width: 46 },
+              render: (_r, i) => i + 1,
+            },
+            {
+              key: "name",
+              label: "Product",
+              tdStyle: { fontWeight: 700, color: "var(--primary)" },
+              render: (r) => r.name,
+            },
+            {
+              key: "value",
+              label: "Value (INR)",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 700,
+                color: "#0B3B2C",
+              },
+              render: (r) => formatCrores(r.value),
+            },
+            {
+              key: "qty",
+              label: "Quantity (KG)",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.qty),
+            },
+            {
+              key: "asp",
+              label: "Avg ASP",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                color: "#3D6A8A",
+                fontWeight: 600,
+              },
+              render: (r) =>
+                `₹${r.qty > 0 ? Math.round(r.value / r.qty).toLocaleString("en-IN") : 0}/KG`,
+            },
+          ]}
+          rows={(top_products || []).map((p, i) => ({
+            ...p,
+            _style: { cursor: "pointer" },
+          }))}
+          footer={
+            <tfoot>
+              <tr style={{ backgroundColor: "transparent" }}>
+                <td
+                  colSpan={2}
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  TOTAL PRIMARY SALES:
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 16,
+                    color: "#0B3B2C",
+                    border: "none",
+                    padding: "16px",
+                    textAlign: "right",
+                  }}
+                >
+                  {formatCrores(totalPS)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatKG(totalQty)}
+                </td>
+                <td style={{ border: "none" }}></td>
+              </tr>
+            </tfoot>
+          }
+        />
+      </div>
 
-            {/* Quick Metrics Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Primary Sales</span>
-                <span style={{ fontSize: '16px', color: 'var(--primary)', fontWeight: '700' }}>{formatCrores(selectedMonth.ps)}</span>
-              </div>
-              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Secondary Sales</span>
-                <span style={{ fontSize: '16px', color: '#10B981', fontWeight: '700' }}>{formatCrores(selectedMonth.ss)}</span>
-              </div>
-              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Channel Efficiency</span>
-                <span style={{ fontSize: '16px', color: 'var(--text)', fontWeight: '700' }}>{selectedMonth.efficiency}%</span>
-              </div>
-              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Difference (SS - PS)</span>
-                <span style={{ 
-                  fontSize: '16px', 
-                  fontWeight: '700', 
-                  color: selectedMonth.difference > 0 ? '#10B981' : selectedMonth.difference < 0 ? '#EF4444' : 'var(--text-muted)'
-                }}>
-                  {selectedMonth.difference !== 0 ? `${selectedMonth.difference > 0 ? '+' : ''}${formatCrores(selectedMonth.difference)}` : '₹0.0'}
-                </span>
-              </div>
-            </div>
+      {/* Top customers table */}
+      <div className="card" style={{ padding: 24, marginTop: 24 }}>
+        <SectionHeader
+          title="Top Customers — Primary Sales"
+          subtitle="Ranked by billed value (Top 20)"
+        />
+        <DataTable
+          columns={[
+            {
+              key: "rank",
+              label: "#",
+              thStyle: { width: 46 },
+              render: (_r, i) => i + 1,
+            },
+            {
+              key: "name",
+              label: "Customer / Distributor",
+              tdStyle: { fontWeight: 700, color: "var(--primary)" },
+            },
+            {
+              key: "sold_to",
+              label: "Sold To",
+              tdStyle: { color: "var(--text-muted)", fontSize: 13 },
+            },
+            {
+              key: "ship_to",
+              label: "Ship To",
+              tdStyle: { color: "var(--text-muted)", fontSize: 13 },
+            },
+            {
+              key: "value",
+              label: "Value",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 700,
+                color: "#0B3B2C",
+              },
+              render: (r) => formatCrores(r.value),
+            },
+            {
+              key: "qty",
+              label: "Qty",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.qty),
+            },
+          ]}
+          rows={(top_customers || []).map((c, i) => ({
+            ...c,
+            _style: { cursor: "pointer" },
+          }))}
+          footer={
+            <tfoot>
+              <tr style={{ backgroundColor: "transparent" }}>
+                <td
+                  colSpan={4}
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  TOTAL PRIMARY SALES:
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 16,
+                    color: "#0B3B2C",
+                    border: "none",
+                    padding: "16px",
+                    textAlign: "right",
+                  }}
+                >
+                  {formatCrores(totalPS)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatKG(totalQty)}
+                </td>
+              </tr>
+            </tfoot>
+          }
+        />
+      </div>
 
-            {/* Product-Wise Details */}
-            {selectedMonth.products && selectedMonth.products.length > 0 ? (
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--primary)' }}>Product Performance breakdown</h3>
-                  <div style={{ position: 'relative', width: '240px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="Search products..." 
-                      value={prodSearch}
-                      onChange={e => setProdSearch(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 12px 6px 30px',
-                        fontSize: '13px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface)',
-                        color: 'var(--text)',
-                        outline: 'none'
-                      }}
-                    />
-                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
-                  </div>
-                </div>
-
-                <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', maxHeight: '350px', overflowY: 'auto' }}>
-                  <table className="data-table" style={{ width: '100%', minWidth: 'auto', fontSize: '13px', margin: 0 }}>
-                    <thead style={{ background: 'var(--bg)', position: 'sticky', top: 0, zIndex: 1 }}>
-                      <tr>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Product Name</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Primary Sales (PS)</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Secondary Sales (SS)</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Efficiency %</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: 'var(--text-dim)', fontSize: '11px' }}>Difference</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedMonth.products
-                        .filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase()))
-                        .map((p, idx, arr) => (
-                          <tr key={idx} style={{ borderBottom: idx === arr.length - 1 ? 'none' : '1px solid var(--border)', background: 'transparent' }}>
-                            <td style={{ padding: '10px 12px', color: 'var(--text)', fontWeight: '600' }}>{p.name}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                              {p.ps > 0 ? formatLakhs(p.ps) : '-'}
-                            </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                              {p.ss > 0 ? formatLakhs(p.ss) : '-'}
-                            </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600', color: p.efficiency > 0 ? 'var(--primary)' : 'var(--text-dim)' }}>
-                              {p.efficiency > 0 ? `${p.efficiency}%` : '-'}
-                            </td>
-                            <td style={{ 
-                              padding: '10px 12px', 
-                              textAlign: 'right', 
-                              fontWeight: '600', 
-                              color: p.difference > 0 ? '#10B981' : p.difference < 0 ? '#EF4444' : 'var(--text-muted)'
-                            }}>
-                              {p.difference !== 0 ? `${p.difference > 0 ? '+' : ''}${formatLakhs(p.difference)}` : '₹0.0'}
-                            </td>
-                          </tr>
-                        ))}
-                      {selectedMonth.products.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase())).length === 0 && (
-                        <tr>
-                          <td colSpan="5" style={{ padding: '16px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                            No matching products found in this month.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-dim)' }}>
-                No product-wise breakdown available for this month.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {selectedRow && rowKind === "product" && renderProductModal()}
+      {selectedRow && rowKind === "customer" && renderCustomerModal()}
     </div>
-  )
-}
+  );
+};
 
+/* ============================================================
+   SECONDARY SALES ANALYSIS TAB
+   ============================================================ */
+const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [rowKind, setRowKind] = useState(null);
+
+  if (!data)
+    return (
+      <div
+        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+      >
+        Loading Secondary Sales data...
+      </div>
+    );
+
+  const { kpis, monthly_trend, top_products, top_customers } = data;
+
+  const productQ = productFilter.trim().toLowerCase();
+  const distQ = distFilter.trim().toLowerCase();
+
+  const filteredProducts = productQ
+    ? (top_products || []).filter((p) =>
+        (p.name || "").toLowerCase().includes(productQ),
+      )
+    : top_products || [];
+  const filteredCustomers = distQ
+    ? (top_customers || []).filter(
+        (c) =>
+          (c.name || "").toLowerCase().includes(distQ) ||
+          (c.ship_to || "").toLowerCase().includes(distQ),
+      )
+    : top_customers || [];
+
+  const productsTotalValue = filteredProducts.reduce(
+    (s, p) => s + Number(p.value || 0),
+    0,
+  );
+  const productsTotalQty = filteredProducts.reduce(
+    (s, p) => s + Number(p.qty || 0),
+    0,
+  );
+  const customersTotalValue = filteredCustomers.reduce(
+    (s, c) => s + Number(c.value || 0),
+    0,
+  );
+  const customersTotalQty = filteredCustomers.reduce(
+    (s, c) => s + Number(c.qty || 0),
+    0,
+  );
+
+  const totalSS = productQ
+    ? productsTotalValue
+    : distQ
+      ? customersTotalValue
+      : kpis?.total_value || 0;
+  const totalQty = productQ
+    ? productsTotalQty
+    : distQ
+      ? customersTotalQty
+      : kpis?.total_qty || 0;
+  const totalStock = kpis?.total_stock || 0;
+
+  const valueTrend =
+    monthly_trend?.map((m) => ({
+      month: m.month,
+      Value: m.value,
+      ASP: m.asp || 0,
+    })) || [];
+
+  const qtyTrend =
+    monthly_trend?.map((m) => ({
+      month: m.month,
+      Qty: m.qty,
+      Records: m.records,
+    })) || [];
+
+  return (
+    <div>
+      {/* KPIs */}
+      <div className="stats-row">
+        <KpiCard
+          label="Total Secondary Sales"
+          value={formatCrores(totalSS)}
+          sub={`${kpis?.months_count || 0} months of data`}
+          icon={DollarSign}
+          accent="#2F7A60"
+        />
+        <KpiCard
+          label="Total Volume"
+          value={formatKG(totalQty)}
+          sub="Monthly Sales + CSI Sales combined"
+          icon={Package}
+          accent="#5BA28A"
+        />
+        <KpiCard
+          label="Average ASP"
+          value={`₹${Math.round(kpis?.avg_asp || 0).toLocaleString("en-IN")}/KG`}
+          sub={`${kpis?.total_records || 0} records`}
+          icon={TrendingUp}
+          accent="#3D6A8A"
+        />
+        <KpiCard
+          label="Active Products"
+          value={kpis?.products_count || 0}
+          sub={`${kpis?.customers_count || 0} unique customers · ${formatKG(totalStock)} stock`}
+          icon={ShoppingCart}
+          accent="#7B5E7B"
+        />
+      </div>
+
+      {/* Monthly trend charts */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
+          gap: 24,
+          marginTop: 24,
+        }}
+      >
+        <div className="card" style={{ padding: 22, height: 380 }}>
+          <SectionHeader
+            title="Monthly Secondary Sales (Value)"
+            subtitle="INR Lakhs + Average ASP"
+          />
+          <ResponsiveContainer width="100%" height="78%">
+            <ComposedChart
+              data={valueTrend}
+              margin={{ top: 6, right: 4, bottom: 0, left: -10 }}
+            >
+              <defs>
+                <linearGradient id="ssVal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2F7A60" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#2F7A60" stopOpacity={0.45} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="var(--border)"
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tickFormatter={(v) => `₹${Math.round(v / 1000)}k`}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip prefix="₹" />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar
+                yAxisId="left"
+                name="Sales Value"
+                dataKey="Value"
+                fill="url(#ssVal)"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={34}
+              />
+              <Line
+                yAxisId="right"
+                name="Avg ASP"
+                dataKey="ASP"
+                type="monotone"
+                stroke="#3D6A8A"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: "#3D6A8A" }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card" style={{ padding: 22, height: 380 }}>
+          <SectionHeader
+            title="Monthly Secondary Sales (Volume)"
+            subtitle="Quantity (KGs) + Record count"
+          />
+          <ResponsiveContainer width="100%" height="78%">
+            <ComposedChart
+              data={qtyTrend}
+              margin={{ top: 6, right: 14, bottom: 0, left: -10 }}
+            >
+              <defs>
+                <linearGradient id="ssQty" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#5BA28A" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#5BA28A" stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="var(--border)"
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip suffix=" KG" />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Area
+                type="monotone"
+                name="Quantity (KG)"
+                dataKey="Qty"
+                stroke="#5BA28A"
+                fill="url(#ssQty)"
+                strokeWidth={2}
+              />
+              <Line
+                name="Records"
+                dataKey="Records"
+                type="monotone"
+                stroke="#F59E0B"
+                strokeWidth={2.2}
+                dot={{ r: 3, fill: "#F59E0B" }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Top products bar + Customers bar */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
+          gap: 24,
+          marginTop: 24,
+        }}
+      >
+        <div className="card" style={{ padding: 22, height: 420 }}>
+          <SectionHeader
+            title="Top 10 Products by Value"
+            subtitle="Share of secondary sales"
+          />
+          {top_products && top_products.length > 0 ? (
+            <ResponsiveContainer width="100%" height="82%">
+              <BarChart
+                layout="vertical"
+                data={(top_products || []).slice(0, 10)}
+                margin={{ top: 4, right: 12, left: 10, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  horizontal={false}
+                  stroke="var(--border)"
+                />
+                <XAxis
+                  type="number"
+                  tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`}
+                  tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                  width={120}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<CustomTooltip prefix="₹" />} />
+                <Bar
+                  dataKey="value"
+                  name="Value"
+                  radius={[0, 6, 6, 0]}
+                  maxBarSize={18}
+                >
+                  {(top_products || []).slice(0, 10).map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "82%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-dim)",
+              }}
+            >
+              No product data.
+            </div>
+          )}
+        </div>
+
+        <div className="card" style={{ padding: 22, height: 420 }}>
+          <SectionHeader
+            title="Top 10 Customers by Value"
+            subtitle="Share of secondary sales"
+          />
+          {top_customers && top_customers.length > 0 ? (
+            <ResponsiveContainer width="100%" height="82%">
+              <BarChart
+                layout="vertical"
+                data={(top_customers || []).slice(0, 10)}
+                margin={{ top: 4, right: 12, left: 10, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  horizontal={false}
+                  stroke="var(--border)"
+                />
+                <XAxis
+                  type="number"
+                  tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`}
+                  tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                  width={120}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<CustomTooltip prefix="₹" />} />
+                <Bar
+                  dataKey="value"
+                  name="Value"
+                  fill="#2F7A60"
+                  radius={[0, 6, 6, 0]}
+                  maxBarSize={18}
+                >
+                  {(top_customers || []).slice(0, 10).map((_, i) => (
+                    <Cell key={i} fill={COLORS[(i + 1) % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "82%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-dim)",
+              }}
+            >
+              No customer data.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Top products table */}
+      <div className="card" style={{ padding: 24, marginTop: 24 }}>
+        <SectionHeader
+          title="Top Products — Secondary Sales"
+          subtitle="Ranked by value (Top 20)"
+        />
+        <DataTable
+          columns={[
+            {
+              key: "rank",
+              label: "#",
+              thStyle: { width: 46 },
+              render: (_r, i) => i + 1,
+            },
+            {
+              key: "name",
+              label: "Product",
+              tdStyle: { fontWeight: 700, color: "var(--primary)" },
+            },
+            {
+              key: "value",
+              label: "Value",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 700,
+                color: "#2F7A60",
+              },
+              render: (r) => formatCrores(r.value),
+            },
+            {
+              key: "qty",
+              label: "Qty (KG)",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.qty),
+            },
+            {
+              key: "asp",
+              label: "Avg ASP",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                color: "#3D6A8A",
+                fontWeight: 600,
+              },
+              render: (r) =>
+                `₹${r.qty > 0 ? Math.round(r.value / r.qty).toLocaleString("en-IN") : 0}/KG`,
+            },
+          ]}
+          rows={top_products || []}
+          footer={
+            <tfoot>
+              <tr style={{ backgroundColor: "transparent" }}>
+                <td
+                  colSpan={2}
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  TOTAL SECONDARY SALES:
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 16,
+                    color: "#2F7A60",
+                    border: "none",
+                    padding: "16px",
+                    textAlign: "right",
+                  }}
+                >
+                  {formatCrores(totalSS)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatKG(totalQty)}
+                </td>
+                <td style={{ border: "none" }}></td>
+              </tr>
+            </tfoot>
+          }
+        />
+      </div>
+
+      {/* Top customers table */}
+      <div className="card" style={{ padding: 24, marginTop: 24 }}>
+        <SectionHeader
+          title="Top Customers — Secondary Sales"
+          subtitle="Ranked by value (Top 20)"
+        />
+        <DataTable
+          columns={[
+            {
+              key: "rank",
+              label: "#",
+              thStyle: { width: 46 },
+              render: (_r, i) => i + 1,
+            },
+            {
+              key: "name",
+              label: "Customer / Distributor",
+              tdStyle: { fontWeight: 700, color: "var(--primary)" },
+            },
+            {
+              key: "ship_to",
+              label: "Ship To",
+              tdStyle: { color: "var(--text-muted)", fontSize: 13 },
+            },
+            {
+              key: "value",
+              label: "Value",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 700,
+                color: "#2F7A60",
+              },
+              render: (r) => formatCrores(r.value),
+            },
+            {
+              key: "qty",
+              label: "Qty (KG)",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.qty),
+            },
+          ]}
+          rows={top_customers || []}
+          footer={
+            <tfoot>
+              <tr style={{ backgroundColor: "transparent" }}>
+                <td
+                  colSpan={3}
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  TOTAL SECONDARY SALES:
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 16,
+                    color: "#2F7A60",
+                    border: "none",
+                    padding: "16px",
+                    textAlign: "right",
+                  }}
+                >
+                  {formatCrores(totalSS)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatKG(totalQty)}
+                </td>
+              </tr>
+            </tfoot>
+          }
+        />
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================
+   ROOT PAGE
+   ============================================================ */
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState('analytics')
-  const [metrics, setMetrics] = useState(null)
-  const [analytics, setAnalytics] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("primary");
+  const [selectedDistributor, setSelectedDistributor] = useState("CHEMIELINK");
+  const [primaryData, setPrimaryData] = useState(null);
+  const [secondaryData, setSecondaryData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [productFilter, setProductFilter] = useState("");
+  const [distFilter, setDistFilter] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
-        const [metricRes, analyticsRes] = await Promise.all([
-          API.get('/dashboard/metrics/'),
-          API.get('/dashboard/analytics-ps-ss/')
-        ])
-        const metricData = metricRes.data
-        if (metricData.stock_levels) metricData.stock_levels.sort((a, b) => b.stock - a.stock)
-        setMetrics(metricData)
-        setAnalytics(analyticsRes.data)
+        const productQ = productFilter.trim();
+        const [pr, sr] = await Promise.all([
+          API.get(
+            `/dashboard/primary-sales/?distributor=${selectedDistributor}${
+              productQ ? `&product=${encodeURIComponent(productQ)}` : ""
+            }`,
+          ),
+          API.get(
+            `/dashboard/secondary-sales/?distributor=${selectedDistributor}${
+              productQ ? `&product=${encodeURIComponent(productQ)}` : ""
+            }`,
+          ),
+        ]);
+        setPrimaryData(pr.data);
+        setSecondaryData(sr.data);
       } catch (e) {
-        console.error("Dashboard fetch error:", e)
+        console.error("Dashboard fetch error:", e);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchData()
-  }, [])
+    };
+    fetchData();
+  }, [selectedDistributor, productFilter]);
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column' }}>
-         <span className="spinner" style={{ width: 40, height: 40, marginBottom: 16 }} />
-         <p style={{ color: 'var(--text-muted)' }}>Aggregating dynamic matrices natively...</p>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "60vh",
+          flexDirection: "column",
+        }}
+      >
+        <span
+          className="spinner"
+          style={{ width: 40, height: 40, marginBottom: 16 }}
+        />
+        <p style={{ color: "var(--text-muted)" }}>
+          Aggregating sales analytics...
+        </p>
       </div>
-    )
+    );
   }
+
+  const hasActiveFilter = productFilter.trim() || distFilter.trim();
 
   return (
     <div>
-      <div className="page-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '20px', marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end'}}>
-        <div>
-          <h1 className="page-title" style={{ marginBottom: '16px' }}>Executive Analytics</h1>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className={`btn ${activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('analytics')}
+      <div
+        className="page-header"
+        style={{
+          borderBottom: "1px solid var(--border)",
+          paddingBottom: 20,
+          marginBottom: 28,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        <div style={{ minWidth: 0, flex: "1 1 420px" }}>
+          <h1 className="page-title" style={{ marginBottom: 16 }}>
+            Sales Analytics Dashboard
+          </h1>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 18,
+            }}
+          >
+            <button
+              className={`btn ${activeTab === "primary" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveTab("primary")}
             >
-              Primary vs Secondary Analytics
+              Primary Sales Analysis
             </button>
-            <button 
-              className={`btn ${activeTab === 'variance' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('variance')}
+            <button
+              className={`btn ${activeTab === "secondary" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveTab("secondary")}
             >
-              Variance Table
-            </button>
-            <button 
-              className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Overview
+              Secondary Sales Analysis
             </button>
           </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{ position: "relative", minWidth: 260, flex: "1 1 260px" }}
+            >
+              <input
+                type="text"
+                placeholder="Search product (e.g. Ethyl Acetate)..."
+                value={productFilter}
+                onChange={(e) => setProductFilter(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px 8px 34px",
+                  fontSize: 13,
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  outline: "none",
+                  fontWeight: 600,
+                }}
+              />
+              <Search
+                size={14}
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-dim)",
+                }}
+              />
+              {productFilter && (
+                <button
+                  onClick={() => setProductFilter("")}
+                  style={{
+                    position: "absolute",
+                    right: 6,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--text-dim)",
+                    cursor: "pointer",
+                    padding: 2,
+                    display: "flex",
+                  }}
+                  title="Clear product filter"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <div
+              style={{ position: "relative", minWidth: 260, flex: "1 1 260px" }}
+            >
+              <input
+                type="text"
+                placeholder="Search distributor / customer (e.g. Mikhail)..."
+                value={distFilter}
+                onChange={(e) => setDistFilter(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px 8px 34px",
+                  fontSize: 13,
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  outline: "none",
+                  fontWeight: 600,
+                }}
+              />
+              <Search
+                size={14}
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-dim)",
+                }}
+              />
+              {distFilter && (
+                <button
+                  onClick={() => setDistFilter("")}
+                  style={{
+                    position: "absolute",
+                    right: 6,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--text-dim)",
+                    cursor: "pointer",
+                    padding: 2,
+                    display: "flex",
+                  }}
+                  title="Clear distributor filter"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          {hasActiveFilter && (
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "var(--primary)",
+                }}
+              >
+                Active filters:
+              </span>
+              {productFilter.trim() && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    background: "rgba(11, 59, 44, 0.08)",
+                    color: "#0B3B2C",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Product ≈ “{productFilter.trim()}”
+                  <button
+                    onClick={() => setProductFilter("")}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      padding: 0,
+                      cursor: "pointer",
+                      display: "flex",
+                      color: "#0B3B2C",
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {distFilter.trim() && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    background: "rgba(47, 122, 96, 0.1)",
+                    color: "#2F7A60",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Distributor ≈ “{distFilter.trim()}”
+                  <button
+                    onClick={() => setDistFilter("")}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      padding: 0,
+                      cursor: "pointer",
+                      display: "flex",
+                      color: "#2F7A60",
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        <div style={{ color: 'var(--text-dim)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-           <RefreshCcw size={14} /> Last synced freshly via endpoints
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+              }}
+            >
+              Distributor:
+            </span>
+            <select
+              className="form-control"
+              value={selectedDistributor}
+              onChange={(e) => setSelectedDistributor(e.target.value)}
+              style={{
+                minWidth: 180,
+                padding: "6px 12px",
+                fontWeight: 700,
+              }}
+            >
+              <option value="CHEMIELINK">CHEMIELINK</option>
+            </select>
+          </div>
+          <div
+            style={{
+              color: "var(--text-dim)",
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+            }}
+          >
+            <RefreshCcw size={14} />
+            Last synced freshly via endpoints
+          </div>
         </div>
       </div>
 
-      <div className="tab-content" style={{ animation: 'fadeIn 0.3s' }}>
-        {activeTab === 'overview' ? (
-          <OverviewTab metrics={metrics} />
-        ) : activeTab === 'variance' ? (
-          <VarianceTab data={analytics} />
+      <div className="tab-content" style={{ animation: "fadeIn 0.3s" }}>
+        {activeTab === "primary" ? (
+          <PrimarySalesTab
+            data={primaryData}
+            productFilter={productFilter}
+            distFilter={distFilter}
+          />
         ) : (
-          <AnalyticsTab data={analytics} />
+          <SecondarySalesTab
+            data={secondaryData}
+            productFilter={productFilter}
+            distFilter={distFilter}
+          />
         )}
       </div>
     </div>
-  )
+  );
 }
