@@ -171,9 +171,9 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent }) => (
     {sub && (
       <span
         style={{
-          fontSize: 12,
+          fontSize: 11,
           color: "var(--text-dim)",
-          marginTop: 4,
+          marginTop: 2,
           display: "block",
         }}
       >
@@ -1698,10 +1698,7 @@ const PsVsSsTab = ({ data }) => {
   return (
     <div style={{ display: "grid", gap: 24 }}>
       {/* KPI ROW */}
-      <div
-        className="stat-grid"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
-      >
+      <div className="stats-row">
         <KpiCard
           label="Total Primary Sales"
           value={formatCrores(raw_kpis?.total_primary || 0)}
@@ -1959,10 +1956,7 @@ const VarianceTableTab = ({ data }) => {
   return (
     <div style={{ display: "grid", gap: 24 }}>
       {/* KPI */}
-      <div
-        className="stat-grid"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
-      >
+      <div className="stats-row">
         <KpiCard
           label="Aggregated Primary"
           value={formatCrores(totals.ps)}
@@ -2255,10 +2249,7 @@ const OverviewTab = ({ data }) => {
 
   return (
     <div style={{ display: "grid", gap: 24 }}>
-      <div
-        className="stat-grid"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
-      >
+      <div className="stats-row">
         <KpiCard
           label="Top 5 Products Volume"
           value={formatKG(totalVol)}
