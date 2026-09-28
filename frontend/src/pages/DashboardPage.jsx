@@ -689,7 +689,9 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
+                height={45}
                 axisLine={false}
                 tickLine={false}
               />
@@ -754,7 +756,9 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
+                height={45}
                 axisLine={false}
                 tickLine={false}
               />
@@ -1178,7 +1182,9 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
+                height={45}
                 axisLine={false}
                 tickLine={false}
               />
@@ -1243,7 +1249,9 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
+                height={45}
                 axisLine={false}
                 tickLine={false}
               />
@@ -1648,7 +1656,13 @@ const PsVsSsTab = ({ data }) => {
           <ResponsiveContainer>
             <ComposedChart data={monthly_trend || []}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="month" stroke="var(--text-dim)" />
+              <XAxis
+                dataKey="month"
+                stroke="var(--text-dim)"
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
+                height={45}
+              />
               <YAxis yAxisId="left" stroke="var(--text-dim)" />
               <YAxis
                 yAxisId="right"
