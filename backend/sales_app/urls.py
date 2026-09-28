@@ -1,29 +1,66 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductMasterViewSet, DistributorInvoiceViewSet, OrderViewSet, StockLevelViewSet, MonthlySalesViewSet, PrimarySalesViewSet, EPRViewSet, TraderTemplateViewSet, upload_products, extract_orders, upload_orders, extract_headers, upload_stock, upload_monthly_sales, upload_primary_sales, upload_csi_sales, dashboard_metrics, primary_vs_secondary_analytics, sales_exec_analytics, stock_analysis
+from .views import (
+    ProductMasterViewSet,
+    DistributorInvoiceViewSet,
+    OrderViewSet,
+    StockLevelViewSet,
+    MonthlySalesViewSet,
+    PrimarySalesViewSet,
+    EPRViewSet,
+    TraderTemplateViewSet,
+    upload_products,
+    extract_orders,
+    upload_orders,
+    extract_headers,
+    upload_stock,
+    upload_monthly_sales,
+    upload_primary_sales,
+    upload_csi_sales,
+    dashboard_metrics,
+    primary_vs_secondary_analytics,
+    sales_exec_analytics,
+    stock_analysis,
+    primary_sales_analysis,
+    secondary_sales_analysis,
+)
 
 router = DefaultRouter()
-router.register(r'products', ProductMasterViewSet)
-router.register(r'invoices', DistributorInvoiceViewSet)
-router.register(r'orders', OrderViewSet)
-router.register(r'stocks', StockLevelViewSet)
-router.register(r'monthly-sales', MonthlySalesViewSet)
-router.register(r'primary-sales', PrimarySalesViewSet)
-router.register(r'epr', EPRViewSet)
-router.register(r'trader-templates', TraderTemplateViewSet)
+router.register(r"products", ProductMasterViewSet)
+router.register(r"invoices", DistributorInvoiceViewSet)
+router.register(r"orders", OrderViewSet)
+router.register(r"stocks", StockLevelViewSet)
+router.register(r"monthly-sales", MonthlySalesViewSet)
+router.register(r"primary-sales", PrimarySalesViewSet)
+router.register(r"epr", EPRViewSet)
+router.register(r"trader-templates", TraderTemplateViewSet)
 
 urlpatterns = [
-    path('products/upload/', upload_products, name='upload-products'),
-    path('orders/extract/', extract_orders, name='extract-orders'),
-    path('orders/extract-headers/', extract_headers, name='extract-headers'),
-    path('orders/upload/', upload_orders, name='upload-orders'),
-    path('stocks/upload/', upload_stock, name='upload-stock'),
-    path('monthly-sales/upload/', upload_monthly_sales, name='upload-monthly-sales'),
-    path('primary-sales/upload/', upload_primary_sales, name='upload-primary-sales'),
-    path('csi-sales/upload/', upload_csi_sales, name='upload-csi-sales'),
-    path('dashboard/metrics/', dashboard_metrics, name='dashboard-metrics'),
-    path('dashboard/analytics-ps-ss/', primary_vs_secondary_analytics, name='dashboard-analytics'),
-    path('analytics/sales-exec/', sales_exec_analytics, name='sales-exec-analytics'),
-    path('analytics/stock/', stock_analysis, name='stock-analysis'),
-    path('', include(router.urls)),
+    path("products/upload/", upload_products, name="upload-products"),
+    path("orders/extract/", extract_orders, name="extract-orders"),
+    path("orders/extract-headers/", extract_headers, name="extract-headers"),
+    path("orders/upload/", upload_orders, name="upload-orders"),
+    path("stocks/upload/", upload_stock, name="upload-stock"),
+    path("monthly-sales/upload/", upload_monthly_sales, name="upload-monthly-sales"),
+    path("primary-sales/upload/", upload_primary_sales, name="upload-primary-sales"),
+    path("csi-sales/upload/", upload_csi_sales, name="csi-sales-upload"),
+    path("dashboard/metrics/", dashboard_metrics, name="dashboard-metrics"),
+    path(
+        "dashboard/analytics-ps-ss/",
+        primary_vs_secondary_analytics,
+        name="dashboard-analytics",
+    ),
+    path(
+        "dashboard/primary-sales/",
+        primary_sales_analysis,
+        name="dashboard-primary-sales",
+    ),
+    path(
+        "dashboard/secondary-sales/",
+        secondary_sales_analysis,
+        name="dashboard-secondary-sales",
+    ),
+    path("analytics/sales-exec/", sales_exec_analytics, name="sales-exec-analytics"),
+    path("analytics/stock/", stock_analysis, name="stock-analysis"),
+    path("", include(router.urls)),
 ]

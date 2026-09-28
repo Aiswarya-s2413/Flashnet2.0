@@ -1675,6 +1675,727 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
 };
 
 /* ============================================================
+   PRIMARY VS SECONDARY ANALYSIS TAB
+   ============================================================ */
+const PsVsSsTab = ({ data }) => {
+  if (!data)
+    return (
+      <div
+        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+      >
+        Loading Primary vs Secondary analysis...
+      </div>
+    );
+
+  const {
+    kpis,
+    raw_kpis,
+    monthly_trend,
+    product_group,
+    distributor_performance,
+  } = data;
+
+  return (
+    <div style={{ display: "grid", gap: 24 }}>
+      {/* KPI ROW */}
+      <div
+        className="stat-grid"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+      >
+        <KpiCard
+          label="Total Primary Sales"
+          value={formatCrores(raw_kpis?.total_primary || 0)}
+          sub="All months available"
+          icon={ShoppingCart}
+          accent="#0B3B2C"
+        />
+        <KpiCard
+          label="Total Secondary Sales"
+          value={formatCrores(raw_kpis?.total_secondary || 0)}
+          sub="All months available"
+          icon={Package}
+          accent="#2F7A60"
+        />
+        <KpiCard
+          label="Overall Channel Efficiency"
+          value={`${raw_kpis?.channel_efficiency || 0}%`}
+          sub="Secondary / Primary across all data"
+          icon={TrendingUp}
+          accent="#3D6A8A"
+        />
+        <KpiCard
+          label="Efficiency (Common Distributors)"
+          value={`${kpis?.channel_efficiency || 0}%`}
+          sub={`PS ₹${formatCrores(kpis?.total_primary || 0)} · SS ₹${formatCrores(kpis?.total_secondary || 0)}`}
+          icon={BarChart2}
+          accent="#7B5E7B"
+        />
+      </div>
+
+      {/* MONTHLY TREND */}
+      <div className="section-card">
+        <SectionHeader
+          title="Primary vs Secondary — Monthly Trend (Common Months)"
+          subtitle="Months where both PS and SS distributors overlap are included"
+        />
+        <div style={{ width: "100%", height: 360 }}>
+          <ResponsiveContainer>
+            <ComposedChart data={monthly_trend || []}>
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+              <XAxis dataKey="month" stroke="var(--text-dim)" />
+              <YAxis yAxisId="left" stroke="var(--text-dim)" />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="var(--text-dim)"
+                domain={[0, 100]}
+              />
+              <Tooltip content={<CustomTooltip prefix="₹" />} />
+              <Legend />
+              <Bar
+                yAxisId="left"
+                dataKey="Primary Sales"
+                fill="#0B3B2C"
+                radius={[6, 6, 0, 0]}
+              />
+              <Bar
+                yAxisId="left"
+                dataKey="Secondary Sales"
+                fill="#2F7A60"
+                radius={[6, 6, 0, 0]}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="Efficiency %"
+                stroke="#EF4444"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#EF4444" }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: 24,
+          gridTemplateColumns: "1.1fr 1.3fr",
+        }}
+      >
+        {/* PRODUCT GROUP */}
+        <div className="section-card">
+          <SectionHeader
+            title="Product Group — Primary vs Secondary"
+            subtitle="Top 15 product groups"
+          />
+          <div style={{ width: "100%", height: 420 }}>
+            <ResponsiveContainer>
+              <BarChart
+                data={product_group || []}
+                layout="vertical"
+                margin={{ left: 20, right: 10 }}
+              >
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                <XAxis type="number" stroke="var(--text-dim)" />
+                <YAxis
+                  type="category"
+                  dataKey="group"
+                  stroke="var(--text-dim)"
+                  width={150}
+                />
+                <Tooltip content={<CustomTooltip prefix="₹" />} />
+                <Legend />
+                <Bar
+                  dataKey="Primary Sales"
+                  fill="#0B3B2C"
+                  radius={[0, 4, 4, 0]}
+                />
+                <Bar
+                  dataKey="Secondary Sales"
+                  fill="#2F7A60"
+                  radius={[0, 4, 4, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* DISTRIBUTOR PERFORMANCE */}
+        <div className="section-card">
+          <SectionHeader
+            title="Distributor Performance"
+            subtitle="Efficiency = Secondary ÷ Primary · Top 20 distributors"
+          />
+          <DataTable
+            columns={[
+              { key: "group", label: "Distributor Group" },
+              {
+                key: "primary",
+                label: "Primary",
+                thStyle: { textAlign: "right" },
+                tdStyle: { textAlign: "right" },
+                render: (r) => formatCrores(r.primary),
+              },
+              {
+                key: "secondary",
+                label: "Secondary",
+                thStyle: { textAlign: "right" },
+                tdStyle: { textAlign: "right" },
+                render: (r) => formatCrores(r.secondary),
+              },
+              {
+                key: "efficiency",
+                label: "Efficiency %",
+                thStyle: { textAlign: "right" },
+                tdStyle: {
+                  textAlign: "right",
+                  color: (r) =>
+                    r.efficiency > 100
+                      ? "#2F7A60"
+                      : r.efficiency < 70
+                        ? "#EF4444"
+                        : "var(--text)",
+                  fontWeight: 700,
+                },
+                render: (r) => `${r.efficiency}%`,
+              },
+            ]}
+            rows={distributor_performance || []}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================
+   VARIANCE TABLE TAB
+   ============================================================ */
+const VarianceTableTab = ({ data }) => {
+  const [selectedMonth, setSelectedMonth] = useState("ALL");
+
+  if (!data)
+    return (
+      <div
+        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+      >
+        Loading variance data...
+      </div>
+    );
+
+  const monthly = data.monthly_comparison || [];
+  const months = ["ALL", ...monthly.map((m) => m.month)];
+
+  const aggregated = {};
+  const pushRow = (p) => {
+    const key = p.name || "Unknown";
+    if (!aggregated[key]) {
+      aggregated[key] = {
+        name: key,
+        ps: 0,
+        ss: 0,
+        ps_qty: 0,
+        ss_qty: 0,
+      };
+    }
+    aggregated[key].ps += p.ps || 0;
+    aggregated[key].ss += p.ss || 0;
+    aggregated[key].ps_qty += p.ps_qty || 0;
+    aggregated[key].ss_qty += p.ss_qty || 0;
+  };
+
+  if (selectedMonth === "ALL") {
+    monthly.forEach((m) => (m.products || []).forEach(pushRow));
+  } else {
+    const mo = monthly.find((m) => m.month === selectedMonth);
+    (mo?.products || []).forEach(pushRow);
+  }
+
+  const rows = Object.values(aggregated)
+    .map((r) => {
+      const diff = r.ss - r.ps;
+      const eff = r.ps > 0 ? (r.ss / r.ps) * 100 : 0;
+      const qtyDiff = r.ss_qty - r.ps_qty;
+      const qtyEff = r.ps_qty > 0 ? (r.ss_qty / r.ps_qty) * 100 : 0;
+      return {
+        ...r,
+        ps: Math.round(r.ps * 100) / 100,
+        ss: Math.round(r.ss * 100) / 100,
+        ps_qty: Math.round(r.ps_qty * 100) / 100,
+        ss_qty: Math.round(r.ss_qty * 100) / 100,
+        diff: Math.round(diff * 100) / 100,
+        eff: Math.round(eff * 100) / 100,
+        qtyDiff: Math.round(qtyDiff * 100) / 100,
+        qtyEff: Math.round(qtyEff * 100) / 100,
+        _style: {
+          background:
+            eff > 100
+              ? "rgba(47, 122, 96, 0.06)"
+              : eff > 0 && eff < 70
+                ? "rgba(239, 68, 68, 0.05)"
+                : "transparent",
+        },
+      };
+    })
+    .sort((a, b) => b.ps + b.ss - (a.ps + a.ss));
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.ps += r.ps;
+      acc.ss += r.ss;
+      acc.qty_ps += r.ps_qty;
+      acc.qty_ss += r.ss_qty;
+      return acc;
+    },
+    { ps: 0, ss: 0, qty_ps: 0, qty_ss: 0 },
+  );
+  const totalEff =
+    totals.ps > 0 ? ((totals.ss / totals.ps) * 100).toFixed(2) : 0;
+  const totalQtyEff =
+    totals.qty_ps > 0 ? ((totals.qty_ss / totals.qty_ps) * 100).toFixed(2) : 0;
+
+  return (
+    <div style={{ display: "grid", gap: 24 }}>
+      {/* KPI */}
+      <div
+        className="stat-grid"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+      >
+        <KpiCard
+          label="Aggregated Primary"
+          value={formatCrores(totals.ps)}
+          sub="Product-side filtered scope"
+          icon={ShoppingCart}
+          accent="#0B3B2C"
+        />
+        <KpiCard
+          label="Aggregated Secondary"
+          value={formatCrores(totals.ss)}
+          sub="Product-side filtered scope"
+          icon={Package}
+          accent="#2F7A60"
+        />
+        <KpiCard
+          label="Value Variance (SS − PS)"
+          value={formatCrores(totals.ss - totals.ps)}
+          sub={
+            totals.ss >= totals.ps
+              ? "Excess secondary over primary"
+              : "Secondary below primary"
+          }
+          icon={BarChart2}
+          accent={totals.ss >= totals.ps ? "#2F7A60" : "#EF4444"}
+        />
+        <KpiCard
+          label="Net Efficiency"
+          value={`${totalEff}%`}
+          sub={`Qty efficiency ${totalQtyEff}%`}
+          icon={TrendingUp}
+          accent="#3D6A8A"
+        />
+      </div>
+
+      <div
+        className="section-card"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <div>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
+            Product-wise PS − SS Variance
+          </h3>
+          <p
+            style={{
+              margin: "4px 0 0 0",
+              color: "var(--text-dim)",
+              fontSize: 12.5,
+            }}
+          >
+            Negative variance = SS under primary. Positive = excess secondary.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--text-dim)",
+            }}
+          >
+            Month:
+          </span>
+          <select
+            className="form-control"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={{ fontWeight: 700, minWidth: 160 }}
+          >
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {m === "ALL" ? "All Months (YTD Aggregate)" : m}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="section-card">
+        <DataTable
+          columns={[
+            { key: "name", label: "Product" },
+            {
+              key: "ps",
+              label: "Primary ₹",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatCrores(r.ps),
+            },
+            {
+              key: "ss",
+              label: "Secondary ₹",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatCrores(r.ss),
+            },
+            {
+              key: "diff",
+              label: "Variance ₹",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 800,
+                color: (r) => (r.diff >= 0 ? "#2F7A60" : "#EF4444"),
+              },
+              render: (r) => (r.diff >= 0 ? "+" : "") + formatCrores(r.diff),
+            },
+            {
+              key: "eff",
+              label: "Eff. %",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right", fontWeight: 700 },
+              render: (r) => `${r.eff}%`,
+            },
+            {
+              key: "ps_qty",
+              label: "Primary KG",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.ps_qty),
+            },
+            {
+              key: "ss_qty",
+              label: "Secondary KG",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.ss_qty),
+            },
+            {
+              key: "qtyDiff",
+              label: "Qty Diff",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 800,
+                color: (r) => (r.qtyDiff >= 0 ? "#2F7A60" : "#EF4444"),
+              },
+              render: (r) => (r.qtyDiff >= 0 ? "+" : "") + formatKG(r.qtyDiff),
+            },
+            {
+              key: "qtyEff",
+              label: "Qty Eff. %",
+              thStyle: { textAlign: "right" },
+              tdStyle: { textAlign: "right", fontWeight: 700 },
+              render: (r) => `${r.qtyEff}%`,
+            },
+          ]}
+          rows={rows}
+          footer={
+            <tfoot>
+              <tr style={{ backgroundColor: "transparent" }}>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  TOTAL
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatCrores(totals.ps)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatCrores(totals.ss)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                    color: totals.ss - totals.ps >= 0 ? "#2F7A60" : "#EF4444",
+                  }}
+                >
+                  {(totals.ss - totals.ps >= 0 ? "+" : "") +
+                    formatCrores(totals.ss - totals.ps)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {totalEff}%
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatKG(totals.qty_ps)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {formatKG(totals.qty_ss)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                    color:
+                      totals.qty_ss - totals.qty_ps >= 0
+                        ? "#2F7A60"
+                        : "#EF4444",
+                  }}
+                >
+                  {(totals.qty_ss - totals.qty_ps >= 0 ? "+" : "") +
+                    formatKG(totals.qty_ss - totals.qty_ps)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                  }}
+                >
+                  {totalQtyEff}%
+                </td>
+              </tr>
+            </tfoot>
+          }
+        />
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================
+   OVERVIEW TAB
+   ============================================================ */
+const OverviewTab = ({ data }) => {
+  if (!data)
+    return (
+      <div
+        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+      >
+        Loading overview...
+      </div>
+    );
+
+  const { top_products, top_customers, monthly_progression, stock_levels } =
+    data;
+
+  const totalVol = (top_products || []).reduce(
+    (s, p) => s + (p.volume || 0),
+    0,
+  );
+  const totalCustVol = (top_customers || []).reduce(
+    (s, c) => s + (c.volume || 0),
+    0,
+  );
+  const totalStock = (stock_levels || []).reduce(
+    (s, sl) => s + (sl.stock || 0),
+    0,
+  );
+
+  return (
+    <div style={{ display: "grid", gap: 24 }}>
+      <div
+        className="stat-grid"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+      >
+        <KpiCard
+          label="Top 5 Products Volume"
+          value={formatKG(totalVol)}
+          sub="Highest volume secondary products"
+          icon={Package}
+          accent="#0B3B2C"
+        />
+        <KpiCard
+          label="Top 5 Customers Volume"
+          value={formatKG(totalCustVol)}
+          sub="Highest volume secondary customers"
+          icon={Users}
+          accent="#2F7A60"
+        />
+        <KpiCard
+          label="Top 5 Stock Value (KG)"
+          value={formatKG(totalStock)}
+          sub="Month-end inventory from StockLevel"
+          icon={Map}
+          accent="#3D6A8A"
+        />
+        <KpiCard
+          label="Data Points"
+          value={`${(monthly_progression || []).length} months`}
+          sub="Secondary sales time coverage"
+          icon={FileText}
+          accent="#7B5E7B"
+        />
+      </div>
+
+      {/* MONTHLY PROGRESSION */}
+      <div className="section-card">
+        <SectionHeader
+          title="Monthly Secondary Volume Progression"
+          subtitle="Total KG sold per month"
+        />
+        <div style={{ width: "100%", height: 320 }}>
+          <ResponsiveContainer>
+            <AreaChart data={monthly_progression || []}>
+              <defs>
+                <linearGradient id="progGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#2F7A60" stopOpacity={0.6} />
+                  <stop offset="95%" stopColor="#2F7A60" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+              <XAxis dataKey="name" stroke="var(--text-dim)" />
+              <YAxis stroke="var(--text-dim)" />
+              <Tooltip content={<CustomTooltip suffix=" KG" />} />
+              <Area
+                type="monotone"
+                dataKey="volume"
+                name="Volume KG"
+                stroke="#0B3B2C"
+                strokeWidth={3}
+                fill="url(#progGrad)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: 24,
+          gridTemplateColumns: "1fr 1fr 1fr",
+        }}
+      >
+        {/* TOP 5 PRODUCTS */}
+        <div className="section-card">
+          <SectionHeader
+            title="Top 5 Products (Volume)"
+            subtitle="Highest volume secondary sales"
+          />
+          <DataTable
+            columns={[
+              { key: "name", label: "Product" },
+              {
+                key: "volume",
+                label: "Volume",
+                thStyle: { textAlign: "right" },
+                tdStyle: { textAlign: "right", fontWeight: 700 },
+                render: (r) => formatKG(r.volume),
+              },
+            ]}
+            rows={top_products || []}
+          />
+        </div>
+
+        {/* TOP 5 CUSTOMERS */}
+        <div className="section-card">
+          <SectionHeader
+            title="Top 5 Customers (Volume)"
+            subtitle="Highest volume end customers"
+          />
+          <DataTable
+            columns={[
+              { key: "name", label: "Customer" },
+              {
+                key: "volume",
+                label: "Volume",
+                thStyle: { textAlign: "right" },
+                tdStyle: { textAlign: "right", fontWeight: 700 },
+                render: (r) => formatKG(r.volume),
+              },
+            ]}
+            rows={top_customers || []}
+          />
+        </div>
+
+        {/* TOP 5 STOCK LEVELS */}
+        <div className="section-card">
+          <SectionHeader
+            title="Top 5 Stock Levels"
+            subtitle="By month-end inventory (KG)"
+          />
+          <DataTable
+            columns={[
+              { key: "name", label: "Product" },
+              {
+                key: "stock",
+                label: "Stock",
+                thStyle: { textAlign: "right" },
+                tdStyle: { textAlign: "right", fontWeight: 700 },
+                render: (r) => formatKG(r.stock),
+              },
+            ]}
+            rows={stock_levels || []}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================
    ROOT PAGE
    ============================================================ */
 export default function DashboardPage() {
@@ -1682,6 +2403,8 @@ export default function DashboardPage() {
   const [selectedDistributor, setSelectedDistributor] = useState("CHEMIELINK");
   const [primaryData, setPrimaryData] = useState(null);
   const [secondaryData, setSecondaryData] = useState(null);
+  const [psssData, setPsssData] = useState(null);
+  const [overviewData, setOverviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [productFilter, setProductFilter] = useState("");
   const [distFilter, setDistFilter] = useState("");
@@ -1691,20 +2414,20 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         const productQ = productFilter.trim();
-        const [pr, sr] = await Promise.all([
-          API.get(
-            `/dashboard/primary-sales/?distributor=${selectedDistributor}${
-              productQ ? `&product=${encodeURIComponent(productQ)}` : ""
-            }`,
-          ),
-          API.get(
-            `/dashboard/secondary-sales/?distributor=${selectedDistributor}${
-              productQ ? `&product=${encodeURIComponent(productQ)}` : ""
-            }`,
-          ),
+        const qs = (extra) =>
+          `?distributor=${selectedDistributor}${
+            productQ ? `&product=${encodeURIComponent(productQ)}` : ""
+          }${extra ? extra : ""}`;
+        const [pr, sr, psss, ov] = await Promise.all([
+          API.get(`/dashboard/primary-sales/${qs()}`),
+          API.get(`/dashboard/secondary-sales/${qs()}`),
+          API.get(`/dashboard/analytics-ps-ss/${qs()}`),
+          API.get(`/dashboard/metrics/${qs()}`),
         ]);
         setPrimaryData(pr.data);
         setSecondaryData(sr.data);
+        setPsssData(psss.data);
+        setOverviewData(ov.data);
       } catch (e) {
         console.error("Dashboard fetch error:", e);
       } finally {
@@ -1776,6 +2499,24 @@ export default function DashboardPage() {
               onClick={() => setActiveTab("secondary")}
             >
               Secondary Sales Analysis
+            </button>
+            <button
+              className={`btn ${activeTab === "psss" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveTab("psss")}
+            >
+              Primary vs Secondary
+            </button>
+            <button
+              className={`btn ${activeTab === "variance" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveTab("variance")}
+            >
+              Variance Table
+            </button>
+            <button
+              className={`btn ${activeTab === "overview" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveTab("overview")}
+            >
+              Overview
             </button>
           </div>
           <div
@@ -2027,12 +2768,18 @@ export default function DashboardPage() {
             productFilter={productFilter}
             distFilter={distFilter}
           />
-        ) : (
+        ) : activeTab === "secondary" ? (
           <SecondarySalesTab
             data={secondaryData}
             productFilter={productFilter}
             distFilter={distFilter}
           />
+        ) : activeTab === "psss" ? (
+          <PsVsSsTab data={psssData} />
+        ) : activeTab === "variance" ? (
+          <VarianceTableTab data={psssData} />
+        ) : (
+          <OverviewTab data={overviewData} />
         )}
       </div>
     </div>

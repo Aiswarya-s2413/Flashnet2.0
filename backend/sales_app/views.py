@@ -1886,8 +1886,9 @@ def dashboard_metrics(request):
         dist_param = request.GET.get("distributor", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
+        product_param = request.GET.get("product", "").strip()
 
-        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}"
+        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{product_param}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -1918,52 +1919,109 @@ def dashboard_metrics(request):
             monthly_sales_qs = MonthlySales.objects.all()
             stock_level_qs = StockLevel.objects.all()
 
-        # Top 5 Products by Total Volume
-        top_products_qs = (
-            monthly_sales_qs.values("product_name")
-            .annotate(volume=Sum("total_volume"))
-            .order_by("-volume")[:5]
-        )
-        top_products = [
-            {"name": item["product_name"] or "Unknown", "volume": item["volume"] or 0}
-            for item in top_products_qs
-        ]
+        _canon_cache = {}
+        _code_to_name = {
+            p.material_code: clean_prod_name(p.material_name)
+            for p in ProductMaster.objects.all()
+            if p.material_code
+        }
+        _name_to_clean = {
+            clean_prod_name(p.material_name): clean_prod_name(p.material_name)
+            for p in ProductMaster.objects.all()
+        }
 
-        # Top 5 Customers by Total Volume
-        top_customers_qs = (
-            monthly_sales_qs.values("customer_name")
-            .annotate(volume=Sum("total_volume"))
-            .order_by("-volume")[:5]
-        )
-        top_customers = [
-            {"name": item["customer_name"] or "Unknown", "volume": item["volume"] or 0}
-            for item in top_customers_qs
-        ]
+        def _get_canon(name):
+            if not name:
+                return ""
+            if name in _canon_cache:
+                return _canon_cache[name]
+            import re as _re
 
-        # Monthly Progression extracted dynamically
+            n = str(name).strip().upper()
+            n = _re.sub(r"[\s\xa0]+", " ", n)
+            n = _re.sub(r"\b\d{4,}\b$", "", n).strip()
+            n = _re.sub(r"\b\d+\s*(KG|KGS)\b", "", n, flags=_re.IGNORECASE)
+            n = _re.sub(
+                r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\s*\d+\b", "", n, flags=_re.IGNORECASE
+            )
+            n = _re.sub(
+                r"\b(BOX|DRUM|BAG|TIN|IBC|KG|KGS)\b", "", n, flags=_re.IGNORECASE
+            )
+            n = n.replace("-", " ").replace(".", " ")
+            n = _re.sub(r"[^A-Z0-9\s%]", "", n)
+            res = _re.sub(r"\s+", " ", n).strip()
+            _canon_cache[name] = res
+            return res
+
+        def _clean_ms_prod(ms):
+            pc = clean_prod_name(ms.product_name)
+            if pc in _name_to_clean:
+                return _get_canon(_name_to_clean[pc])
+            for cm in _name_to_clean:
+                if pc.startswith(cm) or cm in pc:
+                    return _get_canon(cm)
+            return _get_canon(pc)
+
+        _search_canon = _get_canon(product_param)
+        _matchable = set()
+        if _search_canon:
+            for p in ProductMaster.objects.all():
+                canon = _get_canon(clean_prod_name(p.material_name))
+                if canon and (_search_canon in canon or canon in _search_canon):
+                    _matchable.add(canon)
+
+        def _prod_match(p_name):
+            if not _search_canon:
+                return True
+            if not p_name:
+                return False
+            canon = _get_canon(p_name)
+            if not canon:
+                return False
+            if canon in _matchable:
+                return True
+            if _search_canon in canon or canon in _search_canon:
+                return True
+            return False
+
+        # Manual aggregation so we can apply product filter cleanly
+        prod_vol = defaultdict(float)
+        cust_vol = defaultdict(float)
         monthly_vols = defaultdict(float)
         for ms in monthly_sales_qs:
-            for m_str, vol in ms.volumes.items():
+            canon = _clean_ms_prod(ms) or "Unknown Product"
+            if not _prod_match(canon):
+                continue
+            tv = float(ms.total_volume or 0)
+            if tv > 0:
+                prod_vol[ms.product_name or "Unknown"] += tv
+                cust_vol[ms.customer_name or "Unknown"] += tv
+            for m_str, vol in (ms.volumes or {}).items():
                 try:
-                    vol_float = float(vol)
-                    monthly_vols[m_str] += vol_float
+                    vf = float(vol)
+                    if vf > 0:
+                        monthly_vols[m_str] += vf
                 except:
                     pass
 
+        prod_sorted = sorted(prod_vol.items(), key=lambda x: x[1], reverse=True)[:5]
+        cust_sorted = sorted(cust_vol.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_products = [{"name": n, "volume": round(v, 2)} for n, v in prod_sorted]
+        top_customers = [{"name": n, "volume": round(v, 2)} for n, v in cust_sorted]
+
         monthly_progression = [
-            {"name": k, "volume": v} for k, v in sorted(monthly_vols.items())
+            {"name": k, "volume": round(v, 2)} for k, v in sorted(monthly_vols.items())
         ]
 
-        # Top 5 Stock Levels by Month End Inventory
-        stock_qs = (
-            stock_level_qs.values("product_desc")
-            .annotate(stock=Sum("month_end_inventory"))
-            .order_by("-stock")[:5]
-        )
-        stock_levels = [
-            {"name": item["product_desc"] or "Unknown", "stock": item["stock"] or 0}
-            for item in stock_qs
-        ]
+        # Top 5 Stock Levels by Month End Inventory (product filtered if set)
+        stock_agg = defaultdict(float)
+        for sl in stock_level_qs:
+            desc = sl.product_desc or "Unknown"
+            if not _prod_match(desc):
+                continue
+            stock_agg[desc] += float(sl.month_end_inventory or 0)
+        stock_sorted = sorted(stock_agg.items(), key=lambda x: x[1], reverse=True)[:5]
+        stock_levels = [{"name": n, "stock": round(v, 2)} for n, v in stock_sorted]
 
         response_data = {
             "top_products": top_products,
@@ -1992,8 +2050,9 @@ def primary_vs_secondary_analytics(request):
         dist_param = request.GET.get("distributor", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
+        product_param = request.GET.get("product", "").strip()
 
-        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}"
+        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{product_param}"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -2097,6 +2156,29 @@ def primary_vs_secondary_analytics(request):
                     return get_canonical_name(clean_m_name)
             return get_canonical_name(prod_clean)
 
+        _search_canonical = get_canonical_name(product_param) if product_param else ""
+        _matchable_products = set()
+        if _search_canonical:
+            for p in ProductMaster.objects.all():
+                c = clean_prod_name(p.material_name)
+                canon = get_canonical_name(c)
+                if canon and (_search_canonical in canon or canon in _search_canonical):
+                    _matchable_products.add(canon)
+
+        def product_matches(p_name):
+            if not _search_canonical:
+                return True
+            if not p_name:
+                return False
+            canon = get_canonical_name(p_name)
+            if not canon:
+                return False
+            if canon in _matchable_products:
+                return True
+            if _search_canonical in canon or canon in _search_canonical:
+                return True
+            return False
+
         trend_map = defaultdict(lambda: {"ps": 0.0, "ss": 0.0})
         month_products_map = defaultdict(
             lambda: defaultdict(
@@ -2157,6 +2239,9 @@ def primary_vs_secondary_analytics(request):
             else:
                 prod_name = "Unknown Product"
 
+            if not product_matches(prod_name):
+                continue
+
             # Monthly aggregation
             if b_date:
                 m_str = b_date.strftime("%Y-%m")
@@ -2195,6 +2280,10 @@ def primary_vs_secondary_analytics(request):
         for ms in monthly_sales_qs:
             grp = get_group_name(ms.distributor_name)
             prod_name = get_clean_ms_product(ms) or "Unknown Product"
+
+            if not product_matches(prod_name):
+                continue
+
             group = (
                 prod_name.split(" ")[0]
                 if prod_name != "Unknown Product"

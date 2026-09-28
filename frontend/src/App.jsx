@@ -1,58 +1,110 @@
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
-import ProductsPage from './pages/ProductsPage'
-import InvoicesPage from './pages/InvoicesPage'
-import OrdersPage from './pages/OrdersPage'
-import DashboardPage from './pages/DashboardPage'
-import SalesExecAnalysisPage from './pages/SalesExecAnalysisPage'
-import UploadOrdersPage from './pages/UploadOrdersPage'
-import UploadStockPage from './pages/UploadStockPage'
-import UploadMonthlySalesPage from './pages/UploadMonthlySalesPage'
-import UploadPrimarySalesPage from './pages/UploadPrimarySalesPage'
-import UploadCSISalesPage from './pages/UploadCSISalesPage'
-import ExceptionalPriceRequestPage from './pages/ExceptionalPriceRequestPage'
-import PriceRequestApprovalsPage from './pages/PriceRequestApprovalsPage'
-import OnboardingApprovalsPage from './pages/OnboardingApprovalsPage'
-import StockAnalysisPage from './pages/StockAnalysisPage'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  Navigate,
+} from "react-router-dom";
+import ProductsPage from "./pages/ProductsPage";
+import InvoicesPage from "./pages/InvoicesPage";
+import OrdersPage from "./pages/OrdersPage";
+import DashboardPage from "./pages/DashboardPage";
+import SalesExecAnalysisPage from "./pages/SalesExecAnalysisPage";
+import UploadOrdersPage from "./pages/UploadOrdersPage";
+import UploadStockPage from "./pages/UploadStockPage";
+import UploadMonthlySalesPage from "./pages/UploadMonthlySalesPage";
+import UploadPrimarySalesPage from "./pages/UploadPrimarySalesPage";
+import UploadCSISalesPage from "./pages/UploadCSISalesPage";
+import ExceptionalPriceRequestPage from "./pages/ExceptionalPriceRequestPage";
+import PriceRequestApprovalsPage from "./pages/PriceRequestApprovalsPage";
+import OnboardingApprovalsPage from "./pages/OnboardingApprovalsPage";
+import StockAnalysisPage from "./pages/StockAnalysisPage";
 
-import { Package, FileText, ShoppingCart, LayoutDashboard, UploadCloud, Activity, Map, Edit3, CheckCircle, Search, Bell, Users, Award, BarChart2 } from 'lucide-react'
+import {
+  Package,
+  FileText,
+  ShoppingCart,
+  LayoutDashboard,
+  UploadCloud,
+  Activity,
+  Map,
+  Edit3,
+  CheckCircle,
+  Search,
+  Bell,
+  Users,
+  Award,
+  BarChart2,
+} from "lucide-react";
 
 // AppShell holds the sidebar layout and top header
 function AppShell({ children }) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/logo.png" alt="FlashNet 2.0" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text)', lineHeight: '1.2' }}>FlashNet 2.0</span>
-            <span style={{ fontSize: '8px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '600', marginTop: '2px' }}>Archroma Network</span>
+        <div
+          className="sidebar-brand"
+          style={{ display: "flex", alignItems: "center", gap: "12px" }}
+        >
+          <img
+            src="/logo.png"
+            alt="FlashNet 2.0"
+            style={{ width: 32, height: 32, objectFit: "contain" }}
+          />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <span
+              style={{
+                fontWeight: "700",
+                fontSize: "14px",
+                color: "var(--text)",
+                lineHeight: "1.2",
+              }}
+            >
+              FlashNet 2.0
+            </span>
+            <span
+              style={{
+                fontSize: "8px",
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                fontWeight: "600",
+                marginTop: "2px",
+              }}
+            >
+              Archroma Network
+            </span>
           </div>
         </div>
         <div className="sidebar-content">
           <div className="sidebar-group">
             <div className="sidebar-group-title">Core</div>
             <nav className="sidebar-nav">
-              <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <LayoutDashboard size={18} />
                 Dashboard
               </NavLink>
-              <NavLink to="/sales-exec-analysis" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/sales-exec-analysis"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <Award size={18} />
                 Sales Exec Analysis
               </NavLink>
-              <NavLink to="/orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                <ShoppingCart size={18} />
-                Orders
-              </NavLink>
-              <NavLink to="/invoices" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                <FileText size={18} />
-                Distributor Invoices
-              </NavLink>
-              <NavLink to="/products" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-                <Package size={18} />
-                Product Master
-              </NavLink>
-              <NavLink to="/stock-analysis" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/stock-analysis"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <BarChart2 size={18} />
                 Stock Analysis
               </NavLink>
@@ -62,23 +114,75 @@ function AppShell({ children }) {
           <div className="sidebar-group">
             <div className="sidebar-group-title">Uploads</div>
             <nav className="sidebar-nav">
-              <NavLink to="/upload-orders" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/orders"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
+                <ShoppingCart size={18} />
+                Orders
+              </NavLink>
+              <NavLink
+                to="/invoices"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
+                <FileText size={18} />
+                Distributor Invoices
+              </NavLink>
+              <NavLink
+                to="/products"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
+                <Package size={18} />
+                Product Master
+              </NavLink>
+              <NavLink
+                to="/upload-orders"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <UploadCloud size={18} />
                 Sales Register Upload
               </NavLink>
-              <NavLink to="/upload-stock" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/upload-stock"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <Activity size={18} />
                 Upload Stock Report
               </NavLink>
-              <NavLink to="/upload-monthly-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/upload-monthly-sales"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <Map size={18} />
                 Monthly Secondary Sales
               </NavLink>
-              <NavLink to="/upload-primary-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/upload-primary-sales"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <UploadCloud size={18} />
                 Primary Sales Upload
               </NavLink>
-              <NavLink to="/upload-csi-sales" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/upload-csi-sales"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <UploadCloud size={18} />
                 CSI Sales Upload
               </NavLink>
@@ -88,15 +192,30 @@ function AppShell({ children }) {
           <div className="sidebar-group">
             <div className="sidebar-group-title">Pricing & Access</div>
             <nav className="sidebar-nav">
-              <NavLink to="/exceptional-price-request" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/exceptional-price-request"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <Edit3 size={18} />
                 Price Request
               </NavLink>
-              <NavLink to="/epr-approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/epr-approvals"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <CheckCircle size={18} />
                 EPR Approvals
               </NavLink>
-              <NavLink to="/onboarding-approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <NavLink
+                to="/onboarding-approvals"
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
                 <Users size={18} />
                 Onboarding Approvals
               </NavLink>
@@ -110,9 +229,13 @@ function AppShell({ children }) {
             <h2>Welcome back, Team 👋</h2>
             <p>Here's what's happening with your sales today.</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             <div className="search-container">
-              <input type="text" placeholder="Search..." className="search-input" />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="search-input"
+              />
               <Search size={18} className="search-icon" />
             </div>
             <div className="notification-bell">
@@ -124,31 +247,129 @@ function AppShell({ children }) {
         {children}
       </main>
     </div>
-  )
+  );
 }
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<AppShell><DashboardPage /></AppShell>} />
-        <Route path="/sales-exec-analysis" element={<AppShell><SalesExecAnalysisPage /></AppShell>} />
-        <Route path="/orders" element={<AppShell><OrdersPage /></AppShell>} />
-        <Route path="/upload-orders" element={<AppShell><UploadOrdersPage /></AppShell>} />
-        <Route path="/upload-stock" element={<AppShell><UploadStockPage /></AppShell>} />
-        <Route path="/upload-monthly-sales" element={<AppShell><UploadMonthlySalesPage /></AppShell>} />
-        <Route path="/upload-primary-sales" element={<AppShell><UploadPrimarySalesPage /></AppShell>} />
-        <Route path="/upload-csi-sales" element={<AppShell><UploadCSISalesPage /></AppShell>} />
-        <Route path="/invoices" element={<AppShell><InvoicesPage /></AppShell>} />
-        <Route path="/products" element={<AppShell><ProductsPage /></AppShell>} />
-        <Route path="/exceptional-price-request" element={<AppShell><ExceptionalPriceRequestPage /></AppShell>} />
-        <Route path="/epr-approvals" element={<AppShell><PriceRequestApprovalsPage /></AppShell>} />
-        <Route path="/onboarding-approvals" element={<AppShell><OnboardingApprovalsPage /></AppShell>} />
-        <Route path="/stock-analysis" element={<AppShell><StockAnalysisPage /></AppShell>} />
+        <Route
+          path="/"
+          element={
+            <AppShell>
+              <DashboardPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/sales-exec-analysis"
+          element={
+            <AppShell>
+              <SalesExecAnalysisPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <AppShell>
+              <OrdersPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/upload-orders"
+          element={
+            <AppShell>
+              <UploadOrdersPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/upload-stock"
+          element={
+            <AppShell>
+              <UploadStockPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/upload-monthly-sales"
+          element={
+            <AppShell>
+              <UploadMonthlySalesPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/upload-primary-sales"
+          element={
+            <AppShell>
+              <UploadPrimarySalesPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/upload-csi-sales"
+          element={
+            <AppShell>
+              <UploadCSISalesPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/invoices"
+          element={
+            <AppShell>
+              <InvoicesPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            <AppShell>
+              <ProductsPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/exceptional-price-request"
+          element={
+            <AppShell>
+              <ExceptionalPriceRequestPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/epr-approvals"
+          element={
+            <AppShell>
+              <PriceRequestApprovalsPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/onboarding-approvals"
+          element={
+            <AppShell>
+              <OnboardingApprovalsPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/stock-analysis"
+          element={
+            <AppShell>
+              <StockAnalysisPage />
+            </AppShell>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;
