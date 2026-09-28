@@ -787,142 +787,54 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         </div>
       </div>
 
-      {/* Division pie + Top execs */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
-          gap: 24,
-          marginTop: 24,
-        }}
-      >
-        <div className="card" style={{ padding: 22, height: 420 }}>
-          <SectionHeader
-            title="Division-wise Split"
-            subtitle="Share of total primary sales value"
-          />
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="82%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={58}
-                  outerRadius={96}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name}  ${(percent * 100).toFixed(0)}%`
-                  }
-                  labelLine={{ stroke: "var(--border)" }}
-                >
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    const p = payload[0];
-                    return (
-                      <div
-                        style={{
-                          background: "var(--surface)",
-                          border: "1px solid var(--border)",
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          boxShadow: "var(--shadow-lg)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            marginBottom: 4,
-                            color: "var(--text-dim)",
-                          }}
-                        >
-                          {label || p.name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 800,
-                            color: p.color,
-                          }}
-                        >
-                          {formatCrores(p.value)}
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div
-              style={{
-                height: "82%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--text-dim)",
-              }}
-            >
-              No division data.
-            </div>
-          )}
-        </div>
-
-        <div className="card" style={{ padding: 22 }}>
-          <SectionHeader
-            title="Top Sales Executives"
-            subtitle="Ranked by primary sales value (Top 15)"
-          />
-          <DataTable
-            columns={[
-              { key: "name", label: "Executive" },
-              {
-                key: "value",
-                label: "Value",
-                tdStyle: {
-                  fontWeight: 700,
-                  color: "#0B3B2C",
-                  textAlign: "right",
-                },
-                thStyle: { textAlign: "right" },
-                render: (r) => formatCrores(r.value),
+      {/* Top Sales Executives — full width */}
+      <div className="card" style={{ padding: 22, marginTop: 24 }}>
+        <SectionHeader
+          title="Top Sales Executives"
+          subtitle="Ranked by primary sales value (Top 15)"
+        />
+        <DataTable
+          columns={[
+            { key: "name", label: "Executive" },
+            {
+              key: "value",
+              label: "Value",
+              tdStyle: {
+                fontWeight: 700,
+                color: "#0B3B2C",
+                textAlign: "right",
               },
-              {
-                key: "qty",
-                label: "Qty",
-                tdStyle: { textAlign: "right" },
-                thStyle: { textAlign: "right" },
-                render: (r) => formatKG(r.qty),
+              thStyle: { textAlign: "right" },
+              render: (r) => formatCrores(r.value),
+            },
+            {
+              key: "qty",
+              label: "Qty",
+              tdStyle: { textAlign: "right" },
+              thStyle: { textAlign: "right" },
+              render: (r) => formatKG(r.qty),
+            },
+            {
+              key: "invoices",
+              label: "Invoices",
+              tdStyle: { textAlign: "right" },
+              thStyle: { textAlign: "right" },
+            },
+            {
+              key: "asp",
+              label: "ASP",
+              tdStyle: {
+                fontWeight: 600,
+                textAlign: "right",
+                color: "#3D6A8A",
               },
-              {
-                key: "invoices",
-                label: "Invoices",
-                tdStyle: { textAlign: "right" },
-                thStyle: { textAlign: "right" },
-              },
-              {
-                key: "asp",
-                label: "ASP",
-                tdStyle: {
-                  fontWeight: 600,
-                  textAlign: "right",
-                  color: "#3D6A8A",
-                },
-                thStyle: { textAlign: "right" },
-                render: (r) =>
-                  `₹${Math.round(r.asp || 0).toLocaleString("en-IN")}`,
-              },
-            ]}
-            rows={top_sales_execs || []}
-          />
-        </div>
+              thStyle: { textAlign: "right" },
+              render: (r) =>
+                `₹${Math.round(r.asp || 0).toLocaleString("en-IN")}`,
+            },
+          ]}
+          rows={top_sales_execs || []}
+        />
       </div>
 
       {/* Top products table */}
