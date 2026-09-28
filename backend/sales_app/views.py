@@ -2604,6 +2604,96 @@ def _group_name(raw_name):
     return re.sub(r"\s+(CO\.|COMPANY|LTD\.|PVT\.|PRIVATE|LIMITED)$", "", n).strip()
 
 
+def _apply_order_filter(request):
+    """Return Order queryset filtered by distributor matching the active filter."""
+    from django.db.models import Q
+
+    user = request.user
+    dist_code = getattr(user, "distributor_code", "") if user else ""
+    is_dist = is_distributor(user)
+    dist_param = request.GET.get("distributor", "").strip()
+    if not dist_param and not is_dist:
+        dist_param = "CHEMIELINK"
+
+    if is_dist:
+        return Order.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+    elif dist_param and dist_param.upper() != "ALL":
+        if "CHEMI" in dist_param.upper():
+            return Order.objects.filter(
+                Q(sold_to__in=["438498", "441522"])
+                | Q(ship_to__in=["438498", "441522"])
+                | Q(ship_to__icontains="chemi")
+            )
+        else:
+            return Order.objects.filter(
+                Q(ship_to__icontains=dist_param) | Q(sold_to__icontains=dist_param)
+            )
+    return Order.objects.all()
+
+
+def _get_common_months(ps_qs, ms_qs, order_qs=None):
+    """Return set of YYYY-MM month strings that have sales (>0) in both Primary and Secondary."""
+    import datetime as _dt
+    from django.db.models import Q
+
+    ps_months = set()
+    try:
+        ps_dates = (
+            ps_qs.filter(Q(assessable_value__gt=0) | Q(billed_quantity__gt=0))
+            .exclude(billing_date__isnull=True)
+            .dates("billing_date", "month")
+        )
+        for d in ps_dates:
+            ps_months.add(d.strftime("%Y-%m"))
+    except Exception:
+        pass
+
+    ss_months = set()
+    for ms in ms_qs:
+        for m, v in (ms.values or {}).items():
+            try:
+                if float(v or 0) > 0:
+                    parsed = None
+                    try:
+                        import dateutil.parser
+                        parsed = dateutil.parser.parse(m, default=_dt.datetime(2020, 1, 1))
+                    except Exception:
+                        parsed = None
+                    std = parsed.strftime("%Y-%m") if parsed else m
+                    ss_months.add(std)
+            except Exception:
+                pass
+        for m, v in (ms.volumes or {}).items():
+            try:
+                if float(v or 0) > 0:
+                    parsed = None
+                    try:
+                        import dateutil.parser
+                        parsed = dateutil.parser.parse(m, default=_dt.datetime(2020, 1, 1))
+                    except Exception:
+                        parsed = None
+                    std = parsed.strftime("%Y-%m") if parsed else m
+                    ss_months.add(std)
+            except Exception:
+                pass
+
+    if order_qs is not None:
+        try:
+            order_dates = (
+                order_qs.filter(Q(value__gt=0) | Q(qty__gt=0))
+                .exclude(invoice_date__isnull=True)
+                .dates("invoice_date", "month")
+            )
+            for d in order_dates:
+                ss_months.add(d.strftime("%Y-%m"))
+        except Exception:
+            pass
+
+    common = ps_months.intersection(ss_months)
+    return common if common else (ps_months or ss_months)
+
+
+
 @api_view(["GET"])
 def primary_sales_analysis(request):
     """Complete standalone Primary Sales analysis (KPIs, monthly trend, top products/customers/divisions)."""
@@ -2621,13 +2711,15 @@ def primary_sales_analysis(request):
         product_param = request.GET.get("product", "").strip()
         cache_key = (
             f"dash_ps_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{product_param}"
+            f"{dist_code if is_dist else dist_param}_{product_param}_common_v1"
         )
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
 
-        ps_qs, _, _ = _apply_distributor_filter(request)
+        ps_qs, ms_qs, _ = _apply_distributor_filter(request)
+        order_qs = _apply_order_filter(request)
+        common_months = _get_common_months(ps_qs, ms_qs, order_qs)
 
         code_to_name, clean_to_canonical, get_canonical = _product_name_maps()
         product_q = get_canonical(product_param) if product_param else ""
@@ -2681,6 +2773,10 @@ def primary_sales_analysis(request):
             qty = float(ps["billed_quantity"] or 0.0)
             if val <= 0 and qty <= 0:
                 continue
+            b_date = ps["billing_date"]
+            m_str = b_date.strftime("%Y-%m") if b_date else "Unknown"
+            if common_months and m_str not in common_months:
+                continue
             p_name = resolve_product(ps["material_code"], ps["material_desc"])
             if not product_matches(p_name):
                 continue
@@ -2688,8 +2784,6 @@ def primary_sales_analysis(request):
             total_qty += qty
             total_invoices += 1
 
-            b_date = ps["billing_date"]
-            m_str = b_date.strftime("%Y-%m") if b_date else "Unknown"
             months_set.add(m_str)
             monthly[m_str]["value"] += val
             monthly[m_str]["qty"] += qty
@@ -2843,28 +2937,15 @@ def secondary_sales_analysis(request):
         product_param = request.GET.get("product", "").strip()
         cache_key = (
             f"dash_ss_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{product_param}"
+            f"{dist_code if is_dist else dist_param}_{product_param}_common_v1"
         )
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
 
-        _, ms_qs, sl_qs = _apply_distributor_filter(request)
-        if is_dist:
-            order_qs = Order.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
-        elif dist_param and dist_param.upper() != "ALL":
-            if "CHEMI" in dist_param.upper():
-                order_qs = Order.objects.filter(
-                    Q(sold_to__in=["438498", "441522"])
-                    | Q(ship_to__in=["438498", "441522"])
-                    | Q(ship_to__icontains="chemi")
-                )
-            else:
-                order_qs = Order.objects.filter(
-                    Q(ship_to__icontains=dist_param) | Q(sold_to__icontains=dist_param)
-                )
-        else:
-            order_qs = Order.objects.all()
+        ps_qs, ms_qs, sl_qs = _apply_distributor_filter(request)
+        order_qs = _apply_order_filter(request)
+        common_months = _get_common_months(ps_qs, ms_qs, order_qs)
 
         _, clean_to_canonical, get_canonical = _product_name_maps()
         product_q = get_canonical(product_param) if product_param else ""
@@ -2927,6 +3008,8 @@ def secondary_sales_analysis(request):
                     except Exception:
                         parsed = None
                     std = parsed.strftime("%Y-%m") if parsed else m_str
+                    if common_months and std not in common_months:
+                        continue
                     months_set.add(std)
                     monthly[std]["value"] += vf
                     monthly[std]["records"] += 1
@@ -2956,6 +3039,8 @@ def secondary_sales_analysis(request):
                     except Exception:
                         parsed = None
                     std = parsed.strftime("%Y-%m") if parsed else m_str
+                    if common_months and std not in common_months:
+                        continue
                     monthly[std]["qty"] += vf
                     total_qty += vf
                     products[p_name]["qty"] += vf
@@ -2969,6 +3054,9 @@ def secondary_sales_analysis(request):
             val = float(o.value or 0.0)
             qty = float(o.qty or 0.0)
             if val <= 0 and qty <= 0:
+                continue
+            m_str = o.invoice_date.strftime("%Y-%m") if o.invoice_date else "Unknown"
+            if common_months and m_str not in common_months:
                 continue
             p_name = resolve_order_product(o.material_code, o.material_name)
             if not product_matches(p_name):

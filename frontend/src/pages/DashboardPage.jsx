@@ -626,7 +626,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <KpiCard
           label="Total Primary Sales"
           value={formatCrores(totalPS)}
-          sub={`${kpis?.months_count || 0} months of data`}
+          sub={`${kpis?.months_count || 0} common months`}
           icon={DollarSign}
           accent="#0B3B2C"
         />
@@ -1203,7 +1203,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <KpiCard
           label="Total Secondary Sales"
           value={formatCrores(totalSS)}
-          sub={`${kpis?.months_count || 0} months of data`}
+          sub={`${kpis?.months_count || 0} common months`}
           icon={DollarSign}
           accent="#2F7A60"
         />
@@ -1701,22 +1701,22 @@ const PsVsSsTab = ({ data }) => {
       <div className="stats-row">
         <KpiCard
           label="Total Primary Sales"
-          value={formatCrores(raw_kpis?.total_primary || 0)}
-          sub="All months available"
+          value={formatCrores(kpis?.total_primary || 0)}
+          sub="Common months"
           icon={ShoppingCart}
           accent="#0B3B2C"
         />
         <KpiCard
           label="Total Secondary Sales"
-          value={formatCrores(raw_kpis?.total_secondary || 0)}
-          sub="All months available"
+          value={formatCrores(kpis?.total_secondary || 0)}
+          sub="Common months"
           icon={Package}
           accent="#2F7A60"
         />
         <KpiCard
           label="Overall Channel Efficiency"
-          value={`${raw_kpis?.channel_efficiency || 0}%`}
-          sub="Secondary / Primary across all data"
+          value={`${kpis?.channel_efficiency || 0}%`}
+          sub="Secondary / Primary (Common months)"
           icon={TrendingUp}
           accent="#3D6A8A"
         />
