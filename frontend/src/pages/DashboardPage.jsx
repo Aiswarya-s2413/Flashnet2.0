@@ -2573,57 +2573,7 @@ export default function DashboardPage() {
                 </button>
               )}
             </div>
-            <div
-              style={{ position: "relative", minWidth: 260, flex: "1 1 260px" }}
-            >
-              <input
-                type="text"
-                placeholder="Search distributor / customer (e.g. Mikhail)..."
-                value={distFilter}
-                onChange={(e) => setDistFilter(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px 8px 34px",
-                  fontSize: 13,
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                  color: "var(--text)",
-                  outline: "none",
-                  fontWeight: 600,
-                }}
-              />
-              <Search
-                size={14}
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-dim)",
-                }}
-              />
-              {distFilter && (
-                <button
-                  onClick={() => setDistFilter("")}
-                  style={{
-                    position: "absolute",
-                    right: 6,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    border: "none",
-                    background: "transparent",
-                    color: "var(--text-dim)",
-                    cursor: "pointer",
-                    padding: 2,
-                    display: "flex",
-                  }}
-                  title="Clear distributor filter"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
+            {/* Distributor search hidden for now */}
           </div>
           {hasActiveFilter && (
             <div
