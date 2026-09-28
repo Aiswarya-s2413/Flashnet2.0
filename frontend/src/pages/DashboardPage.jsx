@@ -1630,18 +1630,11 @@ const PsVsSsTab = ({ data }) => {
           accent="#2F7A60"
         />
         <KpiCard
-          label="Overall Channel Efficiency"
+          label="Channel Efficiency"
           value={`${kpis?.channel_efficiency || 0}%`}
-          sub="Secondary / Primary (Common months)"
+          sub="Secondary ÷ Primary (Common months)"
           icon={TrendingUp}
           accent="#3D6A8A"
-        />
-        <KpiCard
-          label="Efficiency (Common Distributors)"
-          value={`${kpis?.channel_efficiency || 0}%`}
-          sub={`PS ₹${formatCrores(kpis?.total_primary || 0)} · SS ₹${formatCrores(kpis?.total_secondary || 0)}`}
-          icon={BarChart2}
-          accent="#7B5E7B"
         />
       </div>
 
