@@ -2219,7 +2219,13 @@ const OverviewTab = ({ data }) => {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="name" stroke="var(--text-dim)" />
+              <XAxis
+                dataKey="name"
+                stroke="var(--text-dim)"
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
+                height={45}
+              />
               <YAxis stroke="var(--text-dim)" />
               <Tooltip content={<CustomTooltip suffix=" KG" />} />
               <Area
@@ -2239,7 +2245,7 @@ const OverviewTab = ({ data }) => {
         style={{
           display: "grid",
           gap: 24,
-          gridTemplateColumns: "1fr 1fr 1fr",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
         }}
       >
         {/* TOP 5 PRODUCTS */}
