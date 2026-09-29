@@ -2937,7 +2937,7 @@ def secondary_sales_analysis(request):
         product_param = request.GET.get("product", "").strip()
         cache_key = (
             f"dash_ss_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{product_param}_common_v1"
+            f"{dist_code if is_dist else dist_param}_{product_param}_all_products_v2"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -3121,7 +3121,7 @@ def secondary_sales_analysis(request):
             ],
             key=lambda x: x["value"],
             reverse=True,
-        )[:20]
+        )
 
         top_customers = sorted(
             [

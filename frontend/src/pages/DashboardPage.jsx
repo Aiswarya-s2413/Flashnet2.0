@@ -1120,6 +1120,12 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
 const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [rowKind, setRowKind] = useState(null);
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 20;
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [productFilter, distFilter]);
 
   if (!data)
     return (
@@ -1489,7 +1495,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
       <div className="card" style={{ padding: 24, marginTop: 24 }}>
         <SectionHeader
           title="Top Products — Secondary Sales"
-          subtitle="Ranked by value (Top 20)"
+          subtitle={`Ranked by value · ${(top_products || []).length} products`}
         />
         <DataTable
           columns={[
@@ -1497,7 +1503,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               key: "rank",
               label: "#",
               thStyle: { width: 46 },
-              render: (_r, i) => i + 1,
+              render: (_r, i) => (productPage - 1) * PRODUCTS_PER_PAGE + i + 1,
             },
             {
               key: "name",
@@ -1534,7 +1540,9 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               render: (r) => formatKG((r.qty || 0) / secMonthsCount),
             },
           ]}
-          rows={top_products || []}
+          rows={(top_products || [])
+            .slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE)
+            .map((p) => ({ ...p, _style: { cursor: "pointer" } }))}
           footer={
             <tfoot>
               <tr style={{ backgroundColor: "transparent" }}>
@@ -1576,6 +1584,101 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
             </tfoot>
           }
         />
+
+        {/* Pagination controls */}
+        {(top_products || []).length > PRODUCTS_PER_PAGE && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 16,
+              paddingTop: 16,
+              borderTop: "1px solid var(--border)",
+            }}
+          >
+            <button
+              onClick={() => setProductPage(1)}
+              disabled={productPage === 1}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === 1 ? "var(--bg)" : "var(--surface)",
+                color: productPage === 1 ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === 1 ? "not-allowed" : "pointer",
+              }}
+            >«</button>
+            <button
+              onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+              disabled={productPage === 1}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === 1 ? "var(--bg)" : "var(--surface)",
+                color: productPage === 1 ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === 1 ? "not-allowed" : "pointer",
+              }}
+            >‹ Prev</button>
+
+            {Array.from(
+              { length: Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) },
+              (_, i) => i + 1,
+            )
+              .filter((p) => Math.abs(p - productPage) <= 2)
+              .map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setProductPage(p)}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: p === productPage ? "var(--primary)" : "var(--surface)",
+                    color: p === productPage ? "#fff" : "var(--text)",
+                    cursor: "pointer",
+                    fontWeight: p === productPage ? 700 : 400,
+                  }}
+                >{p}</button>
+              ))}
+
+            <button
+              onClick={() => setProductPage((p) => Math.min(Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE), p + 1))}
+              disabled={productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--bg)" : "var(--surface)",
+                color: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "not-allowed" : "pointer",
+              }}
+            >Next ›</button>
+            <button
+              onClick={() => setProductPage(Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE))}
+              disabled={productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--bg)" : "var(--surface)",
+                color: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "not-allowed" : "pointer",
+              }}
+            >»</button>
+
+            <span style={{ fontSize: 12, color: "var(--text-dim)", marginLeft: 8 }}>
+              Page {productPage} of {Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)} · {(top_products || []).length} products
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Top customers table */}
