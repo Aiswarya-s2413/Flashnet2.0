@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import API from "../api";
 import {
   BarChart,
@@ -30,6 +30,10 @@ import {
   BarChart2,
   DollarSign,
   FileText,
+  Layers,
+  Filter,
+  CheckCircle,
+  ArrowRight,
 } from "lucide-react";
 
 const CustomTooltip = ({
@@ -69,7 +73,8 @@ const CustomTooltip = ({
           const isPercentage = Boolean(
             pld.name?.includes("%") ||
             pld.name?.toLowerCase().includes("efficiency") ||
-            pld.name?.toLowerCase().includes("asp"),
+            pld.name?.toLowerCase().includes("asp") ||
+            pld.name?.toLowerCase().includes("selling price"),
           );
           const itemPrefix = isPercentage ? "" : prefix;
           const itemSuffix = isPercentage ? "%" : suffix;
@@ -598,7 +603,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                   textTransform: "uppercase",
                 }}
               >
-                Avg. ASP
+                Average Selling Price
               </span>
               <div
                 style={{
@@ -642,7 +647,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#2F7A60"
         />
         <KpiCard
-          label="Average ASP"
+          label="Average Selling Price"
           value={`₹${Math.round(totalASP || 0).toLocaleString("en-IN")}/KG`}
           sub={`${kpis?.total_invoices || 0} invoices`}
           icon={TrendingUp}
@@ -669,7 +674,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <div className="card" style={{ padding: 22, height: 380 }}>
           <SectionHeader
             title="Monthly Primary Sales (Value)"
-            subtitle="Value in INR Lakhs + Average ASP"
+            subtitle="Value in INR Lakhs + Average Selling Price"
           />
           <ResponsiveContainer width="100%" height="78%">
             <ComposedChart
@@ -722,7 +727,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <Line
                 yAxisId="right"
-                name="Avg ASP"
+                name="Average Selling Price"
                 dataKey="ASP"
                 type="monotone"
                 stroke="#3D6A8A"
@@ -826,7 +831,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
             },
             {
               key: "asp",
-              label: "ASP",
+              label: "Average Selling Price",
               tdStyle: {
                 fontWeight: 600,
                 textAlign: "right",
@@ -881,7 +886,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
             },
             {
               key: "asp",
-              label: "Avg ASP",
+              label: "Average Selling Price",
               thStyle: { textAlign: "right" },
               tdStyle: {
                 textAlign: "right",
@@ -1135,7 +1140,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#5BA28A"
         />
         <KpiCard
-          label="Average ASP"
+          label="Average Selling Price"
           value={`₹${Math.round(kpis?.avg_asp || 0).toLocaleString("en-IN")}/KG`}
           sub={`${kpis?.total_records || 0} records`}
           icon={TrendingUp}
@@ -1162,7 +1167,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <div className="card" style={{ padding: 22, height: 380 }}>
           <SectionHeader
             title="Monthly Secondary Sales (Value)"
-            subtitle="INR Lakhs + Average ASP"
+            subtitle="INR Lakhs + Average Selling Price"
           />
           <ResponsiveContainer width="100%" height="78%">
             <ComposedChart
@@ -1215,7 +1220,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <Line
                 yAxisId="right"
-                name="Avg ASP"
+                name="Average Selling Price"
                 dataKey="ASP"
                 type="monotone"
                 stroke="#3D6A8A"
@@ -1454,7 +1459,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
             },
             {
               key: "asp",
-              label: "Avg ASP",
+              label: "Average Selling Price",
               thStyle: { textAlign: "right" },
               tdStyle: {
                 textAlign: "right",

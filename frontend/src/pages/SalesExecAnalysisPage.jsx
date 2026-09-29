@@ -61,7 +61,7 @@ const CustomChartTooltip = ({ active, payload, label }) => {
         )}
         {payload.map((pld, idx) => {
           const isAsp =
-            pld.name === "ASP" || pld.name?.toLowerCase().includes("asp");
+            pld.name === "ASP" || pld.name?.toLowerCase().includes("asp") || pld.name?.toLowerCase().includes("selling price");
           const isVol =
             pld.name === "Volume" || pld.name?.toLowerCase().includes("volume");
           let formatted = "";
@@ -435,7 +435,7 @@ export default function SalesExecAnalysisPage() {
               {formatQty(kpis.total_volume || 0)}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-dim)" }}>
-              Avg ASP: ₹
+              Avg Selling Price: ₹
               {kpis.total_volume > 0
                 ? (kpis.total_revenue / kpis.total_volume).toFixed(2)
                 : "0.00"}
@@ -758,7 +758,7 @@ export default function SalesExecAnalysisPage() {
               />
               <Line
                 yAxisId="right"
-                name="ASP"
+                name="Average Selling Price"
                 type="monotone"
                 dataKey="ASP"
                 stroke="#C07D38"
@@ -847,7 +847,7 @@ export default function SalesExecAnalysisPage() {
                   onSort={requestSort}
                 />
                 <SortHeader
-                  label="ASP (₹/KG)"
+                  label="Average Selling Price (₹/KG)"
                   sortKey="asp"
                   currentSortKey={sortKey}
                   currentSortDir={sortDir}
@@ -1205,7 +1205,7 @@ export default function SalesExecAnalysisPage() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Average ASP
+                  Average Selling Price
                 </span>
                 <p
                   style={{

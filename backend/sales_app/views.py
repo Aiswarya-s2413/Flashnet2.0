@@ -3682,10 +3682,16 @@ def stock_analysis(request):
     try:
         from collections import defaultdict
         import datetime
+        from django.core.cache import cache
 
         month_filter = request.GET.get("month")
         year_filter = request.GET.get("year")
         dist_filter = request.GET.get("dist", "").strip().lower()
+
+        cache_key = f"stock_analysis_{month_filter or 'all'}_{year_filter or 'all'}_{dist_filter or 'all'}"
+        cached_resp = cache.get(cache_key)
+        if cached_resp is not None:
+            return Response(cached_resp, status=status.HTTP_200_OK)
 
         ANOMALY_TOLERANCE_PCT = 5.0  # flag if discrepancy > 5 % of expected
 
@@ -4136,30 +4142,29 @@ def stock_analysis(request):
             )
         monthly_gaps_list.sort(key=lambda m: ym_sortable(m["month"]))
 
-        return Response(
-            {
-                "summary": {
-                    "total_rows": len(rows),
-                    "anomaly_count": summary_anomaly_count,
-                    "total_primary_qty": round(summary_total_ps_qty, 4),
-                    "total_secondary_qty": round(summary_total_ss_qty, 4),
-                    "total_expected_left": round(summary_total_expected, 4),
-                    "total_actual_stock": round(summary_total_actual, 4),
-                    # Overall discrepancy only where stock report was uploaded
-                    "stock_discrepancy": round(
-                        disc_total_actual - disc_total_expected, 4
-                    ),
-                    "disc_rows_count": disc_count,
-                    "ps_ss_matched_count": ps_ss_matched_count,
-                    # Distributors being tracked
-                    "tracked_distributors": sorted(list(tracked_dists)),
-                },
-                "available_months": available_months,
-                "monthly_gaps": monthly_gaps_list,
-                "rows": rows,
+        resp_payload = {
+            "summary": {
+                "total_rows": len(rows),
+                "anomaly_count": summary_anomaly_count,
+                "total_primary_qty": round(summary_total_ps_qty, 4),
+                "total_secondary_qty": round(summary_total_ss_qty, 4),
+                "total_expected_left": round(summary_total_expected, 4),
+                "total_actual_stock": round(summary_total_actual, 4),
+                # Overall discrepancy only where stock report was uploaded
+                "stock_discrepancy": round(
+                    disc_total_actual - disc_total_expected, 4
+                ),
+                "disc_rows_count": disc_count,
+                "ps_ss_matched_count": ps_ss_matched_count,
+                # Distributors being tracked
+                "tracked_distributors": sorted(list(tracked_dists)),
             },
-            status=status.HTTP_200_OK,
-        )
+            "available_months": available_months,
+            "monthly_gaps": monthly_gaps_list,
+            "rows": rows,
+        }
+        cache.set(cache_key, resp_payload, 3600)
+        return Response(resp_payload, status=status.HTTP_200_OK)
 
     except Exception as e:
         import traceback
