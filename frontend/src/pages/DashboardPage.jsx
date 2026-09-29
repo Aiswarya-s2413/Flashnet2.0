@@ -1349,14 +1349,6 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                 fill="url(#ssQty)"
                 strokeWidth={2}
               />
-              <Line
-                name="Records"
-                dataKey="Records"
-                type="monotone"
-                stroke="#F59E0B"
-                strokeWidth={2.2}
-                dot={{ r: 3, fill: "#F59E0B" }}
-              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
