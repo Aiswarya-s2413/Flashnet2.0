@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import API from "../api";
 import {
   BarChart,
@@ -25,6 +25,7 @@ import {
   RefreshCcw,
   X,
   Search,
+  Loader2,
   TrendingUp,
   Users,
   BarChart2,
@@ -149,7 +150,7 @@ const SectionHeader = ({ title, subtitle }) => (
   </div>
 );
 
-const KpiCard = ({ label, value, sub, icon: Icon, accent }) => (
+const KpiCard = ({ label, value, icon: Icon, accent }) => (
   <div className="stat-card" style={{ borderLeft: `4px solid ${accent}` }}>
     <div
       style={{
@@ -177,18 +178,6 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent }) => (
     <span className="stat-value" style={{ color: accent, display: "block" }}>
       {value}
     </span>
-    {sub && (
-      <span
-        style={{
-          fontSize: 11,
-          color: "var(--text-dim)",
-          marginTop: 2,
-          display: "block",
-        }}
-      >
-        {sub}
-      </span>
-    )}
   </div>
 );
 
@@ -241,6 +230,8 @@ const DataTable = ({ columns, rows, footer }) => (
 const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [rowKind, setRowKind] = useState(null);
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 20;
 
   if (!data)
     return (
@@ -305,13 +296,14 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
       ? customersTotalQty
       : kpis?.total_qty || 0;
 
-  const totalASP = totalQty > 0 ? totalPS / totalQty : 0;
+  const monthsCount = (monthly_trend && monthly_trend.length > 0) ? monthly_trend.length : (kpis?.months_count || 1);
+  const avgMonthlyVolume = monthsCount > 0 ? totalQty / monthsCount : 0;
 
   const valueTrend =
     monthly_trend?.map((m) => ({
       month: m.month,
       Value: m.value,
-      ASP: m.asp || 0,
+      Qty: m.qty,
     })) || [];
 
   const qtyTrend =
@@ -603,7 +595,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                   textTransform: "uppercase",
                 }}
               >
-                Average Selling Price
+                Avg Monthly Volume
               </span>
               <div
                 style={{
@@ -613,13 +605,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                   marginTop: 2,
                 }}
               >
-                ₹
-                {selectedRow?.qty > 0
-                  ? Math.round(
-                      selectedRow.value / selectedRow.qty,
-                    ).toLocaleString("en-IN")
-                  : 0}
-                /KG
+                {formatKG((selectedRow?.qty || 0) / monthsCount)}
               </div>
             </div>
           </div>
@@ -647,9 +633,9 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#2F7A60"
         />
         <KpiCard
-          label="Average Selling Price"
-          value={`₹${Math.round(totalASP || 0).toLocaleString("en-IN")}/KG`}
-          sub={`${kpis?.total_invoices || 0} invoices`}
+          label="Average Monthly Volume"
+          value={formatKG(avgMonthlyVolume)}
+          sub={`Average volume across ${monthsCount} months`}
           icon={TrendingUp}
           accent="#3D6A8A"
         />
@@ -674,7 +660,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <div className="card" style={{ padding: 22, height: 380 }}>
           <SectionHeader
             title="Monthly Primary Sales (Value)"
-            subtitle="Value in INR Lakhs + Average Selling Price"
+            subtitle="Value in INR Lakhs + Monthly Volume"
           />
           <ResponsiveContainer width="100%" height="78%">
             <ComposedChart
@@ -710,7 +696,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tickFormatter={(v) => `₹${Math.round(v / 1000)}k`}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k KG`}
                 tick={{ fontSize: 11, fill: "var(--text-dim)" }}
                 axisLine={false}
                 tickLine={false}
@@ -727,8 +713,8 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <Line
                 yAxisId="right"
-                name="Average Selling Price"
-                dataKey="ASP"
+                name="Monthly Volume (KG)"
+                dataKey="Qty"
                 type="monotone"
                 stroke="#3D6A8A"
                 strokeWidth={2.5}
@@ -741,7 +727,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <div className="card" style={{ padding: 22, height: 380 }}>
           <SectionHeader
             title="Monthly Primary Sales (Volume)"
-            subtitle="Quantity (KGs) + Invoice count"
+            subtitle="Quantity (KGs)"
           />
           <ResponsiveContainer width="100%" height="78%">
             <ComposedChart
@@ -783,14 +769,6 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                 fill="url(#psQty)"
                 strokeWidth={2}
               />
-              <Line
-                name="Invoices"
-                dataKey="Invoices"
-                type="monotone"
-                stroke="#F59E0B"
-                strokeWidth={2.2}
-                dot={{ r: 3, fill: "#F59E0B" }}
-              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -830,16 +808,15 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               thStyle: { textAlign: "right" },
             },
             {
-              key: "asp",
-              label: "Average Selling Price",
+              key: "avg_monthly_volume",
+              label: "Avg Monthly Volume",
               tdStyle: {
                 fontWeight: 600,
                 textAlign: "right",
                 color: "#3D6A8A",
               },
               thStyle: { textAlign: "right" },
-              render: (r) =>
-                `₹${Math.round(r.asp || 0).toLocaleString("en-IN")}`,
+              render: (r) => formatKG((r.qty || 0) / monthsCount),
             },
           ]}
           rows={top_sales_execs || []}
@@ -850,7 +827,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
       <div className="card" style={{ padding: 24, marginTop: 24 }}>
         <SectionHeader
           title="Top Products — Primary Sales"
-          subtitle="Ranked by billed value (Top 20)"
+          subtitle={`Ranked by billed value · ${(top_products || []).length} products`}
         />
         <DataTable
           columns={[
@@ -858,7 +835,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               key: "rank",
               label: "#",
               thStyle: { width: 46 },
-              render: (_r, i) => i + 1,
+              render: (_r, i) => (productPage - 1) * PRODUCTS_PER_PAGE + i + 1,
             },
             {
               key: "name",
@@ -885,22 +862,20 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               render: (r) => formatKG(r.qty),
             },
             {
-              key: "asp",
-              label: "Average Selling Price",
+              key: "avg_monthly_volume",
+              label: "Avg Monthly Volume",
               thStyle: { textAlign: "right" },
               tdStyle: {
                 textAlign: "right",
                 color: "#3D6A8A",
                 fontWeight: 600,
               },
-              render: (r) =>
-                `₹${r.qty > 0 ? Math.round(r.value / r.qty).toLocaleString("en-IN") : 0}/KG`,
+              render: (r) => formatKG((r.qty || 0) / monthsCount),
             },
           ]}
-          rows={(top_products || []).map((p, i) => ({
-            ...p,
-            _style: { cursor: "pointer" },
-          }))}
+          rows={(top_products || [])
+            .slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE)
+            .map((p) => ({ ...p, _style: { cursor: "pointer" } }))}
           footer={
             <tfoot>
               <tr style={{ backgroundColor: "transparent" }}>
@@ -942,6 +917,101 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
             </tfoot>
           }
         />
+
+        {/* Pagination controls */}
+        {(top_products || []).length > PRODUCTS_PER_PAGE && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 16,
+              paddingTop: 16,
+              borderTop: "1px solid var(--border)",
+            }}
+          >
+            <button
+              onClick={() => setProductPage(1)}
+              disabled={productPage === 1}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === 1 ? "var(--bg)" : "var(--surface)",
+                color: productPage === 1 ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === 1 ? "not-allowed" : "pointer",
+              }}
+            >«</button>
+            <button
+              onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+              disabled={productPage === 1}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === 1 ? "var(--bg)" : "var(--surface)",
+                color: productPage === 1 ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === 1 ? "not-allowed" : "pointer",
+              }}
+            >‹ Prev</button>
+
+            {Array.from(
+              { length: Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) },
+              (_, i) => i + 1,
+            )
+              .filter((p) => Math.abs(p - productPage) <= 2)
+              .map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setProductPage(p)}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: p === productPage ? "var(--primary)" : "var(--surface)",
+                    color: p === productPage ? "#fff" : "var(--text)",
+                    cursor: "pointer",
+                    fontWeight: p === productPage ? 700 : 400,
+                  }}
+                >{p}</button>
+              ))}
+
+            <button
+              onClick={() => setProductPage((p) => Math.min(Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE), p + 1))}
+              disabled={productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--bg)" : "var(--surface)",
+                color: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "not-allowed" : "pointer",
+              }}
+            >Next ›</button>
+            <button
+              onClick={() => setProductPage(Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE))}
+              disabled={productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)}
+              style={{
+                padding: "5px 10px",
+                fontSize: 12,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--bg)" : "var(--surface)",
+                color: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--text-dim)" : "var(--text)",
+                cursor: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "not-allowed" : "pointer",
+              }}
+            >»</button>
+
+            <span style={{ fontSize: 12, color: "var(--text-dim)", marginLeft: 8 }}>
+              Page {productPage} of {Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)} · {(top_products || []).length} products
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Top customers table */}
@@ -1107,11 +1177,14 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
       : kpis?.total_qty || 0;
   const totalStock = kpis?.total_stock || 0;
 
+  const secMonthsCount = (monthly_trend && monthly_trend.length > 0) ? monthly_trend.length : (kpis?.months_count || 1);
+  const avgSecMonthlyVolume = secMonthsCount > 0 ? totalQty / secMonthsCount : 0;
+
   const valueTrend =
     monthly_trend?.map((m) => ({
       month: m.month,
       Value: m.value,
-      ASP: m.asp || 0,
+      Qty: m.qty,
     })) || [];
 
   const qtyTrend =
@@ -1140,9 +1213,9 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#5BA28A"
         />
         <KpiCard
-          label="Average Selling Price"
-          value={`₹${Math.round(kpis?.avg_asp || 0).toLocaleString("en-IN")}/KG`}
-          sub={`${kpis?.total_records || 0} records`}
+          label="Average Monthly Volume"
+          value={formatKG(avgSecMonthlyVolume)}
+          sub={`Average volume across ${secMonthsCount} months`}
           icon={TrendingUp}
           accent="#3D6A8A"
         />
@@ -1167,7 +1240,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         <div className="card" style={{ padding: 22, height: 380 }}>
           <SectionHeader
             title="Monthly Secondary Sales (Value)"
-            subtitle="INR Lakhs + Average Selling Price"
+            subtitle="INR Lakhs + Monthly Volume"
           />
           <ResponsiveContainer width="100%" height="78%">
             <ComposedChart
@@ -1203,7 +1276,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tickFormatter={(v) => `₹${Math.round(v / 1000)}k`}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k KG`}
                 tick={{ fontSize: 11, fill: "var(--text-dim)" }}
                 axisLine={false}
                 tickLine={false}
@@ -1220,8 +1293,8 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               />
               <Line
                 yAxisId="right"
-                name="Average Selling Price"
-                dataKey="ASP"
+                name="Monthly Volume (KG)"
+                dataKey="Qty"
                 type="monotone"
                 stroke="#3D6A8A"
                 strokeWidth={2.5}
@@ -1458,16 +1531,15 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               render: (r) => formatKG(r.qty),
             },
             {
-              key: "asp",
-              label: "Average Selling Price",
+              key: "avg_monthly_volume",
+              label: "Avg Monthly Volume",
               thStyle: { textAlign: "right" },
               tdStyle: {
                 textAlign: "right",
                 color: "#3D6A8A",
                 fontWeight: 600,
               },
-              render: (r) =>
-                `₹${r.qty > 0 ? Math.round(r.value / r.qty).toLocaleString("en-IN") : 0}/KG`,
+              render: (r) => formatKG((r.qty || 0) / secMonthsCount),
             },
           ]}
           rows={top_products || []}
@@ -2331,14 +2403,66 @@ export default function DashboardPage() {
   const [psssData, setPsssData] = useState(null);
   const [overviewData, setOverviewData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [productFilter, setProductFilter] = useState("");
+  const [debouncedProductFilter, setDebouncedProductFilter] = useState("");
   const [distFilter, setDistFilter] = useState("");
+  const [allProducts, setAllProducts] = useState([]);
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const searchContainerRef = useRef(null);
 
   useEffect(() => {
+    API.get("/products/")
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        setAllProducts(data);
+      })
+      .catch((err) => console.error("Error loading products master:", err));
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowProductDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const productOptions = useMemo(() => {
+    const namesSet = new Set();
+    (allProducts || []).forEach((p) => {
+      const name = typeof p === "string" ? p : (p.product_name || p.name);
+      if (name) namesSet.add(name);
+    });
+    (primaryData?.top_products || []).forEach((p) => p.name && namesSet.add(p.name));
+    (secondaryData?.top_products || []).forEach((p) => p.name && namesSet.add(p.name));
+
+    const list = Array.from(namesSet);
+    if (!productFilter.trim()) return list.slice(0, 30);
+
+    const q = productFilter.trim().toLowerCase();
+    return list.filter((name) => name.toLowerCase().includes(q)).slice(0, 30);
+  }, [allProducts, primaryData, secondaryData, productFilter]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedProductFilter(productFilter);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [productFilter]);
+
+  useEffect(() => {
+    let isCancelled = false;
     const fetchData = async () => {
-      setLoading(true);
+      if (!primaryData) {
+        setLoading(true);
+      } else {
+        setIsFetching(true);
+      }
       try {
-        const productQ = productFilter.trim();
+        const productQ = debouncedProductFilter.trim();
         const qs = (extra) =>
           `?distributor=${selectedDistributor}${
             productQ ? `&product=${encodeURIComponent(productQ)}` : ""
@@ -2349,18 +2473,26 @@ export default function DashboardPage() {
           API.get(`/dashboard/analytics-ps-ss/${qs()}`),
           API.get(`/dashboard/metrics/${qs()}`),
         ]);
-        setPrimaryData(pr.data);
-        setSecondaryData(sr.data);
-        setPsssData(psss.data);
-        setOverviewData(ov.data);
+        if (!isCancelled) {
+          setPrimaryData(pr.data);
+          setSecondaryData(sr.data);
+          setPsssData(psss.data);
+          setOverviewData(ov.data);
+        }
       } catch (e) {
         console.error("Dashboard fetch error:", e);
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+          setIsFetching(false);
+        }
       }
     };
     fetchData();
-  }, [selectedDistributor, productFilter]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedDistributor, debouncedProductFilter]);
 
   if (loading) {
     return (
@@ -2453,13 +2585,18 @@ export default function DashboardPage() {
             }}
           >
             <div
-              style={{ position: "relative", minWidth: 260, flex: "1 1 260px" }}
+              ref={searchContainerRef}
+              style={{ position: "relative", minWidth: 280, flex: "1 1 280px" }}
             >
               <input
                 type="text"
                 placeholder="Search product (e.g. Ethyl Acetate)..."
                 value={productFilter}
-                onChange={(e) => setProductFilter(e.target.value)}
+                onFocus={() => setShowProductDropdown(true)}
+                onChange={(e) => {
+                  setProductFilter(e.target.value);
+                  setShowProductDropdown(true);
+                }}
                 style={{
                   width: "100%",
                   padding: "8px 12px 8px 34px",
@@ -2472,19 +2609,36 @@ export default function DashboardPage() {
                   fontWeight: 600,
                 }}
               />
-              <Search
-                size={14}
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-dim)",
-                }}
-              />
+              {isFetching ? (
+                <Loader2
+                  size={14}
+                  className="animate-spin"
+                  style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--primary)",
+                  }}
+                />
+              ) : (
+                <Search
+                  size={14}
+                  style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--text-dim)",
+                  }}
+                />
+              )}
               {productFilter && (
                 <button
-                  onClick={() => setProductFilter("")}
+                  onClick={() => {
+                    setProductFilter("");
+                    setShowProductDropdown(false);
+                  }}
                   style={{
                     position: "absolute",
                     right: 6,
@@ -2501,6 +2655,59 @@ export default function DashboardPage() {
                 >
                   <X size={14} />
                 </button>
+              )}
+
+              {showProductDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    right: 0,
+                    maxHeight: 250,
+                    overflowY: "auto",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    boxShadow: "0 10px 28px rgba(0,0,0,0.2)",
+                    zIndex: 1000,
+                    padding: "4px 0",
+                  }}
+                >
+                  {productOptions.length > 0 ? (
+                    productOptions.map((prodName, idx) => (
+                      <div
+                        key={idx}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setProductFilter(prodName);
+                          setShowProductDropdown(false);
+                        }}
+                        style={{
+                          padding: "8px 14px",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "var(--text)",
+                          cursor: "pointer",
+                          borderBottom: "1px solid var(--border)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          transition: "background 0.12s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <span>{prodName}</span>
+                        <span style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Product</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: "12px", fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
+                      No matching products found
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             {/* Distributor search hidden for now */}
