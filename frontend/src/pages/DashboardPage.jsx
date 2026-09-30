@@ -662,8 +662,8 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#3D6A8A"
         />
         <KpiCard
-          label="Active Codes"
-          value={kpis?.codes_count || 0}
+          label="Active Dist Codes"
+          value={2}
           icon={Barcode}
           accent="#7B5E7B"
         />
@@ -745,54 +745,6 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           </ResponsiveContainer>
         </div>
 
-        <div className="card" style={{ padding: 22, height: 380 }}>
-          <SectionHeader
-            title="Monthly Primary Sales (Volume)"
-            subtitle="Quantity (KGs)"
-          />
-          <ResponsiveContainer width="100%" height="78%">
-            <ComposedChart
-              data={qtyTrend}
-              margin={{ top: 6, right: 14, bottom: 0, left: -10 }}
-            >
-              <defs>
-                <linearGradient id="psQty" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2F7A60" stopOpacity={0.9} />
-                  <stop offset="100%" stopColor="#2F7A60" stopOpacity={0.4} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="var(--border)"
-              />
-              <XAxis
-                dataKey="month"
-                interval={0}
-                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
-                height={45}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip suffix=" KG" />} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area
-                type="monotone"
-                name="Quantity (KG)"
-                dataKey="Qty"
-                stroke="#2F7A60"
-                fill="url(#psQty)"
-                strokeWidth={2}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* Region-wise Sales Distribution Pie Chart */}
