@@ -820,8 +820,8 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               alignItems: "center",
             }}
           >
-            <div style={{ height: 320, width: "100%" }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div style={{ minHeight: 320, width: "100%", display: "flex", flexDirection: "column" }}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
                     data={regionPieData}
@@ -913,19 +913,43 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                       return null;
                     }}
                   />
-                  <Legend
-                    verticalAlign="bottom"
-                    iconType="circle"
-                    wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
-                    payload={regionPieData.map((entry, index) => ({
-                      id: entry.name,
-                      type: "circle",
-                      value: entry.name,
-                      color: COLORS[index % COLORS.length],
-                    }))}
-                  />
                 </PieChart>
               </ResponsiveContainer>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 16,
+                  marginTop: 6,
+                  flexWrap: "wrap",
+                }}
+              >
+                {regionPieData.map((reg, idx) => (
+                  <div
+                    key={reg.rawName || idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--text-dim)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        backgroundColor: COLORS[idx % COLORS.length],
+                        display: "inline-block",
+                      }}
+                    />
+                    <span>{reg.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div style={{ overflowX: "auto" }}>
