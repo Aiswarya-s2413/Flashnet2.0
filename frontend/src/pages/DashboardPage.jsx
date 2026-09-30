@@ -264,6 +264,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
 
   const regionPieData = (regions || [])
     .filter((r) => r.value > 0)
+    .sort((a, b) => (b.value || 0) - (a.value || 0))
     .map((r) => ({
       name: REGION_NAMES[r.name] || r.name,
       rawName: r.name,
@@ -831,7 +832,10 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                     innerRadius={70}
                     outerRadius={115}
                     paddingAngle={3}
-                    label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
+                    label={({ percent }) => {
+                      const p = percent * 100;
+                      return p >= 3 ? `${p.toFixed(1)}%` : null;
+                    }}
                     labelLine={false}
                   >
                     {regionPieData.map((entry, index) => (
@@ -849,10 +853,12 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                           (s, r) => s + (r.value || 0),
                           0,
                         );
+                        const pctNum =
+                          total > 0 ? (item.value / total) * 100 : 0;
                         const pct =
-                          total > 0
-                            ? ((item.value / total) * 100).toFixed(1)
-                            : 0;
+                          pctNum < 0.1 && pctNum > 0
+                            ? "< 0.1"
+                            : pctNum.toFixed(1);
                         return (
                           <div
                             style={{
@@ -910,20 +916,26 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                   <Legend
                     verticalAlign="bottom"
                     iconType="circle"
-                    wrapperStyle={{ fontSize: 12, paddingTop: 10 }}
+                    wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
+                    payload={regionPieData.map((entry, index) => ({
+                      id: entry.name,
+                      type: "circle",
+                      value: entry.name,
+                      color: COLORS[index % COLORS.length],
+                    }))}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
             <div style={{ overflowX: "auto" }}>
-              <table className="table" style={{ width: "100%", margin: 0 }}>
+              <table className="table" style={{ width: "100%", margin: 0, minWidth: 420 }}>
                 <thead>
                   <tr>
-                    <th>Region</th>
-                    <th style={{ textAlign: "right" }}>Value</th>
-                    <th style={{ textAlign: "right" }}>Share (%)</th>
-                    <th style={{ textAlign: "right" }}>Volume</th>
+                    <th style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>Region</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>Value</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>Share (%)</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>Volume</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -932,18 +944,22 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                       (s, r) => s + (r.value || 0),
                       0,
                     );
+                    const pctNum =
+                      totalVal > 0 ? (reg.value / totalVal) * 100 : 0;
                     const share =
-                      totalVal > 0
-                        ? ((reg.value / totalVal) * 100).toFixed(1)
-                        : "0.0";
+                      pctNum < 0.1 && pctNum > 0
+                        ? "< 0.1"
+                        : pctNum.toFixed(1);
                     return (
                       <tr key={reg.rawName || idx}>
                         <td
                           style={{
+                            padding: "14px 14px",
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
                             fontWeight: 600,
+                            whiteSpace: "nowrap",
                           }}
                         >
                           <span
@@ -956,27 +972,37 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                               flexShrink: 0,
                             }}
                           />
-                          {reg.name}
+                          <span>{reg.name}</span>
                         </td>
                         <td
                           style={{
+                            padding: "14px 14px",
                             textAlign: "right",
                             fontWeight: 700,
                             color: "#0B3B2C",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {formatCrores(reg.value)}
                         </td>
                         <td
                           style={{
+                            padding: "14px 14px",
                             textAlign: "right",
                             fontWeight: 600,
                             color: "var(--text-dim)",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {share}%
                         </td>
-                        <td style={{ textAlign: "right" }}>
+                        <td
+                          style={{
+                            padding: "14px 14px",
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {formatKG(reg.qty)}
                         </td>
                       </tr>
