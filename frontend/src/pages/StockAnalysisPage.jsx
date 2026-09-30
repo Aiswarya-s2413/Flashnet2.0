@@ -65,6 +65,12 @@ const MONTH_SHORT = [
   "Dec",
 ];
 
+const STOCK_MONTHS = [
+  { value: "5", label: "May 2026" },
+  { value: "6", label: "June 2026" },
+  { value: "7", label: "July 2026" },
+];
+
 function fmtYM(ym) {
   if (!ym || ym === "Unknown") return ym;
   const [y, m] = ym.split("-");
@@ -340,7 +346,7 @@ function DetailModal({ row, onClose }) {
               ["Primary Qty", fmt(row.primary_qty, 2), "var(--primary)"],
               ["Secondary Qty", fmt(row.secondary_qty, 2), "#7c3aed"],
               [
-                "Expected Left",
+                "Balance Stock",
                 fmt(row.expected_stock_left, 2),
                 "var(--green)",
               ],
@@ -412,7 +418,7 @@ function DetailModal({ row, onClose }) {
               }}
             >
               {[
-                ["Expected Left", fmt(row.expected_stock_left, 2)],
+                ["Balance Stock", fmt(row.expected_stock_left, 2)],
                 ["Actual Stock", fmt(row.actual_stock, 2)],
                 ["Discrepancy", (disc > 0 ? "+" : "") + fmt(disc, 2)],
               ].map(([lbl, val]) => (
@@ -555,7 +561,7 @@ export default function StockAnalysisPage() {
   const [error, setError] = useState(null);
 
   const [monthFilter, setMonthFilter] = useState("");
-  const [yearFilter, setYearFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("2026");
   const [distFilter, setDistFilter] = useState("CHEMIELINK");
   const [showAnomalyOnly, setShowAnomalyOnly] = useState(false);
 
@@ -566,9 +572,6 @@ export default function StockAnalysisPage() {
 
   const [activeTab, setActiveTab] = useState("table");
   const [selectedGapMonth, setSelectedGapMonth] = useState(null);
-
-  const currentYear = new Date().getFullYear();
-  const yearsRange = Array.from({ length: 7 }, (_, i) => currentYear - 3 + i);
 
   const fetchData = async () => {
     setLoading(true);
@@ -808,12 +811,12 @@ export default function StockAnalysisPage() {
               id="sa-month"
               value={monthFilter}
               onChange={(e) => setMonthFilter(e.target.value)}
-              style={{ fontSize: 13, width: 130 }}
+              style={{ fontSize: 13, width: 150 }}
             >
-              <option value="">All Months</option>
-              {MONTH_FULL.map((m, i) => (
-                <option key={i} value={i + 1}>
-                  {m}
+              <option value="">All 3 Months (May–Jul)</option>
+              {STOCK_MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
                 </option>
               ))}
             </select>
@@ -835,14 +838,9 @@ export default function StockAnalysisPage() {
               id="sa-year"
               value={yearFilter}
               onChange={(e) => setYearFilter(e.target.value)}
-              style={{ fontSize: 13, width: 100 }}
+              style={{ fontSize: 13, width: 90 }}
             >
-              <option value="">All Years</option>
-              {yearsRange.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
+              <option value="2026">2026</option>
             </select>
           </div>
 
@@ -966,7 +964,7 @@ export default function StockAnalysisPage() {
           />
           <KpiCard
             icon={TrendingDown}
-            label="Expected Stock Left"
+            label="Balance Stock"
             value={abbr(totalExpLeft)}
             sub="Primary − Secondary qty"
             color="#7c3aed"
@@ -1006,7 +1004,7 @@ export default function StockAnalysisPage() {
             icon={AlertTriangle}
             label="Anomalies Flagged"
             value={anomalyCount}
-            sub="Discrepancy > 5% of expected"
+            sub="Discrepancy > 5% of balance stock"
             color={anomalyCount > 0 ? "var(--red)" : "var(--green)"}
           />
         </div>
@@ -1990,8 +1988,8 @@ export default function StockAnalysisPage() {
                       marginTop: 3,
                     }}
                   >
-                    Units where actual stock &gt; expected (distributor holding
-                    more than expected)
+                    Units where actual stock &gt; balance stock (distributor holding
+                    more than balance stock)
                   </div>
                 </div>
                 <div style={{ width: "100%", height: 260 }}>
@@ -2135,7 +2133,7 @@ export default function StockAnalysisPage() {
                       marginTop: 3,
                     }}
                   >
-                    Units where actual stock &lt; expected (potential stock-out
+                    Units where actual stock &lt; balance stock (potential stock-out
                     or under-reporting)
                   </div>
                 </div>
@@ -2484,7 +2482,7 @@ export default function StockAnalysisPage() {
                     align="right"
                   />
                   <Th
-                    label="Expected Left"
+                    label="Balance Stock"
                     sortKey="expected_stock_left"
                     currentKey={sortKey}
                     currentDir={sortDir}
@@ -2649,12 +2647,12 @@ export default function StockAnalysisPage() {
             }}
           >
             <span>
-              <strong style={{ color: "var(--primary)" }}>Expected Left</strong>{" "}
+              <strong style={{ color: "var(--primary)" }}>Balance Stock</strong>{" "}
               = Primary Qty − Secondary Qty
             </span>
             <span>
               <strong style={{ color: "var(--red)" }}>Anomaly</strong> = |Actual
-              − Expected| &gt; 5% of Expected
+              − Balance Stock| &gt; 5% of Balance Stock
             </span>
           </div>
         </>

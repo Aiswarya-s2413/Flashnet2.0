@@ -35,6 +35,8 @@ import {
   Filter,
   CheckCircle,
   ArrowRight,
+  Barcode,
+  Clock,
 } from "lucide-react";
 
 const CustomTooltip = ({
@@ -74,6 +76,7 @@ const CustomTooltip = ({
           const isPercentage = Boolean(
             pld.name?.includes("%") ||
             pld.name?.toLowerCase().includes("efficiency") ||
+            pld.name?.toLowerCase().includes("sell-through") ||
             pld.name?.toLowerCase().includes("asp") ||
             pld.name?.toLowerCase().includes("selling price"),
           );
@@ -248,8 +251,26 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
     top_products,
     top_customers,
     divisions,
+    regions,
     top_sales_execs,
   } = data;
+
+  const REGION_NAMES = {
+    MM: "Maharashtra (MM)",
+    GJ: "Gujarat (GJ)",
+    MP: "Madhya Pradesh (MP)",
+    PB: "Punjab (PB)",
+  };
+
+  const regionPieData = (regions || [])
+    .filter((r) => r.value > 0)
+    .map((r) => ({
+      name: REGION_NAMES[r.name] || r.name,
+      rawName: r.name,
+      value: r.value,
+      qty: r.qty,
+      invoices: r.invoices,
+    }));
 
   const productQ = productFilter.trim().toLowerCase();
   const distQ = distFilter.trim().toLowerCase();
@@ -640,10 +661,9 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#3D6A8A"
         />
         <KpiCard
-          label="Active Customers"
-          value={kpis?.customers_count || 0}
-          sub={`${kpis?.products_count || 0} products sold across ${kpis?.divisions_count || 0} divisions`}
-          icon={Users}
+          label="Active Codes"
+          value={kpis?.codes_count || 0}
+          icon={Barcode}
           accent="#7B5E7B"
         />
       </div>
@@ -772,6 +792,201 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* Region-wise Sales Distribution Pie Chart */}
+      <div className="card" style={{ padding: 24, marginTop: 24 }}>
+        <SectionHeader
+          title="Region-wise Sales Distribution"
+          subtitle="Primary sales value and volume share by delivery plant region"
+        />
+        {regionPieData.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: 30,
+              color: "var(--text-muted)",
+            }}
+          >
+            No region data available for the current filter.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 24,
+              alignItems: "center",
+            }}
+          >
+            <div style={{ height: 320, width: "100%" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={regionPieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={115}
+                    paddingAngle={3}
+                    label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
+                    labelLine={false}
+                  >
+                    {regionPieData.map((entry, index) => (
+                      <Cell
+                        key={`region-cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const item = payload[0];
+                        const total = regionPieData.reduce(
+                          (s, r) => s + (r.value || 0),
+                          0,
+                        );
+                        const pct =
+                          total > 0
+                            ? ((item.value / total) * 100).toFixed(1)
+                            : 0;
+                        return (
+                          <div
+                            style={{
+                              background: "var(--surface)",
+                              border: "1px solid var(--border)",
+                              padding: "10px 14px",
+                              borderRadius: "10px",
+                              boxShadow: "var(--shadow-lg)",
+                            }}
+                          >
+                            <p
+                              style={{
+                                margin: "0 0 4px 0",
+                                fontWeight: 700,
+                                fontSize: 13,
+                              }}
+                            >
+                              {item.name}
+                            </p>
+                            <p
+                              style={{
+                                margin: "2px 0",
+                                fontSize: 12,
+                                color:
+                                  item.payload?.fill || "var(--primary)",
+                                fontWeight: 600,
+                              }}
+                            >
+                              Value:{" "}
+                              <span style={{ color: "var(--text)" }}>
+                                {formatCrores(item.value)}
+                              </span>{" "}
+                              ({pct}%)
+                            </p>
+                            {item.payload?.qty > 0 && (
+                              <p
+                                style={{
+                                  margin: "2px 0",
+                                  fontSize: 12,
+                                  color: "var(--text-dim)",
+                                }}
+                              >
+                                Volume:{" "}
+                                <span style={{ color: "var(--text)" }}>
+                                  {formatKG(item.payload.qty)}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 12, paddingTop: 10 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ width: "100%", margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Region</th>
+                    <th style={{ textAlign: "right" }}>Value</th>
+                    <th style={{ textAlign: "right" }}>Share (%)</th>
+                    <th style={{ textAlign: "right" }}>Volume</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {regionPieData.map((reg, idx) => {
+                    const totalVal = regionPieData.reduce(
+                      (s, r) => s + (r.value || 0),
+                      0,
+                    );
+                    const share =
+                      totalVal > 0
+                        ? ((reg.value / totalVal) * 100).toFixed(1)
+                        : "0.0";
+                    return (
+                      <tr key={reg.rawName || idx}>
+                        <td
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              backgroundColor: COLORS[idx % COLORS.length],
+                              display: "inline-block",
+                              flexShrink: 0,
+                            }}
+                          />
+                          {reg.name}
+                        </td>
+                        <td
+                          style={{
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color: "#0B3B2C",
+                          }}
+                        >
+                          {formatCrores(reg.value)}
+                        </td>
+                        <td
+                          style={{
+                            textAlign: "right",
+                            fontWeight: 600,
+                            color: "var(--text-dim)",
+                          }}
+                        >
+                          {share}%
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {formatKG(reg.qty)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Top Sales Executives — full width */}
@@ -1014,100 +1229,6 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         )}
       </div>
 
-      {/* Top customers table */}
-      <div className="card" style={{ padding: 24, marginTop: 24 }}>
-        <SectionHeader
-          title="Top Customers — Primary Sales"
-          subtitle="Ranked by billed value (Top 20)"
-        />
-        <DataTable
-          columns={[
-            {
-              key: "rank",
-              label: "#",
-              thStyle: { width: 46 },
-              render: (_r, i) => i + 1,
-            },
-            {
-              key: "name",
-              label: "Customer / Distributor",
-              tdStyle: { fontWeight: 700, color: "var(--primary)" },
-            },
-            {
-              key: "sold_to",
-              label: "Sold To",
-              tdStyle: { color: "var(--text-muted)", fontSize: 13 },
-            },
-            {
-              key: "ship_to",
-              label: "Ship To",
-              tdStyle: { color: "var(--text-muted)", fontSize: 13 },
-            },
-            {
-              key: "value",
-              label: "Value",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 700,
-                color: "#0B3B2C",
-              },
-              render: (r) => formatCrores(r.value),
-            },
-            {
-              key: "qty",
-              label: "Qty",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatKG(r.qty),
-            },
-          ]}
-          rows={(top_customers || []).map((c, i) => ({
-            ...c,
-            _style: { cursor: "pointer" },
-          }))}
-          footer={
-            <tfoot>
-              <tr style={{ backgroundColor: "transparent" }}>
-                <td
-                  colSpan={4}
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  TOTAL PRIMARY SALES:
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 16,
-                    color: "#0B3B2C",
-                    border: "none",
-                    padding: "16px",
-                    textAlign: "right",
-                  }}
-                >
-                  {formatCrores(totalPS)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatKG(totalQty)}
-                </td>
-              </tr>
-            </tfoot>
-          }
-        />
-      </div>
-
       {selectedRow && rowKind === "product" && renderProductModal()}
       {selectedRow && rowKind === "customer" && renderCustomerModal()}
     </div>
@@ -1226,10 +1347,9 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           accent="#3D6A8A"
         />
         <KpiCard
-          label="Active Products"
-          value={kpis?.products_count || 0}
-          sub={`${kpis?.customers_count || 0} unique customers · ${formatKG(totalStock)} stock`}
-          icon={ShoppingCart}
+          label="Active Customers"
+          value={kpis?.customers_count || 0}
+          icon={Users}
           accent="#7B5E7B"
         />
       </div>
@@ -1305,55 +1425,6 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                 stroke="#3D6A8A"
                 strokeWidth={2.5}
                 dot={{ r: 3, fill: "#3D6A8A" }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="card" style={{ padding: 22, height: 380 }}>
-          <SectionHeader
-            title="Monthly Secondary Sales (Volume)"
-            subtitle="Quantity (KGs) + Record count"
-          />
-          <ResponsiveContainer width="100%" height="78%">
-            <ComposedChart
-              data={qtyTrend}
-              margin={{ top: 6, right: 14, bottom: 0, left: -10 }}
-            >
-              <defs>
-                <linearGradient id="ssQty" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#5BA28A" stopOpacity={0.9} />
-                  <stop offset="100%" stopColor="#5BA28A" stopOpacity={0.4} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="var(--border)"
-              />
-              <XAxis
-                dataKey="month"
-                interval={0}
-                tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
-                height={45}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip suffix=" KG" />} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area
-                type="monotone"
-                name="Quantity (KG)"
-                dataKey="Qty"
-                stroke="#5BA28A"
-                fill="url(#ssQty)"
-                strokeWidth={2}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -1789,7 +1860,121 @@ const PsVsSsTab = ({ data }) => {
     monthly_trend,
     product_group,
     distributor_performance,
+    fast_movers,
+    slow_movers,
   } = data;
+
+  const fastMoversData = useMemo(() => {
+    if (fast_movers && fast_movers.length > 0) {
+      return fast_movers.map((p) => ({
+        ...p,
+        name: p.name.length > 22 ? p.name.slice(0, 20) + "..." : p.name,
+        fullName: p.name,
+      }));
+    }
+    const prodMap = {};
+    (data?.monthly_comparison || []).forEach((m) => {
+      (m.products || []).forEach((p) => {
+        if (!prodMap[p.name]) prodMap[p.name] = { name: p.name, ps: 0, ss: 0 };
+        prodMap[p.name].ps += p.ps || 0;
+        prodMap[p.name].ss += p.ss || 0;
+      });
+    });
+    return Object.values(prodMap)
+      .filter((p) => p.ss > 0)
+      .sort((a, b) => b.ss - a.ss)
+      .slice(0, 8)
+      .map((p) => ({
+        name: p.name.length > 22 ? p.name.slice(0, 20) + "..." : p.name,
+        fullName: p.name,
+        "Primary Sales": Math.round(p.ps),
+        "Secondary Sales": Math.round(p.ss),
+        "Sell-Through Ratio %": p.ps > 0 ? Number(((p.ss / p.ps) * 100).toFixed(1)) : 100,
+      }));
+  }, [data, fast_movers]);
+
+  const slowMoversData = useMemo(() => {
+    if (slow_movers && slow_movers.length > 0) {
+      return slow_movers.map((p) => ({
+        ...p,
+        name: p.name.length > 22 ? p.name.slice(0, 20) + "..." : p.name,
+        fullName: p.name,
+      }));
+    }
+    const prodMap = {};
+    (data?.monthly_comparison || []).forEach((m) => {
+      (m.products || []).forEach((p) => {
+        if (!prodMap[p.name]) prodMap[p.name] = { name: p.name, ps: 0, ss: 0 };
+        prodMap[p.name].ps += p.ps || 0;
+        prodMap[p.name].ss += p.ss || 0;
+      });
+    });
+    return Object.values(prodMap)
+      .filter((p) => p.ps > 0)
+      .sort((a, b) => {
+        const ratioA = (a.ss / a.ps) * 100;
+        const ratioB = (b.ss / b.ps) * 100;
+        if (ratioA !== ratioB) return ratioA - ratioB;
+        return (b.ps - b.ss) - (a.ps - a.ss);
+      })
+      .slice(0, 8)
+      .map((p) => ({
+        name: p.name.length > 22 ? p.name.slice(0, 20) + "..." : p.name,
+        fullName: p.name,
+        "Primary Sales": Math.round(p.ps),
+        "Secondary Sales": Math.round(p.ss),
+        "Sell-Through Ratio %": Number(((p.ss / p.ps) * 100).toFixed(1)),
+      }));
+  }, [data, slow_movers]);
+
+  const top10ProductsData = useMemo(() => {
+    if (
+      product_group &&
+      product_group.length > 0 &&
+      product_group.some((p) => (p.name || p.group || "").includes(" "))
+    ) {
+      return product_group.slice(0, 10).map((p) => ({
+        ...p,
+        displayName:
+          (p.name || p.group).length > 24
+            ? (p.name || p.group).slice(0, 22) + "..."
+            : p.name || p.group,
+        fullName: p.name || p.group,
+      }));
+    }
+    const prodMap = {};
+    (data?.monthly_comparison || []).forEach((m) => {
+      (m.products || []).forEach((p) => {
+        if (!p.name || p.name === "Unknown Product") return;
+        if (!prodMap[p.name]) {
+          prodMap[p.name] = {
+            name: p.name,
+            group: p.name,
+            "Primary Sales": 0,
+            "Secondary Sales": 0,
+          };
+        }
+        prodMap[p.name]["Primary Sales"] += p.ps || 0;
+        prodMap[p.name]["Secondary Sales"] += p.ss || 0;
+      });
+    });
+    return Object.values(prodMap)
+      .sort(
+        (a, b) =>
+          b["Secondary Sales"] +
+          b["Primary Sales"] -
+          (a["Secondary Sales"] + a["Primary Sales"]),
+      )
+      .slice(0, 10)
+      .map((p) => ({
+        ...p,
+        "Primary Sales": Math.round(p["Primary Sales"]),
+        "Secondary Sales": Math.round(p["Secondary Sales"]),
+        displayName:
+          p.name.length > 24 ? p.name.slice(0, 22) + "..." : p.name,
+        fullName: p.name,
+      }));
+  }, [product_group, data]);
 
   return (
     <div style={{ display: "grid", gap: 24 }}>
@@ -1810,7 +1995,7 @@ const PsVsSsTab = ({ data }) => {
           accent="#2F7A60"
         />
         <KpiCard
-          label="Channel Efficiency"
+          label="Sell-Through Ratio"
           value={`${kpis?.channel_efficiency || 0}%`}
           sub="Secondary ÷ Primary (Common months)"
           icon={TrendingUp}
@@ -1860,6 +2045,7 @@ const PsVsSsTab = ({ data }) => {
                 yAxisId="right"
                 type="monotone"
                 dataKey="Efficiency %"
+                name="Sell-Through Ratio %"
                 stroke="#EF4444"
                 strokeWidth={3}
                 dot={{ r: 4, fill: "#EF4444" }}
@@ -1869,93 +2055,165 @@ const PsVsSsTab = ({ data }) => {
         </div>
       </div>
 
+      {/* FAST MOVERS & SLOW MOVERS */}
       <div
         style={{
           display: "grid",
           gap: 24,
-          gridTemplateColumns: "1.1fr 1.3fr",
+          gridTemplateColumns: "repeat(auto-fit, minmax(480px, 1fr))",
         }}
       >
-        {/* PRODUCT GROUP */}
+        {/* FAST MOVERS */}
         <div className="section-card">
           <SectionHeader
-            title="Product Group — Primary vs Secondary"
-            subtitle="Top 15 product groups"
+            title="Fast Movers"
+            subtitle="Top products by secondary sales velocity & sell-through"
           />
-          <div style={{ width: "100%", height: 420 }}>
-            <ResponsiveContainer>
-              <BarChart
-                data={product_group || []}
-                layout="vertical"
-                margin={{ left: 20, right: 10 }}
+          <div style={{ width: "100%", height: 380 }}>
+            {fastMoversData.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 40,
+                  color: "var(--text-muted)",
+                }}
               >
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis type="number" stroke="var(--text-dim)" />
-                <YAxis
-                  type="category"
-                  dataKey="group"
-                  stroke="var(--text-dim)"
-                  width={150}
-                />
-                <Tooltip content={<CustomTooltip prefix="₹" />} />
-                <Legend />
-                <Bar
-                  dataKey="Primary Sales"
-                  fill="#0B3B2C"
-                  radius={[0, 4, 4, 0]}
-                />
-                <Bar
-                  dataKey="Secondary Sales"
-                  fill="#2F7A60"
-                  radius={[0, 4, 4, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+                No fast movers data available.
+              </div>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart
+                  data={fastMoversData}
+                  layout="vertical"
+                  margin={{ left: 10, right: 20, top: 10, bottom: 10 }}
+                >
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
+                    stroke="var(--text-dim)"
+                    tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="var(--text-dim)"
+                    width={150}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <Tooltip content={<CustomTooltip prefix="₹" />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar
+                    dataKey="Primary Sales"
+                    fill="#0B3B2C"
+                    radius={[0, 4, 4, 0]}
+                  />
+                  <Bar
+                    dataKey="Secondary Sales"
+                    fill="#2F7A60"
+                    radius={[0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
-        {/* DISTRIBUTOR PERFORMANCE */}
+        {/* SLOW MOVERS */}
         <div className="section-card">
           <SectionHeader
-            title="Distributor Performance"
-            subtitle="Efficiency = Secondary ÷ Primary · Top 20 distributors"
+            title="Slow Movers"
+            subtitle="Products with high primary purchases but low secondary sales"
           />
-          <DataTable
-            columns={[
-              { key: "group", label: "Distributor Group" },
-              {
-                key: "primary",
-                label: "Primary",
-                thStyle: { textAlign: "right" },
-                tdStyle: { textAlign: "right" },
-                render: (r) => formatCrores(r.primary),
-              },
-              {
-                key: "secondary",
-                label: "Secondary",
-                thStyle: { textAlign: "right" },
-                tdStyle: { textAlign: "right" },
-                render: (r) => formatCrores(r.secondary),
-              },
-              {
-                key: "efficiency",
-                label: "Efficiency %",
-                thStyle: { textAlign: "right" },
-                tdStyle: {
-                  textAlign: "right",
-                  color: (r) =>
-                    r.efficiency > 100
-                      ? "#2F7A60"
-                      : r.efficiency < 70
-                        ? "#EF4444"
-                        : "var(--text)",
-                  fontWeight: 700,
-                },
-                render: (r) => `${r.efficiency}%`,
-              },
-            ]}
-            rows={distributor_performance || []}
-          />
+          <div style={{ width: "100%", height: 380 }}>
+            {slowMoversData.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 40,
+                  color: "var(--text-muted)",
+                }}
+              >
+                No slow movers data available.
+              </div>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart
+                  data={slowMoversData}
+                  layout="vertical"
+                  margin={{ left: 10, right: 20, top: 10, bottom: 10 }}
+                >
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
+                    stroke="var(--text-dim)"
+                    tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="var(--text-dim)"
+                    width={150}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <Tooltip content={<CustomTooltip prefix="₹" />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar
+                    dataKey="Primary Sales"
+                    fill="#0B3B2C"
+                    radius={[0, 4, 4, 0]}
+                  />
+                  <Bar
+                    dataKey="Secondary Sales"
+                    fill="#EF4444"
+                    radius={[0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* TOP 10 INDIVIDUAL PRODUCTS */}
+      <div className="section-card">
+        <SectionHeader
+          title="Top 10 Products — Primary vs Secondary"
+          subtitle="Top 10 individual products ranked by sales"
+        />
+        <div style={{ width: "100%", height: 440 }}>
+          <ResponsiveContainer>
+            <BarChart
+              data={top10ProductsData}
+              layout="vertical"
+              margin={{ left: 10, right: 25, top: 10, bottom: 10 }}
+            >
+              <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+              <XAxis
+                type="number"
+                stroke="var(--text-dim)"
+                tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`}
+              />
+              <YAxis
+                type="category"
+                dataKey="displayName"
+                stroke="var(--text-dim)"
+                width={180}
+                tick={{ fontSize: 11 }}
+              />
+              <Tooltip content={<CustomTooltip prefix="₹" />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar
+                dataKey="Primary Sales"
+                fill="#0B3B2C"
+                radius={[0, 4, 4, 0]}
+              />
+              <Bar
+                dataKey="Secondary Sales"
+                fill="#2F7A60"
+                radius={[0, 4, 4, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
@@ -1963,9 +2221,9 @@ const PsVsSsTab = ({ data }) => {
 };
 
 /* ============================================================
-   VARIANCE TABLE TAB
+   ORDER REPLENISHMENT TAB
    ============================================================ */
-const VarianceTableTab = ({ data }) => {
+const OrderReplenishmentTab = ({ data }) => {
   const [selectedMonth, setSelectedMonth] = useState("ALL");
 
   if (!data)
@@ -1973,7 +2231,7 @@ const VarianceTableTab = ({ data }) => {
       <div
         style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
       >
-        Loading variance data...
+        Loading order replenishment data...
       </div>
     );
 
@@ -2011,6 +2269,11 @@ const VarianceTableTab = ({ data }) => {
       const eff = r.ps > 0 ? (r.ss / r.ps) * 100 : 0;
       const qtyDiff = r.ss_qty - r.ps_qty;
       const qtyEff = r.ps_qty > 0 ? (r.ss_qty / r.ps_qty) * 100 : 0;
+      const replenishmentVal = Math.max(0, diff);
+      const replenishmentQty = Math.max(0, qtyDiff);
+      const isUrgent = diff > 0;
+      const isOptimal = eff >= 80 && eff <= 100;
+
       return {
         ...r,
         ps: Math.round(r.ps * 100) / 100,
@@ -2021,17 +2284,23 @@ const VarianceTableTab = ({ data }) => {
         eff: Math.round(eff * 100) / 100,
         qtyDiff: Math.round(qtyDiff * 100) / 100,
         qtyEff: Math.round(qtyEff * 100) / 100,
+        replenishmentVal: Math.round(replenishmentVal * 100) / 100,
+        replenishmentQty: Math.round(replenishmentQty * 100) / 100,
+        status: isUrgent
+          ? "Replenish Needed"
+          : isOptimal
+            ? "Optimal"
+            : "Adequate / Overstocked",
         _style: {
-          background:
-            eff > 100
-              ? "rgba(47, 122, 96, 0.06)"
-              : eff > 0 && eff < 70
-                ? "rgba(239, 68, 68, 0.05)"
-                : "transparent",
+          background: isUrgent
+            ? "rgba(239, 68, 68, 0.05)"
+            : isOptimal
+              ? "rgba(47, 122, 96, 0.05)"
+              : "transparent",
         },
       };
     })
-    .sort((a, b) => b.ps + b.ss - (a.ps + a.ss));
+    .sort((a, b) => b.replenishmentVal - a.replenishmentVal || b.ss - a.ss);
 
   const totals = rows.reduce(
     (acc, r) => {
@@ -2039,10 +2308,22 @@ const VarianceTableTab = ({ data }) => {
       acc.ss += r.ss;
       acc.qty_ps += r.ps_qty;
       acc.qty_ss += r.ss_qty;
+      acc.replenishmentVal += r.replenishmentVal;
+      acc.replenishmentQty += r.replenishmentQty;
+      if (r.replenishmentVal > 0) acc.replenishCount += 1;
       return acc;
     },
-    { ps: 0, ss: 0, qty_ps: 0, qty_ss: 0 },
+    {
+      ps: 0,
+      ss: 0,
+      qty_ps: 0,
+      qty_ss: 0,
+      replenishmentVal: 0,
+      replenishmentQty: 0,
+      replenishCount: 0,
+    },
   );
+
   const totalEff =
     totals.ps > 0 ? ((totals.ss / totals.ps) * 100).toFixed(2) : 0;
   const totalQtyEff =
@@ -2050,42 +2331,196 @@ const VarianceTableTab = ({ data }) => {
 
   return (
     <div style={{ display: "grid", gap: 24 }}>
-      {/* KPI */}
+      {/* FREQUENCY OF DATA CAPTURE BANNER */}
+      <div
+        className="section-card"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
+          background:
+            "linear-gradient(135deg, rgba(47, 122, 96, 0.08) 0%, rgba(11, 59, 44, 0.03) 100%)",
+          border: "1px solid rgba(47, 122, 96, 0.2)",
+          padding: "16px 22px",
+          borderRadius: 12,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              background: "rgba(47, 122, 96, 0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#2F7A60",
+            }}
+          >
+            <Clock size={22} />
+          </div>
+          <div>
+            <div
+              style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}
+            >
+              Frequency of Data Capture
+            </div>
+            <div
+              style={{
+                fontSize: 12.5,
+                color: "var(--text-dim)",
+                marginTop: 2,
+              }}
+            >
+              Data ingestion cadences powering order replenishment & channel supply
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <div
+            style={{
+              padding: "8px 14px",
+              background: "var(--surface)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              minWidth: 160,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.03em",
+              }}
+            >
+              Primary Sales
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#0B3B2C",
+                marginTop: 2,
+              }}
+            >
+              Daily / Continuous
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+              SAP ERP Billing (VBRK/VBRP)
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "8px 14px",
+              background: "var(--surface)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              minWidth: 160,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.03em",
+              }}
+            >
+              Secondary Sales
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#2F7A60",
+                marginTop: 2,
+              }}
+            >
+              Monthly
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+              Distributor CSI Statements
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: "8px 14px",
+              background: "var(--surface)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              minWidth: 160,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.03em",
+              }}
+            >
+              Replenishment Review
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#3D6A8A",
+                marginTop: 2,
+              }}
+            >
+              Monthly Run-Rate
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+              Consumption vs Channel Inflow
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI ROW */}
       <div className="stats-row">
         <KpiCard
-          label="Aggregated Primary"
-          value={formatCrores(totals.ps)}
-          sub="Product-side filtered scope"
+          label="Suggested Replenishment"
+          value={formatCrores(totals.replenishmentVal)}
+          sub={`${totals.replenishCount} products need replenishment`}
           icon={ShoppingCart}
-          accent="#0B3B2C"
+          accent="#EF4444"
         />
         <KpiCard
-          label="Aggregated Secondary"
-          value={formatCrores(totals.ss)}
-          sub="Product-side filtered scope"
+          label="Replenishment Volume"
+          value={formatKG(totals.replenishmentQty)}
+          sub="Calculated on excess consumption"
           icon={Package}
+          accent="#3D6A8A"
+        />
+        <KpiCard
+          label="Secondary Consumption"
+          value={formatCrores(totals.ss)}
+          sub="Total secondary outflow"
+          icon={BarChart2}
           accent="#2F7A60"
         />
         <KpiCard
-          label="Value Variance (SS − PS)"
-          value={formatCrores(totals.ss - totals.ps)}
-          sub={
-            totals.ss >= totals.ps
-              ? "Excess secondary over primary"
-              : "Secondary below primary"
-          }
-          icon={BarChart2}
-          accent={totals.ss >= totals.ps ? "#2F7A60" : "#EF4444"}
-        />
-        <KpiCard
-          label="Net Efficiency"
+          label="Channel Sell-Through"
           value={`${totalEff}%`}
-          sub={`Qty efficiency ${totalQtyEff}%`}
+          sub={`Volume ratio: ${totalQtyEff}%`}
           icon={TrendingUp}
-          accent="#3D6A8A"
+          accent="#7B5E7B"
         />
       </div>
 
+      {/* HEADER + MONTH SELECTOR */}
       <div
         className="section-card"
         style={{
@@ -2098,7 +2533,7 @@ const VarianceTableTab = ({ data }) => {
       >
         <div>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
-            Product-wise PS − SS Variance
+            Product Order Replenishment Matrix
           </h3>
           <p
             style={{
@@ -2107,7 +2542,7 @@ const VarianceTableTab = ({ data }) => {
               fontSize: 12.5,
             }}
           >
-            Negative variance = SS under primary. Positive = excess secondary.
+            Suggested orders identify product stock depletion where customer consumption (SS) outpaces primary delivery (PS).
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2118,7 +2553,7 @@ const VarianceTableTab = ({ data }) => {
               color: "var(--text-dim)",
             }}
           >
-            Month:
+            Review Period:
           </span>
           <select
             className="form-control"
@@ -2141,67 +2576,92 @@ const VarianceTableTab = ({ data }) => {
             { key: "name", label: "Product" },
             {
               key: "ps",
-              label: "Primary ₹",
+              label: "Primary Supply ₹",
               thStyle: { textAlign: "right" },
               tdStyle: { textAlign: "right" },
               render: (r) => formatCrores(r.ps),
             },
             {
               key: "ss",
-              label: "Secondary ₹",
+              label: "Secondary Sales ₹",
               thStyle: { textAlign: "right" },
               tdStyle: { textAlign: "right" },
               render: (r) => formatCrores(r.ss),
             },
             {
               key: "diff",
-              label: "Variance ₹",
+              label: "Net Consumption ₹",
               thStyle: { textAlign: "right" },
               tdStyle: {
                 textAlign: "right",
-                fontWeight: 800,
+                fontWeight: 700,
                 color: (r) => (r.diff >= 0 ? "#2F7A60" : "#EF4444"),
               },
               render: (r) => (r.diff >= 0 ? "+" : "") + formatCrores(r.diff),
             },
             {
+              key: "replenishmentVal",
+              label: "Suggested Order ₹",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 800,
+                color: (r) =>
+                  r.replenishmentVal > 0 ? "#EF4444" : "var(--text-dim)",
+              },
+              render: (r) =>
+                r.replenishmentVal > 0 ? formatCrores(r.replenishmentVal) : "-",
+            },
+            {
+              key: "replenishmentQty",
+              label: "Suggested Qty",
+              thStyle: { textAlign: "right" },
+              tdStyle: {
+                textAlign: "right",
+                fontWeight: 700,
+                color: (r) =>
+                  r.replenishmentQty > 0 ? "#EF4444" : "var(--text-dim)",
+              },
+              render: (r) =>
+                r.replenishmentQty > 0 ? formatKG(r.replenishmentQty) : "-",
+            },
+            {
               key: "eff",
-              label: "Eff. %",
+              label: "Sell-Through %",
               thStyle: { textAlign: "right" },
               tdStyle: { textAlign: "right", fontWeight: 700 },
               render: (r) => `${r.eff}%`,
             },
             {
-              key: "ps_qty",
-              label: "Primary KG",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatKG(r.ps_qty),
-            },
-            {
-              key: "ss_qty",
-              label: "Secondary KG",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatKG(r.ss_qty),
-            },
-            {
-              key: "qtyDiff",
-              label: "Qty Diff",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 800,
-                color: (r) => (r.qtyDiff >= 0 ? "#2F7A60" : "#EF4444"),
-              },
-              render: (r) => (r.qtyDiff >= 0 ? "+" : "") + formatKG(r.qtyDiff),
-            },
-            {
-              key: "qtyEff",
-              label: "Qty Eff. %",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right", fontWeight: 700 },
-              render: (r) => `${r.qtyEff}%`,
+              key: "status",
+              label: "Status",
+              thStyle: { textAlign: "center" },
+              tdStyle: { textAlign: "center" },
+              render: (r) => (
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "3px 8px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background:
+                      r.diff > 0
+                        ? "rgba(239, 68, 68, 0.12)"
+                        : r.eff >= 80 && r.eff <= 100
+                          ? "rgba(47, 122, 96, 0.12)"
+                          : "rgba(61, 106, 138, 0.12)",
+                    color:
+                      r.diff > 0
+                        ? "#EF4444"
+                        : r.eff >= 80 && r.eff <= 100
+                          ? "#2F7A60"
+                          : "#3D6A8A",
+                  }}
+                >
+                  {r.status}
+                </span>
+              ),
             },
           ]}
           rows={rows}
@@ -2215,7 +2675,7 @@ const VarianceTableTab = ({ data }) => {
                     border: "none",
                   }}
                 >
-                  TOTAL
+                  TOTAL REPLENISHMENT PLAN
                 </td>
                 <td
                   style={{
@@ -2255,55 +2715,34 @@ const VarianceTableTab = ({ data }) => {
                     textAlign: "right",
                     padding: "16px",
                     border: "none",
+                    color: "#EF4444",
+                    fontSize: 14,
+                  }}
+                >
+                  {formatCrores(totals.replenishmentVal)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
+                    color: "#EF4444",
+                  }}
+                >
+                  {formatKG(totals.replenishmentQty)}
+                </td>
+                <td
+                  style={{
+                    fontWeight: 800,
+                    textAlign: "right",
+                    padding: "16px",
+                    border: "none",
                   }}
                 >
                   {totalEff}%
                 </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatKG(totals.qty_ps)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatKG(totals.qty_ss)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                    color:
-                      totals.qty_ss - totals.qty_ps >= 0
-                        ? "#2F7A60"
-                        : "#EF4444",
-                  }}
-                >
-                  {(totals.qty_ss - totals.qty_ps >= 0 ? "+" : "") +
-                    formatKG(totals.qty_ss - totals.qty_ps)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {totalQtyEff}%
-                </td>
+                <td style={{ border: "none" }}></td>
               </tr>
             </tfoot>
           }
@@ -2312,6 +2751,8 @@ const VarianceTableTab = ({ data }) => {
     </div>
   );
 };
+
+const VarianceTableTab = OrderReplenishmentTab;
 
 /* ============================================================
    OVERVIEW TAB
@@ -2490,13 +2931,23 @@ const OverviewTab = ({ data }) => {
 /* ============================================================
    ROOT PAGE
    ============================================================ */
+const DISTRIBUTOR_CODES = {
+  CHEMIELINK: [
+    { code: "438498", name: "Chemielink" },
+    { code: "441522", name: "Chemie Link" },
+  ],
+};
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("primary");
   const [selectedDistributor, setSelectedDistributor] = useState("CHEMIELINK");
+  const [selectedDistCode, setSelectedDistCode] = useState("");
   const [primaryData, setPrimaryData] = useState(null);
   const [secondaryData, setSecondaryData] = useState(null);
   const [psssData, setPsssData] = useState(null);
   const [overviewData, setOverviewData] = useState(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [productFilter, setProductFilter] = useState("");
@@ -2560,7 +3011,13 @@ export default function DashboardPage() {
         const productQ = debouncedProductFilter.trim();
         const qs = (extra) =>
           `?distributor=${selectedDistributor}${
+            selectedDistCode ? `&distributor_code=${encodeURIComponent(selectedDistCode)}` : ""
+          }${
             productQ ? `&product=${encodeURIComponent(productQ)}` : ""
+          }${
+            fromDate ? `&from_date=${encodeURIComponent(fromDate)}` : ""
+          }${
+            toDate ? `&to_date=${encodeURIComponent(toDate)}` : ""
           }${extra ? extra : ""}`;
         const [pr, sr, psss, ov] = await Promise.all([
           API.get(`/dashboard/primary-sales/${qs()}`),
@@ -2587,7 +3044,7 @@ export default function DashboardPage() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedDistributor, debouncedProductFilter]);
+  }, [selectedDistributor, selectedDistCode, debouncedProductFilter, fromDate, toDate]);
 
   if (loading) {
     return (
@@ -2611,33 +3068,53 @@ export default function DashboardPage() {
     );
   }
 
-  const hasActiveFilter = productFilter.trim() || distFilter.trim();
+  const hasActiveFilter =
+    productFilter.trim() ||
+    distFilter.trim() ||
+    selectedDistCode ||
+    fromDate ||
+    toDate;
 
   return (
     <div>
+      <h1 className="page-title" style={{ marginBottom: 16 }}>
+        Sales Analytics Dashboard
+      </h1>
+
+      {/* STICKY TOP CONTROLS: TABS, SEARCH & ALL FILTERS */}
       <div
-        className="page-header"
+        className="dashboard-sticky-controls"
         style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 85,
+          background: "rgba(248, 247, 247, 0.95)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          margin: "0 -48px 24px -48px",
+          padding: "16px 48px",
           borderBottom: "1px solid var(--border)",
-          paddingBottom: 20,
-          marginBottom: 28,
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.03)",
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          flexWrap: "wrap",
-          gap: 16,
+          flexDirection: "column",
+          gap: 12,
         }}
       >
-        <div style={{ minWidth: 0, flex: "1 1 420px" }}>
-          <h1 className="page-title" style={{ marginBottom: 16 }}>
-            Sales Analytics Dashboard
-          </h1>
+        {/* ROW 1: TABS & SYNC STATUS */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
           <div
             style={{
               display: "flex",
               gap: 8,
               flexWrap: "wrap",
-              marginBottom: 18,
             }}
           >
             <button
@@ -2659,283 +3136,460 @@ export default function DashboardPage() {
               Primary vs Secondary
             </button>
             <button
-              className={`btn ${activeTab === "variance" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setActiveTab("variance")}
+              className={`btn ${activeTab === "replenishment" || activeTab === "variance" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveTab("replenishment")}
             >
-              Variance Table
+              Order Replenishment
             </button>
-            <button
-              className={`btn ${activeTab === "overview" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setActiveTab("overview")}
-            >
-              Overview
-            </button>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
-          >
-            <div
-              ref={searchContainerRef}
-              style={{ position: "relative", minWidth: 280, flex: "1 1 280px" }}
-            >
-              <input
-                type="text"
-                placeholder="Search product (e.g. Ethyl Acetate)..."
-                value={productFilter}
-                onFocus={() => setShowProductDropdown(true)}
-                onChange={(e) => {
-                  setProductFilter(e.target.value);
-                  setShowProductDropdown(true);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px 8px 34px",
-                  fontSize: 13,
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                  color: "var(--text)",
-                  outline: "none",
-                  fontWeight: 600,
-                }}
-              />
-              {isFetching ? (
-                <Loader2
-                  size={14}
-                  className="animate-spin"
-                  style={{
-                    position: "absolute",
-                    left: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--primary)",
-                  }}
-                />
-              ) : (
-                <Search
-                  size={14}
-                  style={{
-                    position: "absolute",
-                    left: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--text-dim)",
-                  }}
-                />
-              )}
-              {productFilter && (
-                <button
-                  onClick={() => {
-                    setProductFilter("");
-                    setShowProductDropdown(false);
-                  }}
-                  style={{
-                    position: "absolute",
-                    right: 6,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    border: "none",
-                    background: "transparent",
-                    color: "var(--text-dim)",
-                    cursor: "pointer",
-                    padding: 2,
-                    display: "flex",
-                  }}
-                  title="Clear product filter"
-                >
-                  <X size={14} />
-                </button>
-              )}
-
-              {showProductDropdown && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 4px)",
-                    left: 0,
-                    right: 0,
-                    maxHeight: 250,
-                    overflowY: "auto",
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    boxShadow: "0 10px 28px rgba(0,0,0,0.2)",
-                    zIndex: 1000,
-                    padding: "4px 0",
-                  }}
-                >
-                  {productOptions.length > 0 ? (
-                    productOptions.map((prodName, idx) => (
-                      <div
-                        key={idx}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setProductFilter(prodName);
-                          setShowProductDropdown(false);
-                        }}
-                        style={{
-                          padding: "8px 14px",
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "var(--text)",
-                          cursor: "pointer",
-                          borderBottom: "1px solid var(--border)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          transition: "background 0.12s ease",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        <span>{prodName}</span>
-                        <span style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Product</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: "12px", fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
-                      No matching products found
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            {/* Distributor search hidden for now */}
-          </div>
-          {hasActiveFilter && (
-            <div
-              style={{
-                marginTop: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flexWrap: "wrap",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "var(--primary)",
-                }}
-              >
-                Active filters:
-              </span>
-              {productFilter.trim() && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    background: "rgba(11, 59, 44, 0.08)",
-                    color: "#0B3B2C",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Product ≈ “{productFilter.trim()}”
-                  <button
-                    onClick={() => setProductFilter("")}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      padding: 0,
-                      cursor: "pointer",
-                      display: "flex",
-                      color: "#0B3B2C",
-                    }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              )}
-              {distFilter.trim() && (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    background: "rgba(47, 122, 96, 0.1)",
-                    color: "#2F7A60",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  Distributor ≈ “{distFilter.trim()}”
-                  <button
-                    onClick={() => setDistFilter("")}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      padding: 0,
-                      cursor: "pointer",
-                      display: "flex",
-                      color: "#2F7A60",
-                    }}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "var(--text-dim)",
-              }}
-            >
-              Distributor:
-            </span>
-            <select
-              className="form-control"
-              value={selectedDistributor}
-              onChange={(e) => setSelectedDistributor(e.target.value)}
-              style={{
-                minWidth: 180,
-                padding: "6px 12px",
-                fontWeight: 700,
-              }}
-            >
-              <option value="CHEMIELINK">CHEMIELINK</option>
-            </select>
           </div>
           <div
             style={{
               color: "var(--text-dim)",
-              fontSize: 13,
+              fontSize: 12,
               display: "flex",
               alignItems: "center",
               gap: 6,
               fontWeight: 600,
             }}
           >
-            <RefreshCcw size={14} />
-            Last synced freshly via endpoints
+            <RefreshCcw size={13} />
+            Auto-synced
           </div>
         </div>
+
+        {/* ROW 2: SEARCH PRODUCT + DISTRIBUTOR + DIST CODE + FROM DATE + TO DATE */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* SEARCH PRODUCT */}
+          <div
+            ref={searchContainerRef}
+            style={{ position: "relative", minWidth: 220, flex: "1 1 220px" }}
+          >
+            <input
+              type="text"
+              placeholder="Search product (e.g. Ethyl Acetate)..."
+              value={productFilter}
+              onFocus={() => setShowProductDropdown(true)}
+              onChange={(e) => {
+                setProductFilter(e.target.value);
+                setShowProductDropdown(true);
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 12px 8px 34px",
+                fontSize: 13,
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                outline: "none",
+                fontWeight: 600,
+              }}
+            />
+            {isFetching ? (
+              <Loader2
+                size={14}
+                className="animate-spin"
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--primary)",
+                }}
+              />
+            ) : (
+              <Search
+                size={14}
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-dim)",
+                }}
+              />
+            )}
+            {productFilter && (
+              <button
+                onClick={() => {
+                  setProductFilter("");
+                  setShowProductDropdown(false);
+                }}
+                style={{
+                  position: "absolute",
+                  right: 6,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--text-dim)",
+                  cursor: "pointer",
+                  padding: 2,
+                  display: "flex",
+                }}
+                title="Clear product filter"
+              >
+                <X size={14} />
+              </button>
+            )}
+
+            {showProductDropdown && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  left: 0,
+                  right: 0,
+                  maxHeight: 250,
+                  overflowY: "auto",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.2)",
+                  zIndex: 1000,
+                  padding: "4px 0",
+                }}
+              >
+                {productOptions.length > 0 ? (
+                  productOptions.map((prodName, idx) => (
+                    <div
+                      key={idx}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setProductFilter(prodName);
+                        setShowProductDropdown(false);
+                      }}
+                      style={{
+                        padding: "8px 14px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "var(--text)",
+                        cursor: "pointer",
+                        borderBottom: "1px solid var(--border)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        transition: "background 0.12s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <span>{prodName}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Product</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: "12px", fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>
+                    No matching products found
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* DISTRIBUTOR */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Dist:
+            </span>
+            <select
+              className="form-control"
+              value={selectedDistributor}
+              onChange={(e) => {
+                setSelectedDistributor(e.target.value);
+                setSelectedDistCode("");
+              }}
+              style={{
+                minWidth: 140,
+                padding: "6px 10px",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              <option value="CHEMIELINK">CHEMIELINK</option>
+            </select>
+          </div>
+
+          {/* DISTRIBUTOR CODE */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Code:
+            </span>
+            <select
+              className="form-control"
+              value={selectedDistCode}
+              onChange={(e) => setSelectedDistCode(e.target.value)}
+              style={{
+                minWidth: 160,
+                padding: "6px 10px",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              <option value="">All Codes</option>
+              {(DISTRIBUTOR_CODES[selectedDistributor] || []).map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.code} - {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* DATE FROM */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              From:
+            </span>
+            <input
+              type="date"
+              className="form-control"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              style={{
+                padding: "6px 10px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            />
+          </div>
+
+          {/* DATE TO */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "var(--text-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              To:
+            </span>
+            <input
+              type="date"
+              className="form-control"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              style={{
+                padding: "6px 10px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            />
+          </div>
+
+          {(fromDate || toDate) && (
+            <button
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+              }}
+              style={{
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text-muted)",
+                padding: "6px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+              title="Clear date filter"
+            >
+              <X size={12} /> Clear Dates
+            </button>
+          )}
+        </div>
+
+        {/* ROW 3: ACTIVE FILTERS */}
+        {hasActiveFilter && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+              paddingTop: 4,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--primary)",
+              }}
+            >
+              Active filters:
+            </span>
+            {productFilter.trim() && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  background: "rgba(11, 59, 44, 0.08)",
+                  color: "#0B3B2C",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Product ≈ “{productFilter.trim()}”
+                <button
+                  onClick={() => setProductFilter("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                    display: "flex",
+                    color: "#0B3B2C",
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {selectedDistCode && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  background: "rgba(47, 122, 96, 0.1)",
+                  color: "#2F7A60",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Code: {selectedDistCode} ({(DISTRIBUTOR_CODES[selectedDistributor] || []).find((c) => c.code === selectedDistCode)?.name || ""})
+                <button
+                  onClick={() => setSelectedDistCode("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                    display: "flex",
+                    color: "#2F7A60",
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {fromDate && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  background: "rgba(11, 59, 44, 0.08)",
+                  color: "#0B3B2C",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                From: {fromDate}
+                <button
+                  onClick={() => setFromDate("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                    display: "flex",
+                    color: "#0B3B2C",
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {toDate && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  background: "rgba(11, 59, 44, 0.08)",
+                  color: "#0B3B2C",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                To: {toDate}
+                <button
+                  onClick={() => setToDate("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                    display: "flex",
+                    color: "#0B3B2C",
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="tab-content" style={{ animation: "fadeIn 0.3s" }}>
@@ -2953,11 +3607,9 @@ export default function DashboardPage() {
           />
         ) : activeTab === "psss" ? (
           <PsVsSsTab data={psssData} />
-        ) : activeTab === "variance" ? (
-          <VarianceTableTab data={psssData} />
-        ) : (
-          <OverviewTab data={overviewData} />
-        )}
+        ) : activeTab === "replenishment" || activeTab === "variance" ? (
+          <OrderReplenishmentTab data={psssData} />
+        ) : null}
       </div>
     </div>
   );

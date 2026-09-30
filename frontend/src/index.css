@@ -185,7 +185,6 @@ body {
   margin-left: 260px;
   flex: 1;
   padding: 40px 48px;
-  overflow-y: auto;
   min-height: 100vh;
 }
 
@@ -199,8 +198,7 @@ body {
   padding: 24px 48px;
   margin: -40px -48px 40px -48px;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 90;
   background: rgba(248, 247, 247, 0.85); /* backdrop blur over canvas */
   backdrop-filter: blur(12px);

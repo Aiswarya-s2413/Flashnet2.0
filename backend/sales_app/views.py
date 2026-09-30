@@ -1890,11 +1890,16 @@ def dashboard_metrics(request):
         dist_code = getattr(user, "distributor_code", "") if user else ""
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
+        dist_code_param = request.GET.get("distributor_code", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
+        from_date = request.GET.get("from_date", "").strip()
+        to_date = request.GET.get("to_date", "").strip()
+        from_ym = from_date[:7] if from_date else ""
+        to_ym = to_date[:7] if to_date else ""
 
-        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{product_param}"
+        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v5"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -1905,6 +1910,13 @@ def dashboard_metrics(request):
             )
             stock_level_qs = StockLevel.objects.filter(
                 Q(sold_to=dist_code) | Q(ship_to=dist_code)
+            )
+        elif dist_code_param and dist_code_param.upper() != "ALL":
+            monthly_sales_qs = MonthlySales.objects.filter(
+                ship_to_code=dist_code_param
+            )
+            stock_level_qs = StockLevel.objects.filter(
+                Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param)
             )
         elif dist_param and dist_param.upper() != "ALL":
             if "CHEMI" in dist_param.upper():
@@ -2003,6 +2015,10 @@ def dashboard_metrics(request):
                 prod_vol[ms.product_name or "Unknown"] += tv
                 cust_vol[ms.customer_name or "Unknown"] += tv
             for m_str, vol in (ms.volumes or {}).items():
+                if from_ym and m_str < from_ym:
+                    continue
+                if to_ym and m_str > to_ym:
+                    continue
                 try:
                     vf = float(vol)
                     if vf > 0:
@@ -2054,11 +2070,16 @@ def primary_vs_secondary_analytics(request):
         dist_code = getattr(user, "distributor_code", "") if user else ""
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
+        dist_code_param = request.GET.get("distributor_code", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
+        from_date = request.GET.get("from_date", "").strip()
+        to_date = request.GET.get("to_date", "").strip()
+        from_ym = from_date[:7] if from_date else ""
+        to_ym = to_date[:7] if to_date else ""
 
-        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{product_param}"
+        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v6"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -2070,6 +2091,34 @@ def primary_vs_secondary_analytics(request):
             monthly_sales_qs = MonthlySales.objects.filter(
                 Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
             )
+        elif dist_code_param and dist_code_param.upper() != "ALL":
+            if dist_code_param == "438498":
+                primary_sales_qs = PrimarySales.objects.filter(
+                    Q(sold_to_party="438498")
+                    | Q(ship_to_party="438498")
+                    | Q(sold_to_party_address__iexact="Chemielink")
+                    | Q(ship_to_party_name__iexact="Chemielink")
+                )
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    ship_to_code="438498"
+                )
+            elif dist_code_param == "441522":
+                primary_sales_qs = PrimarySales.objects.filter(
+                    Q(sold_to_party="441522")
+                    | Q(ship_to_party="441522")
+                    | Q(sold_to_party_address__iexact="Chemie Link")
+                    | Q(ship_to_party_name__iexact="Chemie Link")
+                )
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    ship_to_code="441522"
+                )
+            else:
+                primary_sales_qs = PrimarySales.objects.filter(
+                    Q(sold_to_party=dist_code_param) | Q(ship_to_party=dist_code_param)
+                )
+                monthly_sales_qs = MonthlySales.objects.filter(
+                    ship_to_code=dist_code_param
+                )
         elif dist_param and dist_param.upper() != "ALL":
             if "CHEMI" in dist_param.upper():
                 primary_sales_qs = PrimarySales.objects.filter(
@@ -2095,6 +2144,11 @@ def primary_vs_secondary_analytics(request):
         else:
             primary_sales_qs = PrimarySales.objects.all()
             monthly_sales_qs = MonthlySales.objects.all()
+
+        if from_date:
+            primary_sales_qs = primary_sales_qs.filter(billing_date__gte=from_date)
+        if to_date:
+            primary_sales_qs = primary_sales_qs.filter(billing_date__lte=to_date)
 
         # Build product code to clean name map
         code_to_name = {
@@ -2260,13 +2314,9 @@ def primary_vs_secondary_analytics(request):
                 month_products_map[m_str][prod_name]["ps"] += val
                 month_products_map[m_str][prod_name]["ps_qty"] += qty
 
-            # Product group
-            group = (
-                prod_name.split(" ")[0]
-                if prod_name != "Unknown Product"
-                else "Unknown Product"
-            )
-            prod_map[group]["ps"] += val
+            # Individual product breakdown
+            if prod_name and prod_name != "Unknown Product":
+                prod_map[prod_name]["ps"] += val
 
             # Distributor mapping (calculated in single pass)
             sold = sold_addr or sold_party or ""
@@ -2290,14 +2340,14 @@ def primary_vs_secondary_analytics(request):
             if not product_matches(prod_name):
                 continue
 
-            group = (
-                prod_name.split(" ")[0]
-                if prod_name != "Unknown Product"
-                else "Unknown Product"
-            )
-            prod_map[group]["ss"] += ms.total_value or 0
+            if prod_name and prod_name != "Unknown Product":
+                prod_map[prod_name]["ss"] += ms.total_value or 0
 
             for m_str, val in ms.values.items():
+                if from_ym and m_str < from_ym:
+                    continue
+                if to_ym and m_str > to_ym:
+                    continue
                 try:
                     val_float = float(val)
                     if val_float > 0:
@@ -2308,6 +2358,10 @@ def primary_vs_secondary_analytics(request):
                 except:
                     pass
             for m_str, vol in ms.volumes.items():
+                if from_ym and m_str < from_ym:
+                    continue
+                if to_ym and m_str > to_ym:
+                    continue
                 try:
                     vol_float = float(vol)
                     if vol_float > 0:
@@ -2409,10 +2463,11 @@ def primary_vs_secondary_analytics(request):
             reverse=True,
         )
 
-        # 4. PRODUCT GROUP BREAKDOWN
+        # 4. TOP 10 INDIVIDUAL PRODUCTS BREAKDOWN
         product_array = [
             {
                 "group": k,
+                "name": k,
                 "Primary Sales": round(v["ps"], 2),
                 "Secondary Sales": round(v["ss"], 2),
             }
@@ -2420,7 +2475,7 @@ def primary_vs_secondary_analytics(request):
             if (v["ps"] > 0 or v["ss"] > 0)
         ]
         product_array.sort(
-            key=lambda x: x["Primary Sales"] + x["Secondary Sales"], reverse=True
+            key=lambda x: x["Secondary Sales"] + x["Primary Sales"], reverse=True
         )
 
         all_months_comparison = []
@@ -2474,6 +2529,56 @@ def primary_vs_secondary_analytics(request):
             (raw_total_ss / raw_total_ps * 100) if raw_total_ps > 0 else 0
         )
 
+        # 5. FAST MOVERS & SLOW MOVERS
+        product_totals = defaultdict(lambda: {"ps": 0.0, "ss": 0.0, "ps_qty": 0.0, "ss_qty": 0.0})
+        for m, prods in month_products_map.items():
+            if common_months and m not in common_months:
+                continue
+            for p_name, vals in prods.items():
+                product_totals[p_name]["ps"] += vals["ps"]
+                product_totals[p_name]["ss"] += vals["ss"]
+                product_totals[p_name]["ps_qty"] += vals.get("ps_qty", 0.0)
+                product_totals[p_name]["ss_qty"] += vals.get("ss_qty", 0.0)
+
+        if not product_totals:
+            for m, prods in month_products_map.items():
+                for p_name, vals in prods.items():
+                    product_totals[p_name]["ps"] += vals["ps"]
+                    product_totals[p_name]["ss"] += vals["ss"]
+                    product_totals[p_name]["ps_qty"] += vals.get("ps_qty", 0.0)
+                    product_totals[p_name]["ss_qty"] += vals.get("ss_qty", 0.0)
+
+        fast_movers = [
+            {
+                "name": p,
+                "Primary Sales": round(v["ps"], 2),
+                "Secondary Sales": round(v["ss"], 2),
+                "Sell-Through Ratio %": round(
+                    (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else (100.0 if v["ss"] > 0 else 0.0), 1
+                ),
+            }
+            for p, v in product_totals.items()
+            if v["ss"] > 0
+        ]
+        fast_movers.sort(key=lambda x: x["Secondary Sales"], reverse=True)
+        fast_movers = fast_movers[:8]
+
+        all_ps_prods = [
+            {
+                "name": p,
+                "Primary Sales": round(v["ps"], 2),
+                "Secondary Sales": round(v["ss"], 2),
+                "Sell-Through Ratio %": round(
+                    (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else 0.0, 1
+                ),
+                "unliquidated": round(v["ps"] - v["ss"], 2),
+            }
+            for p, v in product_totals.items()
+            if v["ps"] > 0
+        ]
+        all_ps_prods.sort(key=lambda x: (x["Sell-Through Ratio %"], -x["Primary Sales"]))
+        slow_movers = all_ps_prods[:8]
+
         response_data = {
             "kpis": {
                 "total_primary": round(total_ps, 2),
@@ -2489,7 +2594,9 @@ def primary_vs_secondary_analytics(request):
             "monthly_comparison": all_months_comparison,
             "distributor_performance": dist_only[:20],
             "customer_performance": cust_only[:50],
-            "product_group": product_array[:15],
+            "product_group": product_array[:10],
+            "fast_movers": fast_movers,
+            "slow_movers": slow_movers,
         }
 
         # Cache response in Redis for 1 hour
@@ -2508,6 +2615,7 @@ def _apply_distributor_filter(request):
     dist_code = getattr(user, "distributor_code", "") if user else ""
     is_dist = is_distributor(user)
     dist_param = request.GET.get("distributor", "").strip()
+    dist_code_param = request.GET.get("distributor_code", "").strip()
     if not dist_param and not is_dist:
         dist_param = "CHEMIELINK"
 
@@ -2519,6 +2627,39 @@ def _apply_distributor_filter(request):
             Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
         )
         sl_qs = StockLevel.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+        return ps_qs, ms_qs, sl_qs
+
+    if dist_code_param and dist_code_param.upper() != "ALL":
+        if dist_code_param == "438498":
+            ps_qs = PrimarySales.objects.filter(
+                Q(sold_to_party="438498")
+                | Q(ship_to_party="438498")
+                | Q(sold_to_party_address__iexact="Chemielink")
+                | Q(ship_to_party_name__iexact="Chemielink")
+            )
+            ms_qs = MonthlySales.objects.filter(ship_to_code="438498")
+            sl_qs = StockLevel.objects.filter(
+                Q(sold_to="438498") | Q(ship_to="438498")
+            )
+        elif dist_code_param == "441522":
+            ps_qs = PrimarySales.objects.filter(
+                Q(sold_to_party="441522")
+                | Q(ship_to_party="441522")
+                | Q(sold_to_party_address__iexact="Chemie Link")
+                | Q(ship_to_party_name__iexact="Chemie Link")
+            )
+            ms_qs = MonthlySales.objects.filter(ship_to_code="441522")
+            sl_qs = StockLevel.objects.filter(
+                Q(sold_to="441522") | Q(ship_to="441522")
+            )
+        else:
+            ps_qs = PrimarySales.objects.filter(
+                Q(sold_to_party=dist_code_param) | Q(ship_to_party=dist_code_param)
+            )
+            ms_qs = MonthlySales.objects.filter(ship_to_code=dist_code_param)
+            sl_qs = StockLevel.objects.filter(
+                Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param)
+            )
         return ps_qs, ms_qs, sl_qs
 
     if dist_param and dist_param.upper() != "ALL":
@@ -2612,11 +2753,16 @@ def _apply_order_filter(request):
     dist_code = getattr(user, "distributor_code", "") if user else ""
     is_dist = is_distributor(user)
     dist_param = request.GET.get("distributor", "").strip()
+    dist_code_param = request.GET.get("distributor_code", "").strip()
     if not dist_param and not is_dist:
         dist_param = "CHEMIELINK"
 
     if is_dist:
         return Order.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+    elif dist_code_param and dist_code_param.upper() != "ALL":
+        return Order.objects.filter(
+            Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param)
+        )
     elif dist_param and dist_param.upper() != "ALL":
         if "CHEMI" in dist_param.upper():
             return Order.objects.filter(
@@ -2631,10 +2777,13 @@ def _apply_order_filter(request):
     return Order.objects.all()
 
 
-def _get_common_months(ps_qs, ms_qs, order_qs=None):
+def _get_common_months(ps_qs, ms_qs, order_qs=None, from_date="", to_date=""):
     """Return set of YYYY-MM month strings that have sales (>0) in both Primary and Secondary."""
     import datetime as _dt
     from django.db.models import Q
+
+    from_ym = from_date[:7] if from_date else ""
+    to_ym = to_date[:7] if to_date else ""
 
     ps_months = set()
     try:
@@ -2644,7 +2793,12 @@ def _get_common_months(ps_qs, ms_qs, order_qs=None):
             .dates("billing_date", "month")
         )
         for d in ps_dates:
-            ps_months.add(d.strftime("%Y-%m"))
+            ym = d.strftime("%Y-%m")
+            if from_ym and ym < from_ym:
+                continue
+            if to_ym and ym > to_ym:
+                continue
+            ps_months.add(ym)
     except Exception:
         pass
 
@@ -2660,6 +2814,10 @@ def _get_common_months(ps_qs, ms_qs, order_qs=None):
                     except Exception:
                         parsed = None
                     std = parsed.strftime("%Y-%m") if parsed else m
+                    if from_ym and std < from_ym:
+                        continue
+                    if to_ym and std > to_ym:
+                        continue
                     ss_months.add(std)
             except Exception:
                 pass
@@ -2673,6 +2831,10 @@ def _get_common_months(ps_qs, ms_qs, order_qs=None):
                     except Exception:
                         parsed = None
                     std = parsed.strftime("%Y-%m") if parsed else m
+                    if from_ym and std < from_ym:
+                        continue
+                    if to_ym and std > to_ym:
+                        continue
                     ss_months.add(std)
             except Exception:
                 pass
@@ -2685,7 +2847,12 @@ def _get_common_months(ps_qs, ms_qs, order_qs=None):
                 .dates("invoice_date", "month")
             )
             for d in order_dates:
-                ss_months.add(d.strftime("%Y-%m"))
+                ym = d.strftime("%Y-%m")
+                if from_ym and ym < from_ym:
+                    continue
+                if to_ym and ym > to_ym:
+                    continue
+                ss_months.add(ym)
         except Exception:
             pass
 
@@ -2706,12 +2873,15 @@ def primary_sales_analysis(request):
         dist_code = getattr(user, "distributor_code", "") if user else ""
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
+        dist_code_param = request.GET.get("distributor_code", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
+        from_date = request.GET.get("from_date", "").strip()
+        to_date = request.GET.get("to_date", "").strip()
         cache_key = (
             f"dash_ps_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{product_param}_all_products_v2"
+            f"{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v7"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -2719,7 +2889,13 @@ def primary_sales_analysis(request):
 
         ps_qs, ms_qs, _ = _apply_distributor_filter(request)
         order_qs = _apply_order_filter(request)
-        common_months = _get_common_months(ps_qs, ms_qs, order_qs)
+        if from_date:
+            ps_qs = ps_qs.filter(billing_date__gte=from_date)
+            order_qs = order_qs.filter(invoice_date__gte=from_date)
+        if to_date:
+            ps_qs = ps_qs.filter(billing_date__lte=to_date)
+            order_qs = order_qs.filter(invoice_date__lte=to_date)
+        common_months = _get_common_months(ps_qs, ms_qs, order_qs, from_date, to_date)
 
         code_to_name, clean_to_canonical, get_canonical = _product_name_maps()
         product_q = get_canonical(product_param) if product_param else ""
@@ -2745,6 +2921,7 @@ def primary_sales_analysis(request):
         months_set = set()
         divisions_set = set()
         customers_set = set()
+        codes_set = set()
 
         monthly = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "invoices": 0})
         products = defaultdict(lambda: {"value": 0.0, "qty": 0.0})
@@ -2752,6 +2929,7 @@ def primary_sales_analysis(request):
             lambda: {"value": 0.0, "qty": 0.0, "sold_to": "", "ship_to": ""}
         )
         divisions = defaultdict(lambda: {"value": 0.0, "qty": 0.0})
+        regions = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "invoices": 0})
         sales_execs = defaultdict(lambda: {"value": 0.0, "qty": 0.0, "invoices": 0})
 
         ps_values = ps_qs.values(
@@ -2767,6 +2945,7 @@ def primary_sales_analysis(request):
             "ship_to_party",
             "sales_exec",
             "billing_no",
+            "region_dlv_plant",
         )
         for ps in ps_values:
             val = float(ps["assessable_value"] or 0.0)
@@ -2791,6 +2970,8 @@ def primary_sales_analysis(request):
 
             products[p_name]["value"] += val
             products[p_name]["qty"] += qty
+            if ps["material_code"]:
+                codes_set.add(str(ps["material_code"]).strip())
 
             ship = ps["ship_to_party_name"] or ""
             sold = ps["sold_to_party_address"] or ""
@@ -2816,6 +2997,11 @@ def primary_sales_analysis(request):
             divisions[division]["value"] += val
             divisions[division]["qty"] += qty
             divisions_set.add(division)
+
+            reg = (ps.get("region_dlv_plant") or "").strip() or "Unknown"
+            regions[reg]["value"] += val
+            regions[reg]["qty"] += qty
+            regions[reg]["invoices"] += 1
 
             exec_name = (ps["sales_exec"] or "").strip()
             if exec_name:
@@ -2882,6 +3068,20 @@ def primary_sales_analysis(request):
             reverse=True,
         )
 
+        region_list = sorted(
+            [
+                {
+                    "name": k,
+                    "value": round(v["value"], 2),
+                    "qty": round(v["qty"], 2),
+                    "invoices": v["invoices"],
+                }
+                for k, v in regions.items()
+            ],
+            key=lambda x: x["value"],
+            reverse=True,
+        )
+
         top_execs = sorted(
             [
                 {
@@ -2906,12 +3106,14 @@ def primary_sales_analysis(request):
                 "months_count": len(months_set),
                 "customers_count": len(customers_set),
                 "products_count": len(products),
+                "codes_count": len(codes_set),
                 "divisions_count": len(divisions_set),
             },
             "monthly_trend": monthly_list,
             "top_products": top_products,
             "top_customers": top_customers,
             "divisions": division_list,
+            "regions": region_list,
             "top_sales_execs": top_execs,
         }
         cache.set(cache_key, response_data, 3600)
@@ -2932,12 +3134,17 @@ def secondary_sales_analysis(request):
         dist_code = getattr(user, "distributor_code", "") if user else ""
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
+        dist_code_param = request.GET.get("distributor_code", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
+        from_date = request.GET.get("from_date", "").strip()
+        to_date = request.GET.get("to_date", "").strip()
+        from_ym = from_date[:7] if from_date else ""
+        to_ym = to_date[:7] if to_date else ""
         cache_key = (
             f"dash_ss_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{product_param}_all_products_v2"
+            f"{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v6"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -2945,7 +3152,13 @@ def secondary_sales_analysis(request):
 
         ps_qs, ms_qs, sl_qs = _apply_distributor_filter(request)
         order_qs = _apply_order_filter(request)
-        common_months = _get_common_months(ps_qs, ms_qs, order_qs)
+        if from_date:
+            ps_qs = ps_qs.filter(billing_date__gte=from_date)
+            order_qs = order_qs.filter(invoice_date__gte=from_date)
+        if to_date:
+            ps_qs = ps_qs.filter(billing_date__lte=to_date)
+            order_qs = order_qs.filter(invoice_date__lte=to_date)
+        common_months = _get_common_months(ps_qs, ms_qs, order_qs, from_date, to_date)
 
         _, clean_to_canonical, get_canonical = _product_name_maps()
         product_q = get_canonical(product_param) if product_param else ""
@@ -3008,6 +3221,10 @@ def secondary_sales_analysis(request):
                     except Exception:
                         parsed = None
                     std = parsed.strftime("%Y-%m") if parsed else m_str
+                    if from_ym and std < from_ym:
+                        continue
+                    if to_ym and std > to_ym:
+                        continue
                     if common_months and std not in common_months:
                         continue
                     months_set.add(std)
@@ -3039,6 +3256,10 @@ def secondary_sales_analysis(request):
                     except Exception:
                         parsed = None
                     std = parsed.strftime("%Y-%m") if parsed else m_str
+                    if from_ym and std < from_ym:
+                        continue
+                    if to_ym and std > to_ym:
+                        continue
                     if common_months and std not in common_months:
                         continue
                     monthly[std]["qty"] += vf
@@ -3688,12 +3909,28 @@ def stock_analysis(request):
         year_filter = request.GET.get("year")
         dist_filter = request.GET.get("dist", "").strip().lower()
 
-        cache_key = f"stock_analysis_{month_filter or 'all'}_{year_filter or 'all'}_{dist_filter or 'all'}"
+        cache_key = f"stock_analysis_3m_{month_filter or 'all'}_{year_filter or 'all'}_{dist_filter or 'all'}"
         cached_resp = cache.get(cache_key)
         if cached_resp is not None:
             return Response(cached_resp, status=status.HTTP_200_OK)
 
         ANOMALY_TOLERANCE_PCT = 5.0  # flag if discrepancy > 5 % of expected
+
+        # Stock Analysis page is strictly limited to 3 months: May, June, July 2026
+        ALLOWED_STOCK_MONTHS = ["2026-05", "2026-06", "2026-07"]
+        target_months = list(ALLOWED_STOCK_MONTHS)
+        if year_filter and str(year_filter) != "2026":
+            target_months = []
+        if month_filter:
+            try:
+                m_int = int(month_filter)
+                formatted_m = f"2026-{m_int:02d}"
+                if formatted_m in ALLOWED_STOCK_MONTHS:
+                    target_months = [formatted_m]
+                else:
+                    target_months = []
+            except (ValueError, TypeError):
+                pass
 
         # ── 1. Product master lookup ──────────────────────────────────────────
         prod_master = {
@@ -3801,16 +4038,14 @@ def stock_analysis(request):
                 tracked_dists = stock_dists
 
         # ── 3. Primary Sales  →  qty per (distributor, product, year-month) ──
-        ps_qs = PrimarySales.objects.all()
-        if month_filter and year_filter:
-            ps_qs = ps_qs.filter(
-                billing_date__month=int(month_filter),
-                billing_date__year=int(year_filter),
+        if target_months:
+            m_ints = [int(m.split("-")[1]) for m in target_months]
+            ps_qs = PrimarySales.objects.filter(
+                billing_date__year=2026,
+                billing_date__month__in=m_ints,
             )
-        elif year_filter:
-            ps_qs = ps_qs.filter(billing_date__year=int(year_filter))
-        elif month_filter:
-            ps_qs = ps_qs.filter(billing_date__month=int(month_filter))
+        else:
+            ps_qs = PrimarySales.objects.none()
 
         ps_agg = defaultdict(float)  # key: (dist_key, prod_name, ym)
         ps_val_agg = defaultdict(float)
@@ -3834,6 +4069,8 @@ def stock_analysis(request):
                 if ps["billing_date"]
                 else "Unknown"
             )
+            if ym not in target_months:
+                continue
             prod = resolve_prod_name(ps["material_code"], ps["material_desc"])
             qty = float(ps["billed_quantity"] or 0)
             val = float(ps["assessable_value"] or 0)
@@ -3846,92 +4083,83 @@ def stock_analysis(request):
         ss_agg = defaultdict(float)
         ss_val_agg = defaultdict(float)
 
-        ms_qs = MonthlySales.objects.all()
-        for ms in ms_qs:
-            dist = get_group_name(
-                ms.distributor_name or ms.ship_to_code or ms.customer_name or ""
-            )
-            prod_raw = get_canonical(ms.product_name)
+        if target_months:
+            ms_qs = MonthlySales.objects.all()
+            for ms in ms_qs:
+                dist = get_group_name(
+                    ms.distributor_name or ms.ship_to_code or ms.customer_name or ""
+                )
+                prod_raw = get_canonical(ms.product_name)
 
-            # Match to product master canonical name
-            matched_prod = prod_raw
-            for mc, mp in prod_master.items():
-                if get_canonical(mp) == prod_raw or prod_raw.startswith(
-                    get_canonical(mp)
-                ):
-                    matched_prod = get_canonical(mp)
-                    break
+                # Match to product master canonical name
+                matched_prod = prod_raw
+                for mc, mp in prod_master.items():
+                    if get_canonical(mp) == prod_raw or prod_raw.startswith(
+                        get_canonical(mp)
+                    ):
+                        matched_prod = get_canonical(mp)
+                        break
 
-            for ym, vol in (ms.volumes or {}).items():
-                # Filter out non-volume columns like currency values, potential, market share
-                if any(
-                    bad in ym.lower()
-                    for bad in ["value", "potential", "share", "fy26", "avg"]
-                ):
-                    continue
-                try:
-                    vol_f = float(vol or 0)
-                    if vol_f <= 0:
-                        continue
-
-                    # parse ym to standard YYYY-MM
-                    try:
-                        import dateutil.parser
-
-                        parsed = dateutil.parser.parse(
-                            ym, default=datetime.datetime(2020, 1, 1)
-                        )
-                        std_ym = parsed.strftime("%Y-%m")
-                    except Exception:
-                        std_ym = ym
-
-                    if month_filter and str(
-                        datetime.datetime.strptime(std_ym, "%Y-%m").month
-                    ) != str(month_filter):
-                        continue
-                    if year_filter and str(
-                        datetime.datetime.strptime(std_ym, "%Y-%m").year
-                    ) != str(year_filter):
-                        continue
-
-                    key = (dist, matched_prod, std_ym)
-                    ss_agg[key] += vol_f
-                except Exception:
-                    pass
-
-            for ym, val_v in (ms.values or {}).items():
-                try:
-                    val_f = float(val_v or 0)
-                    if val_f <= 0:
+                for ym, vol in (ms.volumes or {}).items():
+                    # Filter out non-volume columns like currency values, potential, market share
+                    if any(
+                        bad in ym.lower()
+                        for bad in ["value", "potential", "share", "fy26", "avg"]
+                    ):
                         continue
                     try:
-                        import dateutil.parser
+                        vol_f = float(vol or 0)
+                        if vol_f <= 0:
+                            continue
 
-                        parsed = dateutil.parser.parse(
-                            ym, default=datetime.datetime(2020, 1, 1)
-                        )
-                        std_ym = parsed.strftime("%Y-%m")
+                        # parse ym to standard YYYY-MM
+                        try:
+                            import dateutil.parser
+
+                            parsed = dateutil.parser.parse(
+                                ym, default=datetime.datetime(2026, 1, 1)
+                            )
+                            std_ym = parsed.strftime("%Y-%m")
+                        except Exception:
+                            std_ym = ym
+
+                        if std_ym not in target_months:
+                            continue
+
+                        key = (dist, matched_prod, std_ym)
+                        ss_agg[key] += vol_f
                     except Exception:
-                        std_ym = ym
-                    if month_filter and str(
-                        datetime.datetime.strptime(std_ym, "%Y-%m").month
-                    ) != str(month_filter):
-                        continue
-                    if year_filter and str(
-                        datetime.datetime.strptime(std_ym, "%Y-%m").year
-                    ) != str(year_filter):
-                        continue
-                    key = (dist, matched_prod, std_ym)
-                    ss_val_agg[key] += val_f
-                except Exception:
-                    pass
+                        pass
+
+                for ym, val_v in (ms.values or {}).items():
+                    try:
+                        val_f = float(val_v or 0)
+                        if val_f <= 0:
+                            continue
+                        try:
+                            import dateutil.parser
+
+                            parsed = dateutil.parser.parse(
+                                ym, default=datetime.datetime(2026, 1, 1)
+                            )
+                            std_ym = parsed.strftime("%Y-%m")
+                        except Exception:
+                            std_ym = ym
+
+                        if std_ym not in target_months:
+                            continue
+
+                        key = (dist, matched_prod, std_ym)
+                        ss_val_agg[key] += val_f
+                    except Exception:
+                        pass
 
         # ── 4. Uploaded stock on hand ─────────────────────────────────────────
-        sl_qs = StockLevel.objects.all()
-        if month_filter:
-            sl_qs = sl_qs.filter(month=int(month_filter))
-        if year_filter:
-            sl_qs = sl_qs.filter(year=int(year_filter))
+        if target_months:
+            m_ints = [int(m.split("-")[1]) for m in target_months]
+            sl_qs = StockLevel.objects.filter(year=2026, month__in=m_ints)
+        else:
+            sl_qs = StockLevel.objects.none()
 
         stock_actual = defaultdict(float)  # key: (dist_key, prod_name, ym)
         stock_meta = {}
@@ -3940,6 +4168,8 @@ def stock_analysis(request):
             dist = get_group_name(sl.sold_to or "") or get_group_name(sl.ship_to or "")
             prod = resolve_prod_name(sl.product_code, sl.product_desc)
             ym = f"{sl.year:04d}-{sl.month:02d}" if sl.year and sl.month else "Unknown"
+            if ym not in target_months:
+                continue
             qty = float(sl.month_end_inventory or 0)
             key = (dist, prod, ym)
             stock_actual[key] = qty
@@ -4007,6 +4237,9 @@ def stock_analysis(request):
         for dist, prod, ym in all_keys:
             # Only track distributors who have uploaded stock reports or secondary sales
             if dist not in tracked_dists:
+                continue
+
+            if ym not in target_months:
                 continue
 
             # optional distributor filter
