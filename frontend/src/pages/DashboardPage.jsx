@@ -989,55 +989,6 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         )}
       </div>
 
-      {/* Top Sales Executives — full width */}
-      <div className="card" style={{ padding: 22, marginTop: 24 }}>
-        <SectionHeader
-          title="Top Sales Executives"
-          subtitle="Ranked by primary sales value (Top 15)"
-        />
-        <DataTable
-          columns={[
-            { key: "name", label: "Executive" },
-            {
-              key: "value",
-              label: "Value",
-              tdStyle: {
-                fontWeight: 700,
-                color: "#0B3B2C",
-                textAlign: "right",
-              },
-              thStyle: { textAlign: "right" },
-              render: (r) => formatCrores(r.value),
-            },
-            {
-              key: "qty",
-              label: "Qty",
-              tdStyle: { textAlign: "right" },
-              thStyle: { textAlign: "right" },
-              render: (r) => formatKG(r.qty),
-            },
-            {
-              key: "invoices",
-              label: "Invoices",
-              tdStyle: { textAlign: "right" },
-              thStyle: { textAlign: "right" },
-            },
-            {
-              key: "avg_monthly_volume",
-              label: "Avg Monthly Volume",
-              tdStyle: {
-                fontWeight: 600,
-                textAlign: "right",
-                color: "#3D6A8A",
-              },
-              thStyle: { textAlign: "right" },
-              render: (r) => formatKG((r.qty || 0) / monthsCount),
-            },
-          ]}
-          rows={top_sales_execs || []}
-        />
-      </div>
-
       {/* Top products table */}
       <div className="card" style={{ padding: 24, marginTop: 24 }}>
         <SectionHeader
