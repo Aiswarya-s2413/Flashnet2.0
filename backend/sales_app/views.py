@@ -1738,6 +1738,13 @@ def upload_primary_sales(request):
         valid_codes = set(ProductMaster.objects.values_list("material_code", flat=True))
         new_products = {}
 
+        from sales_app.models import SalesExecutiveMapping
+        exec_lookup = dict(
+            SalesExecutiveMapping.objects.filter(sales_rep__isnull=False)
+            .exclude(sales_rep="")
+            .values_list("ship_to", "sales_rep")
+        )
+
         def get_str(row, idx):
             if idx is None or idx >= len(row):
                 return ""
@@ -1809,6 +1816,14 @@ def upload_primary_sales(request):
             if not sold_to_address_val and sold_to_name_idx is not None:
                 sold_to_address_val = get_str(row, sold_to_name_idx)
 
+            parsed_exec = get_str(row, sales_exec_idx)
+            ship_to_val = get_str(row, ship_to_idx)
+            sold_to_val = get_str(row, sold_to_idx)
+            if not parsed_exec or (len(parsed_exec) <= 8 and any(c.isdigit() for c in parsed_exec)):
+                mapped_exec = exec_lookup.get(ship_to_val) or exec_lookup.get(sold_to_val)
+                if mapped_exec:
+                    parsed_exec = mapped_exec
+
             records_to_create.append(
                 PrimarySales(
                     billing_no=billing_no,
@@ -1818,9 +1833,9 @@ def upload_primary_sales(request):
                     sales_order_item=get_str(row, sales_order_item_idx),
                     so_creation_date=get_date(row, so_date_idx),
                     division=get_str(row, division_idx),
-                    sold_to_party=get_str(row, sold_to_idx),
+                    sold_to_party=sold_to_val,
                     sold_to_party_address=sold_to_address_val,
-                    ship_to_party=get_str(row, ship_to_idx),
+                    ship_to_party=ship_to_val,
                     ship_to_party_name=get_str(row, ship_to_name_idx),
                     material_code=material_code,
                     material_desc=material_desc,
@@ -1832,7 +1847,7 @@ def upload_primary_sales(request):
                     assessable_value=get_float(row, val_idx),
                     country=get_str(row, country_idx),
                     region_dlv_plant=get_str(row, region_dlv_plant_idx),
-                    sales_exec=get_str(row, sales_exec_idx),
+                    sales_exec=parsed_exec,
                 )
             )
 
@@ -2079,7 +2094,17 @@ def primary_vs_secondary_analytics(request):
         from_ym = from_date[:7] if from_date else ""
         to_ym = to_date[:7] if to_date else ""
 
-        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v6"
+        try:
+            moq_param = float(request.GET.get("moq", "250").strip())
+        except:
+            moq_param = 250.0
+
+        try:
+            fast_months_param = int(request.GET.get("fast_mover_months", "2").strip())
+        except:
+            fast_months_param = 2
+
+        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_{moq_param}_{fast_months_param}_v9"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -2548,36 +2573,301 @@ def primary_vs_secondary_analytics(request):
                     product_totals[p_name]["ps_qty"] += vals.get("ps_qty", 0.0)
                     product_totals[p_name]["ss_qty"] += vals.get("ss_qty", 0.0)
 
-        fast_movers = [
-            {
-                "name": p,
-                "Primary Sales": round(v["ps"], 2),
-                "Secondary Sales": round(v["ss"], 2),
-                "Sell-Through Ratio %": round(
-                    (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else (100.0 if v["ss"] > 0 else 0.0), 1
-                ),
-            }
-            for p, v in product_totals.items()
-            if v["ss"] > 0
-        ]
-        fast_movers.sort(key=lambda x: x["Secondary Sales"], reverse=True)
-        fast_movers = fast_movers[:8]
+        # 5. FAST MOVERS (Condition: PS in month t-1 >= MOQ and SS in month t > MOQ continuously for N months)
+        all_month_keys = [m["month"] for m in all_months_comparison]
+        prod_by_month = defaultdict(dict)
+        for m_data in all_months_comparison:
+            m_key = m_data["month"]
+            for p_info in m_data.get("products", []):
+                prod_by_month[p_info["name"]][m_key] = p_info
 
-        all_ps_prods = [
-            {
-                "name": p,
-                "Primary Sales": round(v["ps"], 2),
-                "Secondary Sales": round(v["ss"], 2),
-                "Sell-Through Ratio %": round(
-                    (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else 0.0, 1
-                ),
-                "unliquidated": round(v["ps"] - v["ss"], 2),
-            }
-            for p, v in product_totals.items()
-            if v["ps"] > 0
-        ]
-        all_ps_prods.sort(key=lambda x: (x["Sell-Through Ratio %"], -x["Primary Sales"]))
-        slow_movers = all_ps_prods[:8]
+        qualifying_fast = []
+        ss_month_keys = [m["month"] for m in all_months_comparison if m.get("ss", 0) > 0]
+        latest_month = ss_month_keys[-1] if ss_month_keys else (all_month_keys[-1] if all_month_keys else "")
+
+        for p_name, m_dict in prod_by_month.items():
+            recent_streak = 0
+            if latest_month in all_month_keys:
+                idx = all_month_keys.index(latest_month)
+                while idx > 0:
+                    curr_m = all_month_keys[idx]
+                    prev_m = all_month_keys[idx - 1]
+                    p_prev = m_dict.get(prev_m, {}).get("ps_qty", 0.0)
+                    s_curr = m_dict.get(curr_m, {}).get("ss_qty", 0.0)
+                    if p_prev >= moq_param and s_curr > moq_param:
+                        recent_streak += 1
+                        idx -= 1
+                    else:
+                        break
+
+            max_streak = 0
+            curr_streak = 0
+            for i in range(1, len(all_month_keys)):
+                curr_m = all_month_keys[i]
+                prev_m = all_month_keys[i - 1]
+                p_prev = m_dict.get(prev_m, {}).get("ps_qty", 0.0)
+                s_curr = m_dict.get(curr_m, {}).get("ss_qty", 0.0)
+                if p_prev >= moq_param and s_curr > moq_param:
+                    curr_streak += 1
+                    if curr_streak > max_streak:
+                        max_streak = curr_streak
+                else:
+                    curr_streak = 0
+
+            meets_recent = recent_streak >= fast_months_param
+            meets_any = max_streak >= fast_months_param
+
+            if meets_recent or meets_any:
+                v = product_totals.get(p_name, {"ps": 0.0, "ss": 0.0})
+                qualifying_fast.append(
+                    {
+                        "name": p_name,
+                        "Primary Sales": round(v["ps"], 2),
+                        "Secondary Sales": round(v["ss"], 2),
+                        "Sell-Through Ratio %": round(
+                            (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else (100.0 if v["ss"] > 0 else 0.0), 1
+                        ),
+                        "recent_streak": recent_streak,
+                        "max_streak": max_streak,
+                        "meets_recent": meets_recent,
+                    }
+                )
+
+        qualifying_fast.sort(
+            key=lambda x: (
+                0 if x["meets_recent"] else 1,
+                -x["recent_streak"],
+                -x["max_streak"],
+                -x["Secondary Sales"],
+            )
+        )
+
+        if qualifying_fast:
+            fast_movers = qualifying_fast[:8]
+        else:
+            fallback_fast = [
+                {
+                    "name": p,
+                    "Primary Sales": round(v["ps"], 2),
+                    "Secondary Sales": round(v["ss"], 2),
+                    "Sell-Through Ratio %": round(
+                        (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else (100.0 if v["ss"] > 0 else 0.0), 1
+                    ),
+                }
+                for p, v in product_totals.items()
+                if v["ss"] > 0
+            ]
+            fallback_fast.sort(key=lambda x: x["Secondary Sales"], reverse=True)
+            fast_movers = fallback_fast[:8]
+
+        # Stock-based slow movers: Products in actual stock with 0 secondary sales for >180 days (6 months)
+        stock_filter = Q(month_end_inventory__gt=0)
+        if is_dist:
+            stock_filter &= (Q(sold_to=dist_code) | Q(ship_to=dist_code))
+        elif dist_code_param and dist_code_param.upper() != "ALL":
+            if dist_code_param in ["438498", "441522"]:
+                stock_filter &= (Q(sold_to__in=["438498", "441522"]) | Q(ship_to__in=["438498", "441522", "438499"]))
+            else:
+                stock_filter &= (Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param))
+        elif dist_param and dist_param.upper() != "ALL":
+            if "CHEMI" in dist_param.upper():
+                stock_filter &= (Q(sold_to__in=["438498", "441522"]) | Q(ship_to__in=["438498", "441522", "438499"]))
+            else:
+                stock_filter &= (Q(sold_to__icontains=dist_param) | Q(ship_to__icontains=dist_param))
+        else:
+            stock_filter &= (Q(sold_to__in=["438498", "441522"]) | Q(ship_to__in=["438498", "441522", "438499"]))
+
+        latest_sl = StockLevel.objects.filter(stock_filter).order_by("-year", "-month").first()
+        stock_slow_movers = []
+
+        if latest_sl:
+            window_180d = []
+            cur_y, cur_m = latest_sl.year, latest_sl.month
+            for _ in range(6):
+                window_180d.append(f"{cur_y:04d}-{cur_m:02d}")
+                cur_m -= 1
+                if cur_m == 0:
+                    cur_m = 12
+                    cur_y -= 1
+
+            sl_records = StockLevel.objects.filter(
+                stock_filter,
+                year=latest_sl.year,
+                month=latest_sl.month,
+                month_end_inventory__gt=0,
+            )
+            stock_products = defaultdict(lambda: {"qty": 0.0, "codes": set(), "desc": ""})
+            for s in sl_records:
+                s_code = (s.product_code or "").strip()
+                if s_code and s_code in code_to_name:
+                    p_name = get_canonical_name(code_to_name[s_code])
+                elif s.product_desc:
+                    desc_clean = clean_prod_name(s.product_desc)
+                    if desc_clean in name_to_clean_name:
+                        p_name = get_canonical_name(name_to_clean_name[desc_clean])
+                    else:
+                        p_name = get_canonical_name(desc_clean)
+                else:
+                    p_name = ""
+                if not p_name or not product_matches(p_name):
+                    continue
+                stock_products[p_name]["qty"] += float(s.month_end_inventory or 0.0)
+                if s_code:
+                    stock_products[p_name]["codes"].add(s_code)
+                if not stock_products[p_name]["desc"]:
+                    stock_products[p_name]["desc"] = s.product_desc
+
+            # Calculate 180-day secondary sales (values and volumes)
+            ss_180d_by_prod = defaultdict(float)
+            ss_180d_by_code = defaultdict(float)
+            ss_vol_180d_by_prod = defaultdict(float)
+            ss_vol_180d_by_code = defaultdict(float)
+            for ms in monthly_sales_qs:
+                ms_p_name = get_clean_ms_product(ms)
+                ms_c = (ms.product_code or "").strip()
+                v_180d = 0.0
+                vol_180d = 0.0
+                for w_m in window_180d:
+                    val = (ms.values or {}).get(w_m, 0.0)
+                    try:
+                        fv = float(val)
+                        if fv > 0:
+                            v_180d += fv
+                    except:
+                        pass
+                    vol = (ms.volumes or {}).get(w_m, 0.0)
+                    try:
+                        fvol = float(vol)
+                        if fvol > 0:
+                            vol_180d += fvol
+                    except:
+                        pass
+                if ms_p_name:
+                    if v_180d > 0:
+                        ss_180d_by_prod[ms_p_name] += v_180d
+                    if vol_180d > 0:
+                        ss_vol_180d_by_prod[ms_p_name] += vol_180d
+                if ms_c:
+                    if v_180d > 0:
+                        ss_180d_by_code[ms_c] += v_180d
+                    if vol_180d > 0:
+                        ss_vol_180d_by_code[ms_c] += vol_180d
+
+            for p_name, s_data in stock_products.items():
+                ss_val = ss_180d_by_prod.get(p_name, 0.0)
+                for c in s_data["codes"]:
+                    if c in ss_180d_by_code:
+                        ss_val = max(ss_val, ss_180d_by_code[c])
+
+                if ss_val == 0.0:
+                    ps_val = 0.0
+                    if p_name in product_totals and product_totals[p_name]["ps"] > 0:
+                        ps_val = product_totals[p_name]["ps"]
+                    elif p_name in prod_map and prod_map[p_name]["ps"] > 0:
+                        ps_val = prod_map[p_name]["ps"]
+
+                    if ps_val == 0.0:
+                        for c in s_data["codes"]:
+                            ps_c = PrimarySales.objects.filter(
+                                Q(sold_to_party__in=["438498", "441522"]) | Q(ship_to_party__in=["438498", "441522"]),
+                                material_code=c,
+                            ).aggregate(Sum("assessable_value"))["assessable_value__sum"]
+                            if ps_c:
+                                ps_val = max(ps_val, float(ps_c))
+
+                    stock_slow_movers.append(
+                        {
+                            "name": p_name,
+                            "Primary Sales": round(ps_val, 2),
+                            "Secondary Sales": 0.0,
+                            "Sell-Through Ratio %": 0.0,
+                            "unliquidated": round(ps_val, 2),
+                            "stock_qty": round(s_data["qty"], 2),
+                        }
+                    )
+
+            stock_slow_movers.sort(key=lambda x: (x["Primary Sales"], x["stock_qty"]), reverse=True)
+
+        if stock_slow_movers:
+            slow_movers = stock_slow_movers[:8]
+        else:
+            all_ps_prods = [
+                {
+                    "name": p,
+                    "Primary Sales": round(v["ps"], 2),
+                    "Secondary Sales": round(v["ss"], 2),
+                    "Sell-Through Ratio %": round(
+                        (v["ss"] / v["ps"] * 100) if v["ps"] > 0 else 0.0, 1
+                    ),
+                    "unliquidated": round(v["ps"] - v["ss"], 2),
+                }
+                for p, v in product_totals.items()
+                if v["ps"] > 0
+            ]
+            all_ps_prods.sort(key=lambda x: (x["Sell-Through Ratio %"], -x["Primary Sales"]))
+            slow_movers = all_ps_prods[:8]
+
+        # 6. ORDER REPLENISHMENT ITEMS (Condition: Stock < 2 * Half-Yearly Volume Sold)
+        replenishment_items = []
+        if latest_sl:
+            all_sl_records = StockLevel.objects.filter(
+                stock_filter,
+                year=latest_sl.year,
+                month=latest_sl.month,
+            )
+            seen_items = set()
+            for s in all_sl_records:
+                s_code = (s.product_code or "").strip()
+                s_desc = (s.product_desc or "").strip()
+                if s_code and s_code in code_to_name:
+                    p_name = get_canonical_name(code_to_name[s_code])
+                elif s_desc:
+                    desc_clean = clean_prod_name(s_desc)
+                    if desc_clean in name_to_clean_name:
+                        p_name = get_canonical_name(name_to_clean_name[desc_clean])
+                    else:
+                        p_name = get_canonical_name(desc_clean)
+                else:
+                    p_name = s_desc or "Unknown"
+
+                if not product_matches(p_name):
+                    continue
+
+                item_key = (p_name, s_code)
+                if item_key in seen_items:
+                    continue
+                seen_items.add(item_key)
+
+                stock_qty = float(s.month_end_inventory or 0.0)
+
+                sold_6m = ss_vol_180d_by_code.get(s_code, 0.0)
+                if sold_6m == 0:
+                    sold_6m = ss_vol_180d_by_prod.get(p_name, 0.0)
+
+                avg_6m = float(s.avg_six_month_sales or 0.0)
+                effective_sold_6m = sold_6m if sold_6m > 0 else (avg_6m * 6 if avg_6m > 0 else 0.0)
+                avg_half_yearly_sold = (effective_sold_6m / 6.0) if effective_sold_6m > 0 else 0.0
+
+                target_stock = round(2 * avg_half_yearly_sold, 2)
+                needs_replenish = (stock_qty < target_stock) and (effective_sold_6m > 0)
+                shortage = round(max(0.0, target_stock - stock_qty), 2) if needs_replenish else 0.0
+
+                replenishment_items.append(
+                    {
+                        "product_code": s_code or "—",
+                        "product_name": p_name,
+                        "product_desc": s_desc or p_name,
+                        "stock_qty": round(stock_qty, 2),
+                        "half_yearly_volume": round(effective_sold_6m, 2),
+                        "avg_half_yearly_sold": round(avg_half_yearly_sold, 2),
+                        "target_stock": target_stock,
+                        "needs_replenish": needs_replenish,
+                        "shortage_qty": shortage,
+                        "status": "Replenish Order" if needs_replenish else "Sufficient Stock",
+                    }
+                )
+
+            replenishment_items.sort(key=lambda x: (not x["needs_replenish"], -x["shortage_qty"]))
 
         response_data = {
             "kpis": {
@@ -2597,6 +2887,7 @@ def primary_vs_secondary_analytics(request):
             "product_group": product_array[:10],
             "fast_movers": fast_movers,
             "slow_movers": slow_movers,
+            "replenishment_items": replenishment_items,
         }
 
         # Cache response in Redis for 1 hour
@@ -3626,7 +3917,7 @@ def sales_exec_analytics(request):
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
 
-        cache_key = f"sales_exec_analytics_{month_filter}_{division_filter}_{exec_filter}_{dist_code if is_dist else dist_param}"
+        cache_key = f"sales_exec_analytics_{month_filter}_{division_filter}_{exec_filter}_{dist_code if is_dist else dist_param}_v10"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -3639,20 +3930,34 @@ def sales_exec_analytics(request):
         elif dist_param and dist_param.upper() != "ALL":
             if "CHEMI" in dist_param.upper():
                 qs = qs.filter(
-                    Q(sold_to_party__in=["438498", "441522"])
-                    | Q(ship_to_party__in=["438498", "441522"])
-                    | Q(sold_to_party_address__iexact="Chemielink")
-                    | Q(sold_to_party_address__iexact="Chemie Link")
-                    | Q(ship_to_party_name__iexact="Chemielink")
-                    | Q(ship_to_party_name__iexact="Chemie Link")
+                    Q(sold_to_party__in=["438498", "441522", "441355", "438499", "320408", "439062", "439061"])
+                    | Q(ship_to_party__in=["438498", "441522", "441355", "438499", "320408", "439062", "439061"])
+                    | Q(sold_to_party_address__icontains="Chemielink")
+                    | Q(sold_to_party_address__icontains="Chemie Link")
+                    | Q(ship_to_party_name__icontains="Chemielink")
+                    | Q(ship_to_party_name__icontains="Chemie Link")
                 )
             else:
-                qs = qs.filter(
-                    Q(sold_to_party_address__icontains=dist_param)
-                    | Q(ship_to_party_name__icontains=dist_param)
-                    | Q(sold_to_party=dist_param)
-                    | Q(ship_to_party=dist_param)
+                from sales_app.models import SalesExecutiveMapping
+                group_ship_tos = list(
+                    SalesExecutiveMapping.objects.filter(
+                        Q(group_name__iexact=dist_param) | Q(ship_to_party__icontains=dist_param)
+                    ).values_list("ship_to", flat=True)
                 )
+                if group_ship_tos:
+                    qs = qs.filter(
+                        Q(sold_to_party__in=group_ship_tos)
+                        | Q(ship_to_party__in=group_ship_tos)
+                        | Q(sold_to_party_address__icontains=dist_param)
+                        | Q(ship_to_party_name__icontains=dist_param)
+                    )
+                else:
+                    qs = qs.filter(
+                        Q(sold_to_party_address__icontains=dist_param)
+                        | Q(ship_to_party_name__icontains=dist_param)
+                        | Q(sold_to_party=dist_param)
+                        | Q(ship_to_party=dist_param)
+                    )
         if month_filter and month_filter != "all":
             try:
                 parts = month_filter.split("-")
@@ -3674,6 +3979,8 @@ def sales_exec_analytics(request):
             "billed_quantity",
             "billing_date",
             "material_desc",
+            "ship_to_party",
+            "sold_to_party",
             "ship_to_party_name",
             "sold_to_party_address",
             "division",
@@ -3685,6 +3992,7 @@ def sales_exec_analytics(request):
         total_rev_all = 0.0
         total_vol_all = 0.0
         total_tx_all = 0
+        sales_by_ship = defaultdict(lambda: {"val": 0.0, "qty": 0.0, "invoices": 0})
 
         exec_summary = defaultdict(
             lambda: {
@@ -3722,6 +4030,12 @@ def sales_exec_analytics(request):
             total_tx_all += 1
             if div:
                 all_divisions_set.add(div)
+
+            sp = (row.get("ship_to_party") or "").strip()
+            if sp:
+                sales_by_ship[sp]["val"] += val
+                sales_by_ship[sp]["qty"] += qty
+                sales_by_ship[sp]["invoices"] += 1
 
             item = exec_summary[e_name]
             item["name"] = e_name
@@ -3851,9 +4165,205 @@ def sales_exec_analytics(request):
             ]
         )
 
+        from sales_app.models import SalesExecutiveMapping
+        all_mappings = list(SalesExecutiveMapping.objects.all().order_by("ship_to"))
+
+        mappings_list = []
+        for m in all_mappings:
+            s_code = (m.ship_to or "").strip()
+            s_data = sales_by_ship.get(s_code, {"val": 0.0, "qty": 0.0, "invoices": 0})
+            m_val = float(s_data["val"])
+            m_qty = float(s_data["qty"])
+            m_tx = int(s_data["invoices"])
+            m_asp = (m_val / m_qty) if m_qty > 0 else 0.0
+            mappings_list.append({
+                "classification": (m.classification or "—").strip(),
+                "sales_leader": (m.sales_leader or "—").strip(),
+                "regional_manager": (m.regional_manager or "—").strip(),
+                "sales_rep": (m.sales_rep or "—").strip(),
+                "key_account": (m.key_account or "—").strip(),
+                "active_status": (m.active_status or "—").strip(),
+                "ship_to": s_code,
+                "ship_to_party": (m.ship_to_party or "—").strip(),
+                "group_name": (m.group_name or "—").strip(),
+                "dist_direct": (m.dist_direct or "—").strip(),
+                "revenue": round(m_val, 2),
+                "volume": round(m_qty, 2),
+                "invoices": m_tx,
+                "asp": round(m_asp, 2),
+            })
+
+        # Build rep_agg, manager_agg, leader_agg from mappings_list
+        rep_agg = defaultdict(lambda: {
+            "name": "",
+            "sales_leader": "—",
+            "regional_manager": "—",
+            "revenue": 0.0,
+            "volume": 0.0,
+            "invoices": 0,
+            "accounts_count": 0,
+            "accounts": [],
+        })
+        for item in mappings_list:
+            rep = item["sales_rep"]
+            if rep and rep != "—":
+                r_item = rep_agg[rep]
+                r_item["name"] = rep
+                r_item["sales_leader"] = item["sales_leader"]
+                r_item["regional_manager"] = item["regional_manager"]
+                r_item["revenue"] += item["revenue"]
+                r_item["volume"] += item["volume"]
+                r_item["invoices"] += item["invoices"]
+                r_item["accounts_count"] += 1
+                r_item["accounts"].append(item["ship_to_party"])
+
+        by_sales_rep = []
+        for r_name, r_data in rep_agg.items():
+            tot_v = r_data["revenue"]
+            tot_q = r_data["volume"]
+            by_sales_rep.append({
+                "name": r_name,
+                "sales_leader": r_data["sales_leader"],
+                "regional_manager": r_data["regional_manager"],
+                "revenue": round(tot_v, 2),
+                "volume": round(tot_q, 2),
+                "asp": round(tot_v / tot_q, 2) if tot_q > 0 else 0.0,
+                "invoices": r_data["invoices"],
+                "accounts_count": r_data["accounts_count"],
+                "accounts": r_data["accounts"][:20],
+            })
+        by_sales_rep.sort(key=lambda x: x["revenue"], reverse=True)
+        for i, item in enumerate(by_sales_rep):
+            item["rank"] = i + 1
+
+        manager_agg = defaultdict(lambda: {
+            "name": "",
+            "sales_leader": "—",
+            "revenue": 0.0,
+            "volume": 0.0,
+            "invoices": 0,
+            "reps_set": set(),
+            "accounts_count": 0,
+        })
+        for item in mappings_list:
+            mgr = item["regional_manager"]
+            if mgr and mgr != "—":
+                m_item = manager_agg[mgr]
+                m_item["name"] = mgr
+                m_item["sales_leader"] = item["sales_leader"]
+                m_item["revenue"] += item["revenue"]
+                m_item["volume"] += item["volume"]
+                m_item["invoices"] += item["invoices"]
+                m_item["accounts_count"] += 1
+                if item["sales_rep"] and item["sales_rep"] != "—":
+                    m_item["reps_set"].add(item["sales_rep"])
+
+        by_regional_manager = []
+        for m_name, m_data in manager_agg.items():
+            tot_v = m_data["revenue"]
+            tot_q = m_data["volume"]
+            by_regional_manager.append({
+                "name": m_name,
+                "sales_leader": m_data["sales_leader"],
+                "revenue": round(tot_v, 2),
+                "volume": round(tot_q, 2),
+                "asp": round(tot_v / tot_q, 2) if tot_q > 0 else 0.0,
+                "invoices": m_data["invoices"],
+                "reps_count": len(m_data["reps_set"]),
+                "reps": sorted(list(m_data["reps_set"])),
+                "accounts_count": m_data["accounts_count"],
+            })
+        by_regional_manager.sort(key=lambda x: x["revenue"], reverse=True)
+        for i, item in enumerate(by_regional_manager):
+            item["rank"] = i + 1
+
+        leader_agg = defaultdict(lambda: {
+            "name": "",
+            "revenue": 0.0,
+            "volume": 0.0,
+            "invoices": 0,
+            "managers_set": set(),
+            "reps_set": set(),
+            "accounts_count": 0,
+        })
+        for item in mappings_list:
+            ldr = item["sales_leader"]
+            if ldr and ldr != "—":
+                l_item = leader_agg[ldr]
+                l_item["name"] = ldr
+                l_item["revenue"] += item["revenue"]
+                l_item["volume"] += item["volume"]
+                l_item["invoices"] += item["invoices"]
+                l_item["accounts_count"] += 1
+                if item["regional_manager"] and item["regional_manager"] != "—":
+                    l_item["managers_set"].add(item["regional_manager"])
+                if item["sales_rep"] and item["sales_rep"] != "—":
+                    l_item["reps_set"].add(item["sales_rep"])
+
+        by_sales_leader = []
+        for l_name, l_data in leader_agg.items():
+            tot_v = l_data["revenue"]
+            tot_q = l_data["volume"]
+            by_sales_leader.append({
+                "name": l_name,
+                "revenue": round(tot_v, 2),
+                "volume": round(tot_q, 2),
+                "asp": round(tot_v / tot_q, 2) if tot_q > 0 else 0.0,
+                "invoices": l_data["invoices"],
+                "managers_count": len(l_data["managers_set"]),
+                "managers": sorted(list(l_data["managers_set"])),
+                "reps_count": len(l_data["reps_set"]),
+                "reps": sorted(list(l_data["reps_set"])),
+                "accounts_count": l_data["accounts_count"],
+            })
+        by_sales_leader.sort(key=lambda x: x["revenue"], reverse=True)
+        for i, item in enumerate(by_sales_leader):
+            item["rank"] = i + 1
+
+        # Enrich exec_list with leader and manager
+        rep_lookup = {item["name"]: item for item in by_sales_rep}
+        for item in exec_list:
+            r_info = rep_lookup.get(item["name"])
+            if r_info:
+                item["sales_leader"] = r_info["sales_leader"]
+                item["regional_manager"] = r_info["regional_manager"]
+                item["mapped_accounts_count"] = r_info["accounts_count"]
+            else:
+                item["sales_leader"] = "—"
+                item["regional_manager"] = "—"
+                item["mapped_accounts_count"] = 0
+
+        # Unique lists for filters
+        available_leaders = sorted(list(set(m["sales_leader"] for m in mappings_list if m["sales_leader"] and m["sales_leader"] != "—")))
+        available_managers = sorted(list(set(m["regional_manager"] for m in mappings_list if m["regional_manager"] and m["regional_manager"] != "—")))
+        available_reps = sorted(list(set(m["sales_rep"] for m in mappings_list if m["sales_rep"] and m["sales_rep"] != "—")))
+        available_classifications = sorted(list(set(m["classification"] for m in mappings_list if m["classification"] and m["classification"] != "—")))
+        available_key_accounts = sorted(list(set(m["key_account"] for m in mappings_list if m["key_account"] and m["key_account"] != "—" and m["key_account"].lower() != "not key account")))
+        available_dist_direct = sorted(list(set(m["dist_direct"] for m in mappings_list if m["dist_direct"] and m["dist_direct"] != "—")))
+        available_statuses = sorted(list(set(m["active_status"] for m in mappings_list if m["active_status"] and m["active_status"] != "—")))
+
+        dist_groups = list(
+            SalesExecutiveMapping.objects.exclude(group_name__isnull=True)
+            .exclude(group_name="")
+            .values_list("group_name", flat=True)
+            .distinct()
+        )
+        clean_groups = sorted(list(set(g.strip() for g in dist_groups if g and g.strip())))
+        available_distributors = [
+            {"code": "all", "name": "All Distributors"},
+            {"code": "CHEMIELINK", "name": "Chemielink"},
+        ]
+        for g in clean_groups:
+            if "chemi" not in g.lower():
+                available_distributors.append({"code": g, "name": g})
+
         response_data = {
             "kpis": {
                 "total_executives": len(exec_list),
+                "total_accounts": len(mappings_list),
+                "total_leaders": len(available_leaders),
+                "total_managers": len(available_managers),
+                "total_representatives": len(available_reps),
                 "total_revenue": round(total_rev_all, 2),
                 "total_volume": round(total_vol_all, 2),
                 "total_transactions": total_tx_all,
@@ -3868,6 +4378,18 @@ def sales_exec_analytics(request):
             "available_divisions": division_strings
             if division_strings
             else sorted(list(all_divisions_set)),
+            "available_distributors": available_distributors,
+            "available_leaders": available_leaders,
+            "available_managers": available_managers,
+            "available_reps": available_reps,
+            "available_classifications": available_classifications,
+            "available_key_accounts": available_key_accounts,
+            "available_dist_direct": available_dist_direct,
+            "available_statuses": available_statuses,
+            "mappings": mappings_list,
+            "by_sales_rep": by_sales_rep,
+            "by_regional_manager": by_regional_manager,
+            "by_sales_leader": by_sales_leader,
             "leaderboard": leaderboard_chart,
             "executives": exec_list,
         }

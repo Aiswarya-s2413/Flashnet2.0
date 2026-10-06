@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw, X } from 'lucide-react'
+import { UploadCloud, FileSpreadsheet, CheckCircle, AlertTriangle, RefreshCw, X, Loader2 } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import { useSortableData, SortHeader } from '../components/SortableTable'
 
@@ -174,7 +174,14 @@ export default function UploadPrimarySalesPage() {
           </thead>
           <tbody>
             {fetching ? (
-              <tr><td colSpan={22} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading Primary Sales…</td></tr>
+              <tr>
+                <td colSpan={22} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Loading Primary Sales…</span>
+                  </div>
+                </td>
+              </tr>
             ) : sales.length === 0 ? (
               <tr>
                 <td colSpan={22} style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-dim)' }}>

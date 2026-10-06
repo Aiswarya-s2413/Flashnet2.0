@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { Check, X, HelpCircle, Users, Clipboard, MapPin, Building, Key } from 'lucide-react'
+import { Check, X, HelpCircle, Users, Clipboard, MapPin, Building, Key, RotateCcw } from 'lucide-react'
 
 export default function OnboardingApprovalsPage() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [filter, setFilter] = useState('all') // 'all', 'pending', 'sent_back', 'approved'
   
   // Action state
   const [activeRequest, setActiveRequest] = useState(null)
-  const [actionType, setActionType] = useState('') // 'approve', 'reject', 'clarification'
+  const [actionType, setActionType] = useState('') // 'approve', 'send_back', 'clarification'
   const [approverRole, setApproverRole] = useState('sales') // 'sales', 'csd', 'it_admin'
   const [finalApproval, setFinalApproval] = useState(false)
   const [distributorCode, setDistributorCode] = useState('')
@@ -126,109 +127,187 @@ export default function OnboardingApprovalsPage() {
           <p style={{ marginTop: 8, fontSize: 13 }}>All distributor registration queues are currently empty.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {requests.map((req) => (
-            <div key={req.id} className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Header Info */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-                <div>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 18, color: 'var(--text)' }}>
-                    {req.user.display_name}
-                    <span className={`badge ${
-                      req.status === 'approved' ? 'badge-green' : 
-                      req.status === 'rejected' ? 'badge-red' : 
-                      req.status === 'clarification' ? 'badge-amber' : 'badge-accent'
-                    }`}>
-                      {req.status.replace('_', ' ')}
-                    </span>
-                  </h3>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>UPN: <strong>{req.user.upn}</strong> | Requested: {new Date(req.created_at).toLocaleDateString()}</p>
-                </div>
-                
-                {req.status !== 'approved' && req.status !== 'rejected' && (
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button className="btn btn-secondary" style={{ padding: '6px 16px', fontSize: 12 }} onClick={() => openActionModal(req, 'clarification')}>
-                      <HelpCircle size={14} /> Need Clarification
-                    </button>
-                    <button className="btn btn-danger" style={{ padding: '6px 16px', fontSize: 12 }} onClick={() => openActionModal(req, 'reject')}>
-                      <X size={14} /> Reject
-                    </button>
-                    <button className="btn btn-primary" style={{ padding: '6px 16px', fontSize: 12 }} onClick={() => openActionModal(req, 'approve')}>
-                      <Check size={14} /> Approve / Progress
-                    </button>
-                  </div>
-                )}
-              </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Status Filter Tabs */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '6px 14px', fontSize: 12.5 }}
+              onClick={() => setFilter('all')}
+            >
+              All Requests ({requests.length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'pending' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '6px 14px', fontSize: 12.5 }}
+              onClick={() => setFilter('pending')}
+            >
+              Pending ({requests.filter(r => r.status === 'pending' || r.status === 'sales_approved' || r.status === 'csd_approved' || r.status === 'clarification').length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'sent_back' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ 
+                padding: '6px 14px', 
+                fontSize: 12.5,
+                backgroundColor: filter === 'sent_back' ? 'var(--amber)' : undefined,
+                borderColor: filter === 'sent_back' ? 'var(--amber)' : undefined,
+                color: filter === 'sent_back' ? '#fff' : undefined,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              onClick={() => setFilter('sent_back')}
+            >
+              <RotateCcw size={13} />
+              Sent Back to Distributor ({requests.filter(r => r.status === 'sent_back' || r.status === 'send_back' || r.status === 'rejected').length})
+            </button>
+            <button
+              type="button"
+              className={`btn ${filter === 'approved' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '6px 14px', fontSize: 12.5 }}
+              onClick={() => setFilter('approved')}
+            >
+              Approved ({requests.filter(r => r.status === 'approved').length})
+            </button>
+          </div>
 
-              {/* Data Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, background: '#fafbfc', padding: 16, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <Key size={18} style={{ color: 'var(--text-dim)' }} />
-                  <div>
-                    <small style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>Distributor Code</small>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{req.distributor_code || 'Not Assigned'}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <Building size={18} style={{ color: 'var(--text-dim)' }} />
-                  <div>
-                    <small style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>Legal Entity</small>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{req.legal_entity || 'Not Verified'}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <MapPin size={18} style={{ color: 'var(--text-dim)' }} />
-                  <div>
-                    <small style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>Territory / Region</small>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{req.territory || 'Not Specified'}</span>
-                  </div>
-                </div>
-              </div>
+          {/* Requests List */}
+          {requests
+            .filter(r => {
+              if (filter === 'sent_back') return r.status === 'sent_back' || r.status === 'send_back' || r.status === 'rejected'
+              if (filter === 'pending') return r.status === 'pending' || r.status === 'sales_approved' || r.status === 'csd_approved' || r.status === 'clarification'
+              if (filter === 'approved') return r.status === 'approved'
+              return true
+            })
+            .map((req) => {
+              const isSentBack = req.status === 'sent_back' || req.status === 'send_back' || req.status === 'rejected'
 
-              {/* Verified Emails */}
-              <div>
-                <h5 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Verified Corporate Communications Emails:</h5>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {req.verified_emails.length === 0 ? (
-                    <span style={{ fontSize: 12, color: 'var(--red)', fontStyle: 'italic' }}>No verified emails yet</span>
-                  ) : (
-                    req.verified_emails.map((e, idx) => (
-                      <span key={idx} className="badge badge-accent" style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' }}>
-                        {e}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
+              return (
+                <div key={req.id} className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Header Info */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                    <div>
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 18, color: 'var(--text)' }}>
+                        {req.user.display_name}
+                        <span className={`badge ${
+                          req.status === 'approved' ? 'badge-green' : 
+                          isSentBack ? 'badge-amber' : 
+                          req.status === 'clarification' ? 'badge-amber' : 'badge-accent'
+                        }`}>
+                          {isSentBack ? 'Sent Back to Distributor' : req.status.replace('_', ' ')}
+                        </span>
+                      </h3>
+                      <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>UPN: <strong>{req.user.upn}</strong> | Requested: {new Date(req.created_at).toLocaleDateString()}</p>
+                    </div>
+                    
+                    {req.status !== 'approved' && (
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button className="btn btn-secondary" style={{ padding: '6px 16px', fontSize: 12 }} onClick={() => openActionModal(req, 'clarification')}>
+                          <HelpCircle size={14} /> Need Clarification
+                        </button>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '6px 16px', fontSize: 12, backgroundColor: '#fef3c7', borderColor: '#fde68a', color: '#92400e', display: 'inline-flex', alignItems: 'center', gap: 6 }} 
+                          onClick={() => openActionModal(req, 'send_back')}
+                        >
+                          <RotateCcw size={14} /> Send Back to Distributor
+                        </button>
+                        <button className="btn btn-primary" style={{ padding: '6px 16px', fontSize: 12 }} onClick={() => openActionModal(req, 'approve')}>
+                          <Check size={14} /> Approve / Progress
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-              {/* Logs / Audit Trail */}
-              {req.logs && req.logs.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                  <h5 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Clipboard size={14} /> Onboarding Approval Logs & Audit Trail
-                  </h5>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {req.logs.map((log, lIdx) => (
-                      <div key={lIdx} style={{ fontSize: 12, display: 'flex', gap: 12, background: 'rgba(0,0,0,0.01)', padding: 10, borderRadius: 8, border: '1px solid #f1f5f9' }}>
-                        <div style={{ fontWeight: 700, minWidth: 100, textTransform: 'capitalize', color: 'var(--primary)' }}>
-                          {log.approver_role.replace('_', ' ')}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <span className={`badge ${log.action === 'approved' ? 'badge-green' : log.action === 'rejected' ? 'badge-red' : 'badge-amber'}`} style={{ padding: '1px 6px', fontSize: 9, marginRight: 8 }}>
-                            {log.action}
-                          </span>
-                          <span style={{ color: 'var(--text)' }}>{log.comment || 'No comment provided.'}</span>
-                          <span style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
-                            By {log.approver_upn} on {new Date(log.timestamp).toLocaleString()}
-                          </span>
+                  {/* Sent Back Banner if applicable */}
+                  {isSentBack && (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <RotateCcw size={16} style={{ color: '#d97706', marginTop: 2, flexShrink: 0 }} />
+                      <div>
+                        <strong style={{ color: '#92400e', fontSize: 13, display: 'block' }}>Sent Back to Distributor</strong>
+                        <div style={{ fontSize: 12.5, color: '#78350f', marginTop: 2 }}>
+                          {req.notes || (req.logs?.slice().reverse().find(l => l.action === 'sent_back' || l.action === 'send_back' || l.action === 'rejected')?.comment) || 'This onboarding request was sent back to the distributor for updates or clarifications.'}
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  )}
+
+                  {/* Data Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, background: '#fafbfc', padding: 16, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <Key size={18} style={{ color: 'var(--text-dim)' }} />
+                      <div>
+                        <small style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>Distributor Code</small>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{req.distributor_code || 'Not Assigned'}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <Building size={18} style={{ color: 'var(--text-dim)' }} />
+                      <div>
+                        <small style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>Legal Entity</small>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{req.legal_entity || 'Not Verified'}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <MapPin size={18} style={{ color: 'var(--text-dim)' }} />
+                      <div>
+                        <small style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>Territory / Region</small>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{req.territory || 'Not Specified'}</span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Verified Emails */}
+                  <div>
+                    <h5 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Verified Corporate Communications Emails:</h5>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {req.verified_emails.length === 0 ? (
+                        <span style={{ fontSize: 12, color: 'var(--red)', fontStyle: 'italic' }}>No verified emails yet</span>
+                      ) : (
+                        req.verified_emails.map((e, idx) => (
+                          <span key={idx} className="badge badge-accent" style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' }}>
+                            {e}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Logs / Audit Trail */}
+                  {req.logs && req.logs.length > 0 && (
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                      <h5 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Clipboard size={14} /> Onboarding Approval Logs & Audit Trail
+                      </h5>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {req.logs.map((log, lIdx) => {
+                          const isLogSentBack = log.action === 'sent_back' || log.action === 'send_back' || log.action === 'rejected'
+                          return (
+                            <div key={lIdx} style={{ fontSize: 12, display: 'flex', gap: 12, background: 'rgba(0,0,0,0.01)', padding: 10, borderRadius: 8, border: '1px solid #f1f5f9' }}>
+                              <div style={{ fontWeight: 700, minWidth: 100, textTransform: 'capitalize', color: 'var(--primary)' }}>
+                                {log.approver_role.replace('_', ' ')}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <span className={`badge ${log.action === 'approved' ? 'badge-green' : isLogSentBack ? 'badge-amber' : 'badge-amber'}`} style={{ padding: '1px 6px', fontSize: 9, marginRight: 8 }}>
+                                  {isLogSentBack ? 'Sent Back to Distributor' : log.action}
+                                </span>
+                                <span style={{ color: 'var(--text)' }}>{log.comment || 'No comment provided.'}</span>
+                                <span style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                                  By {log.approver_upn} on {new Date(log.timestamp).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              )
+            })}
         </div>
       )}
 
@@ -237,7 +316,7 @@ export default function OnboardingApprovalsPage() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 500 }}>
             <h3 className="modal-title" style={{ textTransform: 'capitalize' }}>
-              {actionType} Onboarding Request
+              {actionType === 'send_back' ? 'Send Back to Distributor' : `${actionType} Onboarding Request`}
             </h3>
             
             <form onSubmit={handleActionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -275,14 +354,27 @@ export default function OnboardingApprovalsPage() {
               )}
 
               <div className="form-group">
-                <label>Approver Comments / Notes</label>
-                <textarea rows="3" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Provide context, observations, or instructions..." required></textarea>
+                <label>
+                  {actionType === 'send_back' ? 'Reason for Sending Back (Visible to Distributor)' : 'Approver Comments / Notes'}
+                </label>
+                <textarea 
+                  rows="3" 
+                  value={comment} 
+                  onChange={(e) => setComment(e.target.value)} 
+                  placeholder={actionType === 'send_back' ? 'Explain what information or corrections the distributor needs to provide...' : 'Provide context, observations, or instructions...'} 
+                  required
+                ></textarea>
               </div>
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setActiveRequest(null)} disabled={actionLoading}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={actionLoading}>
-                  {actionLoading ? 'Executing...' : 'Submit Action'}
+                <button 
+                  type="submit" 
+                  className={actionType === 'send_back' ? 'btn btn-secondary' : 'btn btn-primary'} 
+                  style={actionType === 'send_back' ? { backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' } : {}}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? 'Executing...' : actionType === 'send_back' ? 'Send Back to Distributor' : 'Submit Action'}
                 </button>
               </div>
             </form>

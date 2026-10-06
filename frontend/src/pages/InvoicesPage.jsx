@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { Plus, FileText, X, ArrowUpCircle, RefreshCw } from 'lucide-react'
+import { Plus, FileText, X, ArrowUpCircle, RefreshCw, Loader2 } from 'lucide-react'
 import SearchableSelect from '../components/SearchableSelect'
 
 const EMPTY_FORM = {
@@ -167,15 +167,15 @@ export default function InvoicesPage() {
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Total Invoices</span>
-          <span className="stat-value stat-accent">{loading ? '-' : invoices.length}</span>
+          <span className="stat-value stat-accent">{loading ? '–' : invoices.length}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Total Qty</span>
-          <span className="stat-value stat-green">{loading ? '-' : invoices.reduce((s, i) => s + i.qty, 0)}</span>
+          <span className="stat-value stat-green">{loading ? '–' : invoices.reduce((s, i) => s + i.qty, 0)}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Unique Customers</span>
-          <span className="stat-value">{loading ? '-' : new Set(invoices.map(i => i.customer)).size}</span>
+          <span className="stat-value">{loading ? '–' : new Set(invoices.map(i => i.customer)).size}</span>
         </div>
       </div>
 
@@ -196,7 +196,14 @@ export default function InvoicesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading…</td></tr>
+              <tr>
+                <td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Loading invoices…</span>
+                  </div>
+                </td>
+              </tr>
             ) : invoices.length === 0 ? (
               <tr><td colSpan={9}>
                 <div className="empty-state"><FileText size={40} /><p>No invoices yet. Add your first distributor invoice.</p></div>

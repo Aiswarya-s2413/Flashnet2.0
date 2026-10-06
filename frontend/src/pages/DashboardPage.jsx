@@ -37,7 +37,9 @@ import {
   ArrowRight,
   Barcode,
   Clock,
+  AlertTriangle,
 } from "lucide-react";
+import Pagination from "../components/Pagination";
 
 const CustomTooltip = ({
   active,
@@ -134,6 +136,10 @@ const COLORS = [
   "#A78BFA",
   "#F59E0B",
   "#EF4444",
+  "#0284C7",
+  "#10B981",
+  "#8B5CF6",
+  "#EC4899",
 ];
 
 const SectionHeader = ({ title, subtitle }) => (
@@ -153,7 +159,7 @@ const SectionHeader = ({ title, subtitle }) => (
   </div>
 );
 
-const KpiCard = ({ label, value, icon: Icon, accent }) => (
+const KpiCard = ({ label, value, sub, icon: Icon, accent, loading = false }) => (
   <div className="stat-card" style={{ borderLeft: `4px solid ${accent}` }}>
     <div
       style={{
@@ -179,12 +185,24 @@ const KpiCard = ({ label, value, icon: Icon, accent }) => (
       )}
     </div>
     <span className="stat-value" style={{ color: accent, display: "block" }}>
-      {value}
+      {loading ? "–" : (value ?? "–")}
     </span>
+    {sub && (
+      <span
+        style={{
+          fontSize: 11.5,
+          color: "var(--text-dim)",
+          marginTop: 4,
+          display: "block",
+        }}
+      >
+        {loading ? "—" : sub}
+      </span>
+    )}
   </div>
 );
 
-const DataTable = ({ columns, rows, footer }) => (
+const DataTable = ({ columns, rows, footer, loading = false }) => (
   <div className="table-wrapper">
     <table className="data-table" style={{ width: "100%", minWidth: 600 }}>
       <thead>
@@ -197,7 +215,35 @@ const DataTable = ({ columns, rows, footer }) => (
         </tr>
       </thead>
       <tbody>
-        {(rows || []).length === 0 ? (
+        {loading ? (
+          <tr>
+            <td
+              colSpan={columns.length}
+              style={{
+                textAlign: "center",
+                padding: "36px",
+                color: "var(--text-dim)",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <Loader2
+                  size={16}
+                  className="animate-spin"
+                  style={{ color: "var(--primary)" }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 500 }}>
+                  Loading table data…
+                </span>
+              </div>
+            </td>
+          </tr>
+        ) : (rows || []).length === 0 ? (
           <tr>
             <td
               colSpan={columns.length}
@@ -230,7 +276,12 @@ const DataTable = ({ columns, rows, footer }) => (
 /* ============================================================
    PRIMARY SALES ANALYSIS TAB
    ============================================================ */
-const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
+const PrimarySalesTab = ({
+  data,
+  productFilter = "",
+  distFilter = "",
+  isFetching = false,
+}) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [rowKind, setRowKind] = useState(null);
   const [productPage, setProductPage] = useState(1);
@@ -239,9 +290,27 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
   if (!data)
     return (
       <div
-        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 280,
+          flexDirection: "column",
+        }}
       >
-        Loading Primary Sales data...
+        <span
+          className="spinner"
+          style={{ width: 36, height: 36, marginBottom: 14 }}
+        />
+        <p
+          style={{
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          Loading Primary Sales data…
+        </p>
       </div>
     );
 
@@ -255,22 +324,15 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
     top_sales_execs,
   } = data;
 
-  const REGION_NAMES = {
-    MM: "Maharashtra (MM)",
-    GJ: "Gujarat (GJ)",
-    MP: "Madhya Pradesh (MP)",
-    PB: "Punjab (PB)",
-  };
-
-  const regionPieData = (regions || [])
-    .filter((r) => r.value > 0)
+  const salesLeaderPieData = (top_sales_execs || [])
+    .filter((e) => e.value > 0)
     .sort((a, b) => (b.value || 0) - (a.value || 0))
-    .map((r) => ({
-      name: REGION_NAMES[r.name] || r.name,
-      rawName: r.name,
-      value: r.value,
-      qty: r.qty,
-      invoices: r.invoices,
+    .map((e) => ({
+      name: e.name,
+      rawName: e.name,
+      value: e.value,
+      qty: e.qty,
+      invoices: e.invoices,
     }));
 
   const productQ = productFilter.trim().toLowerCase();
@@ -646,6 +708,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           sub={`${kpis?.months_count || 0} common months`}
           icon={DollarSign}
           accent="#0B3B2C"
+          loading={isFetching}
         />
         <KpiCard
           label="Total Volume"
@@ -653,6 +716,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           sub={`Total billed quantity`}
           icon={Package}
           accent="#2F7A60"
+          loading={isFetching}
         />
         <KpiCard
           label="Average Monthly Volume"
@@ -660,12 +724,14 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           sub={`Average volume across ${monthsCount} months`}
           icon={TrendingUp}
           accent="#3D6A8A"
+          loading={isFetching}
         />
         <KpiCard
           label="Active Dist Codes"
           value={2}
           icon={Barcode}
           accent="#7B5E7B"
+          loading={isFetching}
         />
       </div>
 
@@ -747,13 +813,13 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
 
       </div>
 
-      {/* Region-wise Sales Distribution Pie Chart */}
+      {/* Sales Leader-wise Sales Distribution Pie Chart */}
       <div className="card" style={{ padding: 24, marginTop: 24 }}>
         <SectionHeader
-          title="Region-wise Sales Distribution"
-          subtitle="Primary sales value and volume share by delivery plant region"
+          title="Sales Leader-wise Sales Distribution"
+          subtitle="Primary sales value and volume share by sales leader"
         />
-        {regionPieData.length === 0 ? (
+        {salesLeaderPieData.length === 0 ? (
           <div
             style={{
               textAlign: "center",
@@ -761,7 +827,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               color: "var(--text-muted)",
             }}
           >
-            No region data available for the current filter.
+            No sales leader data available for the current filter.
           </div>
         ) : (
           <div
@@ -776,7 +842,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
-                    data={regionPieData}
+                    data={salesLeaderPieData}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
@@ -790,9 +856,9 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                     }}
                     labelLine={false}
                   >
-                    {regionPieData.map((entry, index) => (
+                    {salesLeaderPieData.map((entry, index) => (
                       <Cell
-                        key={`region-cell-${index}`}
+                        key={`sales-leader-cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
                       />
                     ))}
@@ -801,7 +867,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const item = payload[0];
-                        const total = regionPieData.reduce(
+                        const total = salesLeaderPieData.reduce(
                           (s, r) => s + (r.value || 0),
                           0,
                         );
@@ -877,9 +943,9 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                   flexWrap: "wrap",
                 }}
               >
-                {regionPieData.map((reg, idx) => (
+                {salesLeaderPieData.map((exec, idx) => (
                   <div
-                    key={reg.rawName || idx}
+                    key={exec.rawName || idx}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -898,7 +964,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                         display: "inline-block",
                       }}
                     />
-                    <span>{reg.name}</span>
+                    <span>{exec.name}</span>
                   </div>
                 ))}
               </div>
@@ -908,26 +974,26 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
               <table className="table" style={{ width: "100%", margin: 0, minWidth: 420 }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>Region</th>
+                    <th style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>Sales Leader</th>
                     <th style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>Value</th>
                     <th style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>Share (%)</th>
                     <th style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>Volume</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {regionPieData.map((reg, idx) => {
-                    const totalVal = regionPieData.reduce(
+                  {salesLeaderPieData.map((exec, idx) => {
+                    const totalVal = salesLeaderPieData.reduce(
                       (s, r) => s + (r.value || 0),
                       0,
                     );
                     const pctNum =
-                      totalVal > 0 ? (reg.value / totalVal) * 100 : 0;
+                      totalVal > 0 ? (exec.value / totalVal) * 100 : 0;
                     const share =
                       pctNum < 0.1 && pctNum > 0
                         ? "< 0.1"
                         : pctNum.toFixed(1);
                     return (
-                      <tr key={reg.rawName || idx}>
+                      <tr key={exec.rawName || idx}>
                         <td
                           style={{
                             padding: "14px 14px",
@@ -948,7 +1014,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                               flexShrink: 0,
                             }}
                           />
-                          <span>{reg.name}</span>
+                          <span>{exec.name}</span>
                         </td>
                         <td
                           style={{
@@ -959,7 +1025,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {formatCrores(reg.value)}
+                          {formatCrores(exec.value)}
                         </td>
                         <td
                           style={{
@@ -979,7 +1045,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {formatKG(reg.qty)}
+                          {formatKG(exec.qty)}
                         </td>
                       </tr>
                     );
@@ -998,6 +1064,7 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           subtitle={`Ranked by billed value · ${(top_products || []).length} products`}
         />
         <DataTable
+          loading={isFetching}
           columns={[
             {
               key: "rank",
@@ -1191,7 +1258,12 @@ const PrimarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
 /* ============================================================
    SECONDARY SALES ANALYSIS TAB
    ============================================================ */
-const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
+const SecondarySalesTab = ({
+  data,
+  productFilter = "",
+  distFilter = "",
+  isFetching = false,
+}) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [rowKind, setRowKind] = useState(null);
   const [productPage, setProductPage] = useState(1);
@@ -1204,9 +1276,27 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
   if (!data)
     return (
       <div
-        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 280,
+          flexDirection: "column",
+        }}
       >
-        Loading Secondary Sales data...
+        <span
+          className="spinner"
+          style={{ width: 36, height: 36, marginBottom: 14 }}
+        />
+        <p
+          style={{
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          Loading Secondary Sales data…
+        </p>
       </div>
     );
 
@@ -1284,6 +1374,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           sub={`${kpis?.months_count || 0} common months`}
           icon={DollarSign}
           accent="#2F7A60"
+          loading={isFetching}
         />
         <KpiCard
           label="Total Volume"
@@ -1291,6 +1382,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           sub="Monthly Sales + CSI Sales combined"
           icon={Package}
           accent="#5BA28A"
+          loading={isFetching}
         />
         <KpiCard
           label="Average Monthly Volume"
@@ -1298,12 +1390,14 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           sub={`Average volume across ${secMonthsCount} months`}
           icon={TrendingUp}
           accent="#3D6A8A"
+          loading={isFetching}
         />
         <KpiCard
           label="Active Customers"
           value={kpis?.customers_count || 0}
           icon={Users}
           accent="#7B5E7B"
+          loading={isFetching}
         />
       </div>
 
@@ -1515,195 +1609,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
         </div>
       </div>
 
-      {/* Top products table */}
-      <div className="card" style={{ padding: 24, marginTop: 24 }}>
-        <SectionHeader
-          title="Top Products — Secondary Sales"
-          subtitle={`Ranked by value · ${(top_products || []).length} products`}
-        />
-        <DataTable
-          columns={[
-            {
-              key: "rank",
-              label: "#",
-              thStyle: { width: 46 },
-              render: (_r, i) => (productPage - 1) * PRODUCTS_PER_PAGE + i + 1,
-            },
-            {
-              key: "name",
-              label: "Product",
-              tdStyle: { fontWeight: 700, color: "var(--primary)" },
-            },
-            {
-              key: "value",
-              label: "Value",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 700,
-                color: "#2F7A60",
-              },
-              render: (r) => formatCrores(r.value),
-            },
-            {
-              key: "qty",
-              label: "Qty (KG)",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatKG(r.qty),
-            },
-            {
-              key: "avg_monthly_volume",
-              label: "Avg Monthly Volume",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                color: "#3D6A8A",
-                fontWeight: 600,
-              },
-              render: (r) => formatKG((r.qty || 0) / secMonthsCount),
-            },
-          ]}
-          rows={(top_products || [])
-            .slice((productPage - 1) * PRODUCTS_PER_PAGE, productPage * PRODUCTS_PER_PAGE)
-            .map((p) => ({ ...p, _style: { cursor: "pointer" } }))}
-          footer={
-            <tfoot>
-              <tr style={{ backgroundColor: "transparent" }}>
-                <td
-                  colSpan={2}
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  TOTAL SECONDARY SALES:
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 16,
-                    color: "#2F7A60",
-                    border: "none",
-                    padding: "16px",
-                    textAlign: "right",
-                  }}
-                >
-                  {formatCrores(totalSS)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatKG(totalQty)}
-                </td>
-                <td style={{ border: "none" }}></td>
-              </tr>
-            </tfoot>
-          }
-        />
 
-        {/* Pagination controls */}
-        {(top_products || []).length > PRODUCTS_PER_PAGE && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 16,
-              paddingTop: 16,
-              borderTop: "1px solid var(--border)",
-            }}
-          >
-            <button
-              onClick={() => setProductPage(1)}
-              disabled={productPage === 1}
-              style={{
-                padding: "5px 10px",
-                fontSize: 12,
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: productPage === 1 ? "var(--bg)" : "var(--surface)",
-                color: productPage === 1 ? "var(--text-dim)" : "var(--text)",
-                cursor: productPage === 1 ? "not-allowed" : "pointer",
-              }}
-            >«</button>
-            <button
-              onClick={() => setProductPage((p) => Math.max(1, p - 1))}
-              disabled={productPage === 1}
-              style={{
-                padding: "5px 10px",
-                fontSize: 12,
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: productPage === 1 ? "var(--bg)" : "var(--surface)",
-                color: productPage === 1 ? "var(--text-dim)" : "var(--text)",
-                cursor: productPage === 1 ? "not-allowed" : "pointer",
-              }}
-            >‹ Prev</button>
-
-            {Array.from(
-              { length: Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) },
-              (_, i) => i + 1,
-            )
-              .filter((p) => Math.abs(p - productPage) <= 2)
-              .map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setProductPage(p)}
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: 12,
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: p === productPage ? "var(--primary)" : "var(--surface)",
-                    color: p === productPage ? "#fff" : "var(--text)",
-                    cursor: "pointer",
-                    fontWeight: p === productPage ? 700 : 400,
-                  }}
-                >{p}</button>
-              ))}
-
-            <button
-              onClick={() => setProductPage((p) => Math.min(Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE), p + 1))}
-              disabled={productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)}
-              style={{
-                padding: "5px 10px",
-                fontSize: 12,
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--bg)" : "var(--surface)",
-                color: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--text-dim)" : "var(--text)",
-                cursor: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "not-allowed" : "pointer",
-              }}
-            >Next ›</button>
-            <button
-              onClick={() => setProductPage(Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE))}
-              disabled={productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)}
-              style={{
-                padding: "5px 10px",
-                fontSize: 12,
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--bg)" : "var(--surface)",
-                color: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "var(--text-dim)" : "var(--text)",
-                cursor: productPage === Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE) ? "not-allowed" : "pointer",
-              }}
-            >»</button>
-
-            <span style={{ fontSize: 12, color: "var(--text-dim)", marginLeft: 8 }}>
-              Page {productPage} of {Math.ceil((top_products || []).length / PRODUCTS_PER_PAGE)} · {(top_products || []).length} products
-            </span>
-          </div>
-        )}
-      </div>
 
       {/* Top customers table */}
       <div className="card" style={{ padding: 24, marginTop: 24 }}>
@@ -1712,6 +1618,7 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
           subtitle="Ranked by value (Top 20)"
         />
         <DataTable
+          loading={isFetching}
           columns={[
             {
               key: "rank",
@@ -1797,13 +1704,31 @@ const SecondarySalesTab = ({ data, productFilter = "", distFilter = "" }) => {
 /* ============================================================
    PRIMARY VS SECONDARY ANALYSIS TAB
    ============================================================ */
-const PsVsSsTab = ({ data }) => {
+const PsVsSsTab = ({ data, isFetching = false }) => {
   if (!data)
     return (
       <div
-        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 280,
+          flexDirection: "column",
+        }}
       >
-        Loading Primary vs Secondary analysis...
+        <span
+          className="spinner"
+          style={{ width: 36, height: 36, marginBottom: 14 }}
+        />
+        <p
+          style={{
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          Loading Primary vs Secondary analysis…
+        </p>
       </div>
     );
 
@@ -1817,7 +1742,122 @@ const PsVsSsTab = ({ data }) => {
     slow_movers,
   } = data;
 
+  const [fastMoverMoq, setFastMoverMoq] = useState(250);
+  const [fastMoverMonths, setFastMoverMonths] = useState(2);
+
   const fastMoversData = useMemo(() => {
+    const moqVal = Number(fastMoverMoq) || 0;
+    const reqMonths = Math.max(1, Number(fastMoverMonths) || 1);
+
+    const monthlyComp = data?.monthly_comparison || [];
+    if (monthlyComp.length > 0) {
+      const sortedMonths = [...monthlyComp].sort((a, b) =>
+        (a.month || "").localeCompare(b.month || "")
+      );
+      const allMonthKeys = sortedMonths.map((m) => m.month);
+
+      const prodByMonth = {};
+      const prodTotals = {};
+
+      sortedMonths.forEach((m) => {
+        const mKey = m.month;
+        (m.products || []).forEach((p) => {
+          if (!prodByMonth[p.name]) prodByMonth[p.name] = {};
+          prodByMonth[p.name][mKey] = p;
+
+          if (!prodTotals[p.name]) {
+            prodTotals[p.name] = { ps: 0, ss: 0, ps_qty: 0, ss_qty: 0 };
+          }
+          prodTotals[p.name].ps += p.ps || 0;
+          prodTotals[p.name].ss += p.ss || 0;
+          prodTotals[p.name].ps_qty += p.ps_qty || 0;
+          prodTotals[p.name].ss_qty += p.ss_qty || 0;
+        });
+      });
+
+      const ssMonthKeys = sortedMonths
+        .filter((m) => (m.ss || 0) > 0)
+        .map((m) => m.month);
+      const latestMonth =
+        ssMonthKeys[ssMonthKeys.length - 1] ||
+        allMonthKeys[allMonthKeys.length - 1] ||
+        "";
+
+      const qualifying = [];
+
+      Object.keys(prodByMonth).forEach((pName) => {
+        const mDict = prodByMonth[pName];
+
+        // Consecutive streak ending at latest reported month
+        let recentStreak = 0;
+        if (latestMonth && allMonthKeys.includes(latestMonth)) {
+          const latestIdx = allMonthKeys.indexOf(latestMonth);
+          for (let j = latestIdx; j >= 1; j--) {
+            const currM = allMonthKeys[j];
+            const prevM = allMonthKeys[j - 1];
+            const pPrev = mDict[prevM]?.ps_qty ?? 0;
+            const sCurr = mDict[currM]?.ss_qty ?? 0;
+
+            if (pPrev >= moqVal && sCurr > moqVal) {
+              recentStreak++;
+            } else {
+              break;
+            }
+          }
+        }
+
+        // Max consecutive streak anywhere in the timeline
+        let maxStreak = 0;
+        let currStreak = 0;
+        for (let i = 1; i < allMonthKeys.length; i++) {
+          const currM = allMonthKeys[i];
+          const prevM = allMonthKeys[i - 1];
+          const pPrev = mDict[prevM]?.ps_qty ?? 0;
+          const sCurr = mDict[currM]?.ss_qty ?? 0;
+
+          if (pPrev >= moqVal && sCurr > moqVal) {
+            currStreak++;
+            if (currStreak > maxStreak) {
+              maxStreak = currStreak;
+            }
+          } else {
+            currStreak = 0;
+          }
+        }
+
+        const meetsRecent = recentStreak >= reqMonths;
+        const meetsAny = maxStreak >= reqMonths;
+
+        if (meetsRecent || meetsAny) {
+          const totals = prodTotals[pName] || { ps: 0, ss: 0, ps_qty: 0, ss_qty: 0 };
+          qualifying.push({
+            name: pName.length > 22 ? pName.slice(0, 20) + "..." : pName,
+            fullName: pName,
+            "Primary Sales": Math.round(totals.ps),
+            "Secondary Sales": Math.round(totals.ss),
+            "Sell-Through Ratio %":
+              totals.ps > 0
+                ? Number(((totals.ss / totals.ps) * 100).toFixed(1))
+                : totals.ss > 0
+                ? 100
+                : 0,
+            recentStreak,
+            maxStreak,
+            meetsRecent,
+          });
+        }
+      });
+
+      qualifying.sort((a, b) => {
+        if (a.meetsRecent !== b.meetsRecent) return a.meetsRecent ? -1 : 1;
+        if (b.recentStreak !== a.recentStreak) return b.recentStreak - a.recentStreak;
+        if (b.maxStreak !== a.maxStreak) return b.maxStreak - a.maxStreak;
+        return b["Secondary Sales"] - a["Secondary Sales"];
+      });
+
+      return qualifying.slice(0, 8);
+    }
+
     if (fast_movers && fast_movers.length > 0) {
       return fast_movers.map((p) => ({
         ...p,
@@ -1825,26 +1865,9 @@ const PsVsSsTab = ({ data }) => {
         fullName: p.name,
       }));
     }
-    const prodMap = {};
-    (data?.monthly_comparison || []).forEach((m) => {
-      (m.products || []).forEach((p) => {
-        if (!prodMap[p.name]) prodMap[p.name] = { name: p.name, ps: 0, ss: 0 };
-        prodMap[p.name].ps += p.ps || 0;
-        prodMap[p.name].ss += p.ss || 0;
-      });
-    });
-    return Object.values(prodMap)
-      .filter((p) => p.ss > 0)
-      .sort((a, b) => b.ss - a.ss)
-      .slice(0, 8)
-      .map((p) => ({
-        name: p.name.length > 22 ? p.name.slice(0, 20) + "..." : p.name,
-        fullName: p.name,
-        "Primary Sales": Math.round(p.ps),
-        "Secondary Sales": Math.round(p.ss),
-        "Sell-Through Ratio %": p.ps > 0 ? Number(((p.ss / p.ps) * 100).toFixed(1)) : 100,
-      }));
-  }, [data, fast_movers]);
+
+    return [];
+  }, [data, fast_movers, fastMoverMoq, fastMoverMonths]);
 
   const slowMoversData = useMemo(() => {
     if (slow_movers && slow_movers.length > 0) {
@@ -1929,6 +1952,38 @@ const PsVsSsTab = ({ data }) => {
       }));
   }, [product_group, data]);
 
+  const efficiencyStops = useMemo(() => {
+    const arr = monthly_trend || [];
+    if (arr.length <= 1) {
+      const isHigh = arr.length === 1 && Number(arr[0]?.["Efficiency %"] || 0) > 200;
+      return [
+        { offset: "0%", color: isHigh ? "#F59E0B" : "#EF4444" },
+        { offset: "100%", color: isHigh ? "#F59E0B" : "#EF4444" },
+      ];
+    }
+    const stops = [];
+    const n = arr.length;
+    for (let i = 0; i < n; i++) {
+      const isHigh = Number(arr[i]?.["Efficiency %"] || 0) > 200;
+      const color = isHigh ? "#F59E0B" : "#EF4444";
+      if (i === 0) {
+        stops.push({ offset: "0%", color });
+      }
+      if (i < n - 1) {
+        const nextIsHigh = Number(arr[i + 1]?.["Efficiency %"] || 0) > 200;
+        const nextColor = nextIsHigh ? "#F59E0B" : "#EF4444";
+        if (color !== nextColor) {
+          const midPct = `${(((i + 0.5) / (n - 1)) * 100).toFixed(2)}%`;
+          stops.push({ offset: midPct, color });
+          stops.push({ offset: midPct, color: nextColor });
+        }
+      } else {
+        stops.push({ offset: "100%", color });
+      }
+    }
+    return stops;
+  }, [monthly_trend]);
+
   return (
     <div style={{ display: "grid", gap: 24 }}>
       {/* KPI ROW */}
@@ -1939,6 +1994,7 @@ const PsVsSsTab = ({ data }) => {
           sub="Common months"
           icon={ShoppingCart}
           accent="#0B3B2C"
+          loading={isFetching}
         />
         <KpiCard
           label="Total Secondary Sales"
@@ -1946,6 +2002,7 @@ const PsVsSsTab = ({ data }) => {
           sub="Common months"
           icon={Package}
           accent="#2F7A60"
+          loading={isFetching}
         />
         <KpiCard
           label="Sell-Through Ratio"
@@ -1953,6 +2010,7 @@ const PsVsSsTab = ({ data }) => {
           sub="Secondary ÷ Primary (Common months)"
           icon={TrendingUp}
           accent="#3D6A8A"
+          loading={isFetching}
         />
       </div>
 
@@ -1964,7 +2022,17 @@ const PsVsSsTab = ({ data }) => {
         />
         <div style={{ width: "100%", height: 360 }}>
           <ResponsiveContainer>
-            <ComposedChart data={monthly_trend || []}>
+            <ComposedChart
+              data={monthly_trend || []}
+              margin={{ top: 10, right: 10, left: 20, bottom: 5 }}
+            >
+              <defs>
+                <linearGradient id="efficiencyRatioGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  {efficiencyStops.map((stop, sIdx) => (
+                    <stop key={sIdx} offset={stop.offset} stopColor={stop.color} />
+                  ))}
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis
                 dataKey="month"
@@ -1973,12 +2041,30 @@ const PsVsSsTab = ({ data }) => {
                 tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
                 height={45}
               />
-              <YAxis yAxisId="left" stroke="var(--text-dim)" />
+              <YAxis
+                yAxisId="left"
+                stroke="var(--text-dim)"
+                width={75}
+                tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                tickFormatter={(v) => {
+                  if (!v || v === 0) return "₹0";
+                  if (Math.abs(v) >= 10000000) {
+                    const cr = v / 10000000;
+                    return `₹${cr % 1 === 0 ? cr.toFixed(0) : cr.toFixed(1)} Cr`;
+                  }
+                  if (Math.abs(v) >= 100000) {
+                    const l = v / 100000;
+                    return `₹${l % 1 === 0 ? l.toFixed(0) : l.toFixed(1)} L`;
+                  }
+                  return `₹${v.toLocaleString("en-IN")}`;
+                }}
+              />
               <YAxis
                 yAxisId="right"
                 orientation="right"
                 stroke="var(--text-dim)"
-                domain={[0, 100]}
+                domain={[0, (dataMax) => Math.max(100, Math.ceil(dataMax / 50) * 50)]}
+                tickFormatter={(v) => `${v}%`}
               />
               <Tooltip content={<CustomTooltip prefix="₹" />} />
               <Legend />
@@ -1987,24 +2073,115 @@ const PsVsSsTab = ({ data }) => {
                 dataKey="Primary Sales"
                 fill="#0B3B2C"
                 radius={[6, 6, 0, 0]}
-              />
+              >
+                {(monthly_trend || []).map((entry, index) => {
+                  const isHigh = Number(entry?.["Efficiency %"] || 0) > 200;
+                  return (
+                    <Cell
+                      key={`ps-cell-${index}`}
+                      fill={isHigh ? "#D97706" : "#0B3B2C"}
+                    />
+                  );
+                })}
+              </Bar>
               <Bar
                 yAxisId="left"
                 dataKey="Secondary Sales"
                 fill="#2F7A60"
                 radius={[6, 6, 0, 0]}
-              />
+              >
+                {(monthly_trend || []).map((entry, index) => {
+                  const isHigh = Number(entry?.["Efficiency %"] || 0) > 200;
+                  return (
+                    <Cell
+                      key={`ss-cell-${index}`}
+                      fill={isHigh ? "#F59E0B" : "#2F7A60"}
+                    />
+                  );
+                })}
+              </Bar>
               <Line
                 yAxisId="right"
                 type="monotone"
                 dataKey="Efficiency %"
                 name="Sell-Through Ratio %"
-                stroke="#EF4444"
+                stroke="url(#efficiencyRatioGrad)"
                 strokeWidth={3}
-                dot={{ r: 4, fill: "#EF4444" }}
+                dot={(props) => {
+                  const { cx, cy, payload } = props;
+                  if (cx == null || cy == null) return null;
+                  const isHigh = Number(payload?.["Efficiency %"] || 0) > 200;
+                  return (
+                    <circle
+                      key={props.key || `eff-dot-${cx}-${cy}`}
+                      cx={cx}
+                      cy={cy}
+                      r={isHigh ? 6 : 4}
+                      fill={isHigh ? "#F59E0B" : "#EF4444"}
+                      stroke={isHigh ? "#D97706" : "#EF4444"}
+                      strokeWidth={isHigh ? 2 : 1}
+                    />
+                  );
+                }}
+                activeDot={(props) => {
+                  const { cx, cy, payload } = props;
+                  if (cx == null || cy == null) return null;
+                  const isHigh = Number(payload?.["Efficiency %"] || 0) > 200;
+                  return (
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={isHigh ? 8 : 6}
+                      fill={isHigh ? "#F59E0B" : "#EF4444"}
+                      stroke="#fff"
+                      strokeWidth={2}
+                    />
+                  );
+                }}
               />
             </ComposedChart>
           </ResponsiveContainer>
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px dashed var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+            fontSize: 12,
+            color: "var(--text-muted)",
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                width: 14,
+                height: 3,
+                backgroundColor: "#EF4444",
+                display: "inline-block",
+                borderRadius: 2,
+              }}
+            />
+            <span>Red Line: <strong>Sell-Through Ratio ≤ 200%</strong> (Normal)</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                width: 14,
+                height: 3,
+                backgroundColor: "#F59E0B",
+                display: "inline-block",
+                borderRadius: 2,
+              }}
+            />
+            <span style={{ color: "#D97706", fontWeight: 600 }}>
+              Orange Line &amp; Bars: <strong>High Sell-Through Ratio (&gt; 200%)</strong> — Secondary sales exceeds 2x primary sales
+            </span>
+          </span>
         </div>
       </div>
 
@@ -2018,10 +2195,102 @@ const PsVsSsTab = ({ data }) => {
       >
         {/* FAST MOVERS */}
         <div className="section-card">
-          <SectionHeader
-            title="Fast Movers"
-            subtitle="Top products by secondary sales velocity & sell-through"
-          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ flex: "1 1 200px" }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Fast Movers</h3>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)" }}>
+                Products where Primary Sales ≥ MOQ (Minimum Order Quantity) and Secondary Sales &gt; MOQ continuously for the selected months
+              </p>
+            </div>
+
+            {/* Variable selectors: MOQ and Months */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+                background: "var(--bg-card-subtle, rgba(255, 255, 255, 0.03))",
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span
+                  title="Minimum Order Quantity"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--text-dim)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  MOQ (Min Order Qty - KG):
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={fastMoverMoq}
+                  onChange={(e) =>
+                    setFastMoverMoq(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  className="form-control"
+                  style={{
+                    width: 76,
+                    padding: "4px 8px",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--text-dim)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Months:
+                </span>
+                <select
+                  value={fastMoverMonths}
+                  onChange={(e) => setFastMoverMonths(Number(e.target.value))}
+                  className="form-control"
+                  style={{
+                    minWidth: 90,
+                    padding: "4px 8px",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                  }}
+                >
+                  <option value={1}>1 Month</option>
+                  <option value={2}>2 Months</option>
+                  <option value={3}>3 Months</option>
+                  <option value={4}>4 Months</option>
+                  <option value={5}>5 Months</option>
+                  <option value={6}>6 Months</option>
+                </select>
+              </div>
+            </div>
+          </div>
           <div style={{ width: "100%", height: 380 }}>
             {fastMoversData.length === 0 ? (
               <div
@@ -2029,9 +2298,10 @@ const PsVsSsTab = ({ data }) => {
                   textAlign: "center",
                   padding: 40,
                   color: "var(--text-muted)",
+                  fontSize: 13,
                 }}
               >
-                No fast movers data available.
+                No fast movers qualify with MOQ ≥ {fastMoverMoq || 0} KG continuously for {fastMoverMonths} month{fastMoverMonths > 1 ? "s" : ""}.
               </div>
             ) : (
               <ResponsiveContainer>
@@ -2075,7 +2345,7 @@ const PsVsSsTab = ({ data }) => {
         <div className="section-card">
           <SectionHeader
             title="Slow Movers"
-            subtitle="Products with high primary purchases but low secondary sales"
+            subtitle="Products with high distributor purchases but low market sales (lowest sell-through ratio)"
           />
           <div style={{ width: "100%", height: 380 }}>
             {slowMoversData.length === 0 ? (
@@ -2176,304 +2446,171 @@ const PsVsSsTab = ({ data }) => {
 /* ============================================================
    ORDER REPLENISHMENT TAB
    ============================================================ */
-const OrderReplenishmentTab = ({ data }) => {
-  const [selectedMonth, setSelectedMonth] = useState("ALL");
+const OrderReplenishmentTab = ({ data, isFetching = false }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
 
   if (!data)
     return (
       <div
-        style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: 280,
+          flexDirection: "column",
+        }}
       >
-        Loading order replenishment data...
+        <span
+          className="spinner"
+          style={{ width: 36, height: 36, marginBottom: 14 }}
+        />
+        <p
+          style={{
+            color: "var(--text-muted)",
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          Loading Order Replenishment data…
+        </p>
       </div>
     );
 
-  const monthly = data.monthly_comparison || [];
-  const months = ["ALL", ...monthly.map((m) => m.month)];
+  const rawItems = data.replenishment_items || [];
 
-  const aggregated = {};
-  const pushRow = (p) => {
-    const key = p.name || "Unknown";
-    if (!aggregated[key]) {
-      aggregated[key] = {
-        name: key,
-        ps: 0,
-        ss: 0,
-        ps_qty: 0,
-        ss_qty: 0,
-      };
-    }
-    aggregated[key].ps += p.ps || 0;
-    aggregated[key].ss += p.ss || 0;
-    aggregated[key].ps_qty += p.ps_qty || 0;
-    aggregated[key].ss_qty += p.ss_qty || 0;
-  };
+  const filteredItems = useMemo(() => {
+    return rawItems.filter((item) => {
+      if (statusFilter === "REPLENISH" && !item.needs_replenish) return false;
+      if (statusFilter === "SUFFICIENT" && item.needs_replenish) return false;
 
-  if (selectedMonth === "ALL") {
-    monthly.forEach((m) => (m.products || []).forEach(pushRow));
-  } else {
-    const mo = monthly.find((m) => m.month === selectedMonth);
-    (mo?.products || []).forEach(pushRow);
-  }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = (item.product_name || "").toLowerCase().includes(q);
+        const matchesDesc = (item.product_desc || "").toLowerCase().includes(q);
+        const matchesCode = (item.product_code || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesDesc && !matchesCode) return false;
+      }
+      return true;
+    });
+  }, [rawItems, statusFilter, searchQuery]);
 
-  const rows = Object.values(aggregated)
-    .map((r) => {
-      const diff = r.ss - r.ps;
-      const eff = r.ps > 0 ? (r.ss / r.ps) * 100 : 0;
-      const qtyDiff = r.ss_qty - r.ps_qty;
-      const qtyEff = r.ps_qty > 0 ? (r.ss_qty / r.ps_qty) * 100 : 0;
-      const replenishmentVal = Math.max(0, diff);
-      const replenishmentQty = Math.max(0, qtyDiff);
-      const isUrgent = diff > 0;
-      const isOptimal = eff >= 80 && eff <= 100;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
 
-      return {
-        ...r,
-        ps: Math.round(r.ps * 100) / 100,
-        ss: Math.round(r.ss * 100) / 100,
-        ps_qty: Math.round(r.ps_qty * 100) / 100,
-        ss_qty: Math.round(r.ss_qty * 100) / 100,
-        diff: Math.round(diff * 100) / 100,
-        eff: Math.round(eff * 100) / 100,
-        qtyDiff: Math.round(qtyDiff * 100) / 100,
-        qtyEff: Math.round(qtyEff * 100) / 100,
-        replenishmentVal: Math.round(replenishmentVal * 100) / 100,
-        replenishmentQty: Math.round(replenishmentQty * 100) / 100,
-        status: isUrgent
-          ? "Replenish Needed"
-          : isOptimal
-            ? "Optimal"
-            : "Adequate / Overstocked",
-        _style: {
-          background: isUrgent
-            ? "rgba(239, 68, 68, 0.05)"
-            : isOptimal
-              ? "rgba(47, 122, 96, 0.05)"
-              : "transparent",
-        },
-      };
-    })
-    .sort((a, b) => b.replenishmentVal - a.replenishmentVal || b.ss - a.ss);
+  const stats = useMemo(() => {
+    const total = rawItems.length;
+    const replenish = rawItems.filter((x) => x.needs_replenish).length;
+    const sufficient = total - replenish;
+    const totalShortage = rawItems.reduce((acc, x) => acc + (x.shortage_qty || 0), 0);
+    return { total, replenish, sufficient, totalShortage };
+  }, [rawItems]);
 
-  const totals = rows.reduce(
-    (acc, r) => {
-      acc.ps += r.ps;
-      acc.ss += r.ss;
-      acc.qty_ps += r.ps_qty;
-      acc.qty_ss += r.ss_qty;
-      acc.replenishmentVal += r.replenishmentVal;
-      acc.replenishmentQty += r.replenishmentQty;
-      if (r.replenishmentVal > 0) acc.replenishCount += 1;
-      return acc;
-    },
-    {
-      ps: 0,
-      ss: 0,
-      qty_ps: 0,
-      qty_ss: 0,
-      replenishmentVal: 0,
-      replenishmentQty: 0,
-      replenishCount: 0,
-    },
-  );
-
-  const totalEff =
-    totals.ps > 0 ? ((totals.ss / totals.ps) * 100).toFixed(2) : 0;
-  const totalQtyEff =
-    totals.qty_ps > 0 ? ((totals.qty_ss / totals.qty_ps) * 100).toFixed(2) : 0;
+  const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, currentPage, pageSize]);
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      {/* FREQUENCY OF DATA CAPTURE BANNER */}
-      <div
-        className="section-card"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 16,
-          background:
-            "linear-gradient(135deg, rgba(47, 122, 96, 0.08) 0%, rgba(11, 59, 44, 0.03) 100%)",
-          border: "1px solid rgba(47, 122, 96, 0.2)",
-          padding: "16px 22px",
-          borderRadius: 12,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 10,
-              background: "rgba(47, 122, 96, 0.15)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#2F7A60",
-            }}
-          >
-            <Clock size={22} />
-          </div>
+    <div style={{ display: "grid", gap: 20 }}>
+      {/* SECTION HEADER & SUMMARY STATS */}
+      <div className="section-card" style={{ padding: "20px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
           <div>
-            <div
-              style={{ fontSize: 15, fontWeight: 800, color: "var(--text)" }}
-            >
-              Frequency of Data Capture
-            </div>
-            <div
-              style={{
-                fontSize: 12.5,
-                color: "var(--text-dim)",
-                marginTop: 2,
-              }}
-            >
-              Data ingestion cadences powering order replenishment & channel supply
-            </div>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--text)" }}>
+              Order Replenishment
+            </h2>
+            <p style={{ margin: "6px 0 0 0", color: "var(--text-dim)", fontSize: 13 }}>
+              Products marked to replenish order if current stock is less than double the average half-yearly volume sold (Stock &lt; 2 &times; Avg 6M Volume).
+            </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 14,
+            marginTop: 18,
+          }}
+        >
           <div
             style={{
-              padding: "8px 14px",
+              padding: "12px 16px",
               background: "var(--surface)",
-              borderRadius: 8,
+              borderRadius: 10,
               border: "1px solid var(--border)",
-              minWidth: 160,
             }}
           >
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--text-dim)",
-                textTransform: "uppercase",
-                letterSpacing: "0.03em",
-              }}
-            >
-              Primary Sales
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>
+              Total Catalog Items
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#0B3B2C",
-                marginTop: 2,
-              }}
-            >
-              Daily / Continuous
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-              SAP ERP Billing (VBRK/VBRP)
+            <div style={{ fontSize: 20, fontWeight: 800, color: "var(--text)", marginTop: 4 }}>
+              {isFetching ? "—" : stats.total}
             </div>
           </div>
 
           <div
             style={{
-              padding: "8px 14px",
-              background: "var(--surface)",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              minWidth: 160,
+              padding: "12px 16px",
+              background: "rgba(239, 68, 68, 0.05)",
+              borderRadius: 10,
+              border: "1px solid rgba(239, 68, 68, 0.25)",
             }}
           >
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--text-dim)",
-                textTransform: "uppercase",
-                letterSpacing: "0.03em",
-              }}
-            >
-              Secondary Sales
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#EF4444", textTransform: "uppercase" }}>
+              Replenish Order Needed
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#2F7A60",
-                marginTop: 2,
-              }}
-            >
-              Monthly
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-              Distributor CSI Statements
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#EF4444", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+              {isFetching ? "—" : stats.replenish}
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", background: "rgba(239, 68, 68, 0.15)", borderRadius: 12 }}>
+                Below 2× Avg
+              </span>
             </div>
           </div>
 
           <div
             style={{
-              padding: "8px 14px",
-              background: "var(--surface)",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              minWidth: 160,
+              padding: "12px 16px",
+              background: "rgba(47, 122, 96, 0.05)",
+              borderRadius: 10,
+              border: "1px solid rgba(47, 122, 96, 0.25)",
             }}
           >
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--text-dim)",
-                textTransform: "uppercase",
-                letterSpacing: "0.03em",
-              }}
-            >
-              Replenishment Review
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#2F7A60", textTransform: "uppercase" }}>
+              Sufficient Stock
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#3D6A8A",
-                marginTop: 2,
-              }}
-            >
-              Monthly Run-Rate
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#2F7A60", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+              {isFetching ? "—" : stats.sufficient}
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", background: "rgba(47, 122, 96, 0.15)", borderRadius: 12 }}>
+                &ge; 2× Avg
+              </span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-              Consumption vs Channel Inflow
+          </div>
+
+          <div
+            style={{
+              padding: "12px 16px",
+              background: "var(--surface)",
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>
+              Total Reorder Volume
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#EF4444", marginTop: 4 }}>
+              {isFetching ? "—" : formatKG(stats.totalShortage)}
             </div>
           </div>
         </div>
       </div>
 
-      {/* KPI ROW */}
-      <div className="stats-row">
-        <KpiCard
-          label="Suggested Replenishment"
-          value={formatCrores(totals.replenishmentVal)}
-          sub={`${totals.replenishCount} products need replenishment`}
-          icon={ShoppingCart}
-          accent="#EF4444"
-        />
-        <KpiCard
-          label="Replenishment Volume"
-          value={formatKG(totals.replenishmentQty)}
-          sub="Calculated on excess consumption"
-          icon={Package}
-          accent="#3D6A8A"
-        />
-        <KpiCard
-          label="Secondary Consumption"
-          value={formatCrores(totals.ss)}
-          sub="Total secondary outflow"
-          icon={BarChart2}
-          accent="#2F7A60"
-        />
-        <KpiCard
-          label="Channel Sell-Through"
-          value={`${totalEff}%`}
-          sub={`Volume ratio: ${totalQtyEff}%`}
-          icon={TrendingUp}
-          accent="#7B5E7B"
-        />
-      </div>
-
-      {/* HEADER + MONTH SELECTOR */}
+      {/* FILTER & SEARCH BAR */}
       <div
         className="section-card"
         style={{
@@ -2482,224 +2619,211 @@ const OrderReplenishmentTab = ({ data }) => {
           alignItems: "center",
           flexWrap: "wrap",
           gap: 12,
+          padding: "14px 20px",
         }}
       >
-        <div>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
-            Product Order Replenishment Matrix
-          </h3>
-          <p
+        <div style={{ position: "relative", minWidth: 280, flex: 1, maxWidth: 450 }}>
+          <Search
+            size={16}
             style={{
-              margin: "4px 0 0 0",
+              position: "absolute",
+              left: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
               color: "var(--text-dim)",
-              fontSize: 12.5,
             }}
-          >
-            Suggested orders identify product stock depletion where customer consumption (SS) outpaces primary delivery (PS).
-          </p>
+          />
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Search by product name or code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ paddingLeft: 36, width: "100%", fontSize: 13 }}
+          />
+          {searchQuery && (
+            <X
+              size={15}
+              onClick={() => setSearchQuery("")}
+              style={{
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+                color: "var(--text-dim)",
+              }}
+            />
+          )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            className={`btn ${statusFilter === "ALL" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setStatusFilter("ALL")}
+            style={{ fontSize: 12, padding: "6px 14px" }}
+          >
+            All Items ({stats.total})
+          </button>
+          <button
+            className={`btn ${statusFilter === "REPLENISH" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setStatusFilter("REPLENISH")}
             style={{
               fontSize: 12,
-              fontWeight: 700,
-              color: "var(--text-dim)",
+              padding: "6px 14px",
+              color: statusFilter === "REPLENISH" ? "#fff" : "#EF4444",
             }}
           >
-            Review Period:
-          </span>
-          <select
-            className="form-control"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{ fontWeight: 700, minWidth: 160 }}
+            Replenish Order ({stats.replenish})
+          </button>
+          <button
+            className={`btn ${statusFilter === "SUFFICIENT" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setStatusFilter("SUFFICIENT")}
+            style={{
+              fontSize: 12,
+              padding: "6px 14px",
+              color: statusFilter === "SUFFICIENT" ? "#fff" : "#2F7A60",
+            }}
           >
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {m === "ALL" ? "All Months (YTD Aggregate)" : m}
-              </option>
-            ))}
-          </select>
+            Sufficient Stock ({stats.sufficient})
+          </button>
         </div>
       </div>
 
+      {/* ITEMS LIST TABLE */}
       <div className="section-card">
-        <DataTable
-          columns={[
-            { key: "name", label: "Product" },
-            {
-              key: "ps",
-              label: "Primary Supply ₹",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatCrores(r.ps),
-            },
-            {
-              key: "ss",
-              label: "Secondary Sales ₹",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatCrores(r.ss),
-            },
-            {
-              key: "diff",
-              label: "Net Consumption ₹",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 700,
-                color: (r) => (r.diff >= 0 ? "#2F7A60" : "#EF4444"),
-              },
-              render: (r) => (r.diff >= 0 ? "+" : "") + formatCrores(r.diff),
-            },
-            {
-              key: "replenishmentVal",
-              label: "Suggested Order ₹",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 800,
-                color: (r) =>
-                  r.replenishmentVal > 0 ? "#EF4444" : "var(--text-dim)",
-              },
-              render: (r) =>
-                r.replenishmentVal > 0 ? formatCrores(r.replenishmentVal) : "-",
-            },
-            {
-              key: "replenishmentQty",
-              label: "Suggested Qty",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 700,
-                color: (r) =>
-                  r.replenishmentQty > 0 ? "#EF4444" : "var(--text-dim)",
-              },
-              render: (r) =>
-                r.replenishmentQty > 0 ? formatKG(r.replenishmentQty) : "-",
-            },
-            {
-              key: "eff",
-              label: "Sell-Through %",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right", fontWeight: 700 },
-              render: (r) => `${r.eff}%`,
-            },
-            {
-              key: "status",
-              label: "Status",
-              thStyle: { textAlign: "center" },
-              tdStyle: { textAlign: "center" },
-              render: (r) => (
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "3px 8px",
-                    borderRadius: 6,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    background:
-                      r.diff > 0
-                        ? "rgba(239, 68, 68, 0.12)"
-                        : r.eff >= 80 && r.eff <= 100
-                          ? "rgba(47, 122, 96, 0.12)"
-                          : "rgba(61, 106, 138, 0.12)",
-                    color:
-                      r.diff > 0
-                        ? "#EF4444"
-                        : r.eff >= 80 && r.eff <= 100
-                          ? "#2F7A60"
-                          : "#3D6A8A",
-                  }}
-                >
-                  {r.status}
-                </span>
-              ),
-            },
-          ]}
-          rows={rows}
-          footer={
-            <tfoot>
-              <tr style={{ backgroundColor: "transparent" }}>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  TOTAL REPLENISHMENT PLAN
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatCrores(totals.ps)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatCrores(totals.ss)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                    color: totals.ss - totals.ps >= 0 ? "#2F7A60" : "#EF4444",
-                  }}
-                >
-                  {(totals.ss - totals.ps >= 0 ? "+" : "") +
-                    formatCrores(totals.ss - totals.ps)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                    color: "#EF4444",
-                    fontSize: 14,
-                  }}
-                >
-                  {formatCrores(totals.replenishmentVal)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                    color: "#EF4444",
-                  }}
-                >
-                  {formatKG(totals.replenishmentQty)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {totalEff}%
-                </td>
-                <td style={{ border: "none" }}></td>
-              </tr>
-            </tfoot>
-          }
-        />
+        {filteredItems.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)" }}>
+            <Package size={36} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
+            <div style={{ fontSize: 15, fontWeight: 700 }}>No items match your filter</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>Try clearing the search query or changing the filter.</div>
+          </div>
+        ) : (
+          <>
+            <DataTable
+              columns={[
+                {
+                  key: "idx",
+                  label: "#",
+                  thStyle: { width: 50, textAlign: "center" },
+                  tdStyle: { textAlign: "center", color: "var(--text-dim)", fontSize: 12 },
+                  render: (_, i) => (currentPage - 1) * pageSize + i + 1,
+                },
+                {
+                  key: "product_name",
+                  label: "Product Name",
+                  tdStyle: { fontWeight: 700 },
+                  render: (r) => (
+                    <div>
+                      <div style={{ color: "var(--text)" }}>{r.product_name}</div>
+                      {r.product_desc && r.product_desc !== r.product_name && (
+                        <div style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 400, marginTop: 2 }}>
+                          {r.product_desc}
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: "product_code",
+                  label: "Material Code",
+                  thStyle: { width: 130 },
+                  tdStyle: { fontFamily: "monospace", fontSize: 12, color: "var(--text-dim)" },
+                  render: (r) => r.product_code || "—",
+                },
+                {
+                  key: "stock_qty",
+                  label: "Current Stock",
+                  thStyle: { textAlign: "right" },
+                  tdStyle: { textAlign: "right", fontWeight: 700 },
+                  render: (r) => formatKG(r.stock_qty),
+                },
+                {
+                  key: "half_yearly_volume",
+                  label: "Half-Yearly Sold (6M)",
+                  thStyle: { textAlign: "right" },
+                  tdStyle: { textAlign: "right" },
+                  render: (r) => formatKG(r.half_yearly_volume),
+                },
+                {
+                  key: "target_stock",
+                  label: "Target Stock (2× Avg Sold)",
+                  thStyle: { textAlign: "right" },
+                  tdStyle: { textAlign: "right", fontWeight: 700, color: "var(--text-dim)" },
+                  render: (r) => formatKG(r.target_stock),
+                },
+                {
+                  key: "shortage_qty",
+                  label: "Reorder Qty",
+                  thStyle: { textAlign: "right" },
+                  tdStyle: { textAlign: "right", fontWeight: 800 },
+                  render: (r) =>
+                    r.needs_replenish ? (
+                      <span style={{ color: "#EF4444" }}>+{formatKG(r.shortage_qty)}</span>
+                    ) : (
+                      <span style={{ color: "var(--text-dim)" }}>—</span>
+                    ),
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  thStyle: { textAlign: "center", width: 160 },
+                  tdStyle: { textAlign: "center" },
+                  render: (r) =>
+                    r.needs_replenish ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          borderRadius: 8,
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          background: "rgba(239, 68, 68, 0.12)",
+                          color: "#EF4444",
+                          border: "1px solid rgba(239, 68, 68, 0.25)",
+                        }}
+                      >
+                        <AlertTriangle size={13} />
+                        Replenish Order
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          borderRadius: 8,
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          background: "rgba(47, 122, 96, 0.12)",
+                          color: "#2F7A60",
+                          border: "1px solid rgba(47, 122, 96, 0.25)",
+                        }}
+                      >
+                        <CheckCircle size={13} />
+                        Sufficient Stock
+                      </span>
+                    ),
+                },
+              ]}
+              rows={paginatedRows}
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--border)", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length} items
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -3040,14 +3164,14 @@ export default function DashboardPage() {
         style={{
           position: "sticky",
           top: 0,
-          zIndex: 85,
-          background: "rgba(248, 247, 247, 0.95)",
+          zIndex: 95,
+          background: "rgba(248, 247, 247, 0.98)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           margin: "0 -48px 24px -48px",
           padding: "16px 48px",
           borderBottom: "1px solid var(--border)",
-          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.03)",
+          boxShadow: "0 6px 20px rgba(0, 0, 0, 0.05)",
           display: "flex",
           flexDirection: "column",
           gap: 12,
@@ -3541,6 +3665,24 @@ export default function DashboardPage() {
                 </button>
               </span>
             )}
+            {isFetching && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  background: "rgba(11, 59, 44, 0.08)",
+                  color: "#0B3B2C",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                <Loader2 size={12} className="animate-spin" />
+                Updating analytics…
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -3551,17 +3693,19 @@ export default function DashboardPage() {
             data={primaryData}
             productFilter={productFilter}
             distFilter={distFilter}
+            isFetching={isFetching}
           />
         ) : activeTab === "secondary" ? (
           <SecondarySalesTab
             data={secondaryData}
             productFilter={productFilter}
             distFilter={distFilter}
+            isFetching={isFetching}
           />
         ) : activeTab === "psss" ? (
-          <PsVsSsTab data={psssData} />
+          <PsVsSsTab data={psssData} isFetching={isFetching} />
         ) : activeTab === "replenishment" || activeTab === "variance" ? (
-          <OrderReplenishmentTab data={psssData} />
+          <OrderReplenishmentTab data={psssData} isFetching={isFetching} />
         ) : null}
       </div>
     </div>

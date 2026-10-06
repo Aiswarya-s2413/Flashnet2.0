@@ -118,6 +118,7 @@ class ExceptionalPriceRequest(models.Model):
         ('Draft', 'Draft'),
         ('Pending Sales Exec Review', 'Pending Sales Exec Review'),
         ('Pending Pricing & BD Teams', 'Pending Pricing & BD Teams'),
+        ('Pending Commercial Manager', 'Pending Commercial Manager'),
         ('Pending Sales Director', 'Pending Sales Director'),
         ('Approved', 'Approved'),
         ('Rejected', 'Rejected')
@@ -169,3 +170,19 @@ class TraderTemplate(models.Model):
 
     def __str__(self):
         return self.trader_name
+
+class SalesExecutiveMapping(models.Model):
+    classification = models.CharField(max_length=100, blank=True, null=True)
+    sales_leader = models.CharField(max_length=255, blank=True, null=True)
+    regional_manager = models.CharField(max_length=255, blank=True, null=True)
+    sales_rep = models.CharField(max_length=255, blank=True, null=True)
+    key_account = models.CharField(max_length=255, blank=True, null=True)
+    active_status = models.CharField(max_length=50, blank=True, null=True)
+    ship_to = models.CharField(max_length=100, db_index=True)
+    ship_to_party = models.CharField(max_length=255, blank=True, null=True)
+    group_name = models.CharField(max_length=255, blank=True, null=True)
+    dist_direct = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.ship_to} - {self.ship_to_party} ({self.sales_rep})"

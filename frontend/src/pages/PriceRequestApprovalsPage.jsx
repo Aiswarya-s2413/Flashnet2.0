@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FileText, CheckCircle, XCircle, ArrowRight, X } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, ArrowRight, X, Loader2 } from 'lucide-react'
 import API from '../api'
 
 export default function PriceRequestApprovalsPage() {
@@ -32,6 +32,7 @@ export default function PriceRequestApprovalsPage() {
   const isPending = selectedEpr && (
     selectedEpr.status === 'Pending Sales Exec Review' ||
     selectedEpr.status === 'Pending Pricing & BD Teams' ||
+    selectedEpr.status === 'Pending Commercial Manager' ||
     selectedEpr.status === 'Pending Sales Director'
   );
 
@@ -76,6 +77,9 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Pricing & BD Teams')} className="btn btn-primary">
             <ArrowRight size={16} /> Forward to Pricing & BD
           </button>
+          <button onClick={() => updateStatus(epr.id, 'Pending Commercial Manager')} className="btn btn-primary" style={{ backgroundColor: '#2563EB', borderColor: '#2563EB', color: '#fff' }}>
+            <ArrowRight size={16} /> Escalate to Commercial Manager
+          </button>
           <button onClick={() => updateStatus(epr.id, 'Rejected')} className="btn btn-danger">
             <XCircle size={16} /> Reject
           </button>
@@ -88,6 +92,25 @@ export default function PriceRequestApprovalsPage() {
         <>
           <button onClick={() => updateStatus(epr.id, 'Approved')} className="btn btn-success">
             <CheckCircle size={16} /> Approve
+          </button>
+          <button onClick={() => updateStatus(epr.id, 'Pending Commercial Manager')} className="btn btn-primary" style={{ backgroundColor: '#2563EB', borderColor: '#2563EB', color: '#fff' }}>
+            <ArrowRight size={16} /> Escalate to Commercial Manager
+          </button>
+          <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
+            <ArrowRight size={16} /> Escalate to Sales Director
+          </button>
+          <button onClick={() => updateStatus(epr.id, 'Rejected')} className="btn btn-danger">
+            <XCircle size={16} /> Reject
+          </button>
+        </>
+      )
+    }
+
+    if (epr.status === 'Pending Commercial Manager') {
+      return (
+        <>
+          <button onClick={() => updateStatus(epr.id, 'Approved')} className="btn btn-success">
+            <CheckCircle size={16} /> Commercial Manager Approve
           </button>
           <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Sales Director
@@ -150,7 +173,14 @@ export default function PriceRequestApprovalsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)' }}>Loading...</td></tr>
+              <tr>
+                <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Loading requests…</span>
+                  </div>
+                </td>
+              </tr>
             ) : eprs.length === 0 ? (
               <tr><td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)' }}>No requests found.</td></tr>
             ) : eprs.map(epr => (

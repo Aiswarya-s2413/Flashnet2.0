@@ -186,6 +186,10 @@ body {
   flex: 1;
   padding: 40px 48px;
   min-height: 100vh;
+  min-width: 0;
+  max-width: calc(100vw - 260px);
+  box-sizing: border-box;
+  overflow-x: clip;
 }
 
 /* =========================================
@@ -430,6 +434,8 @@ body {
 .table-wrapper {
   overflow-x: auto;
   margin-top: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 table {
@@ -1001,4 +1007,11 @@ textarea {
 
 .hover-opacity:hover {
   opacity: 0.7;
+}
+
+.dashboard-sticky-controls {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 95;
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { Package, RefreshCw, Search, X } from 'lucide-react'
+import { Package, RefreshCw, Search, X, Loader2 } from 'lucide-react'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
@@ -85,12 +85,12 @@ export default function ProductsPage() {
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Total Products</span>
-          <span className="stat-value stat-accent">{loading ? '-' : products.length}</span>
+          <span className="stat-value stat-accent">{loading ? '–' : products.length}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Last Updated</span>
           <span className="stat-value" style={{ fontSize: 16 }}>
-            {loading ? '-' : products.length > 0 ? (
+            {loading ? '–' : products.length > 0 ? (
               new Date(Math.max(...products.map(p => new Date(p.updated_at).getTime()))).toLocaleString(undefined, { 
                 day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
               })
@@ -100,7 +100,7 @@ export default function ProductsPage() {
         {(searchQuery || selectedOrg !== 'ALL') && (
           <div className="stat-card">
             <span className="stat-label">Filtered Results</span>
-            <span className="stat-value" style={{ color: 'var(--text)' }}>{loading ? '-' : filteredProducts.length}</span>
+            <span className="stat-value" style={{ color: 'var(--text)' }}>{loading ? '–' : filteredProducts.length}</span>
           </div>
         )}
       </div>
@@ -118,7 +118,14 @@ export default function ProductsPage() {
           </thead>
         <tbody>
             {loading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>Loading…</td></tr>
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Loading products…</span>
+                  </div>
+                </td>
+              </tr>
             ) : filteredProducts.length === 0 ? (
               <tr><td colSpan={5}>
                 <div className="empty-state"><Package size={40} /><p>{searchQuery || selectedOrg !== 'ALL' ? 'No products match your filter.' : 'No products available.'}</p></div>

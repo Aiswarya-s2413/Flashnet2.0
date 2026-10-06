@@ -18,6 +18,7 @@ import {
   TrendingUp as GapUp,
   TrendingDown as GapDown,
   Activity,
+  Loader2,
 } from "lucide-react";
 import Pagination from "../components/Pagination";
 import {
@@ -95,7 +96,7 @@ function fmt(n, decimals = 2) {
   });
 }
 
-function KpiCard({ icon: Icon, label, value, sub, color, prefix = "" }) {
+function KpiCard({ icon: Icon, label, value, sub, color, prefix = "", loading = false }) {
   return (
     <div
       style={{
@@ -151,14 +152,13 @@ function KpiCard({ icon: Icon, label, value, sub, color, prefix = "" }) {
           whiteSpace: "nowrap",
         }}
       >
-        {prefix}
-        {value}
+        {loading ? "–" : `${prefix}${value ?? "–"}`}
       </div>
       {sub && (
         <div
           style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.3 }}
         >
-          {sub}
+          {loading ? "—" : sub}
         </div>
       )}
     </div>
@@ -945,6 +945,33 @@ export default function StockAnalysisPage() {
         </div>
       )}
 
+      {/* Loading state when no data yet */}
+      {loading && !data && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: 340,
+            flexDirection: "column",
+          }}
+        >
+          <span
+            className="spinner"
+            style={{ width: 36, height: 36, marginBottom: 14 }}
+          />
+          <p
+            style={{
+              color: "var(--text-muted)",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Loading Stock Analysis data…
+          </p>
+        </div>
+      )}
+
       {/* KPI Cards */}
       {data && (
         <div
@@ -961,6 +988,7 @@ export default function StockAnalysisPage() {
             value={trackedDists.length}
             sub={`${psssMatched} rows matched PS & SS`}
             color="var(--primary)"
+            loading={loading}
           />
           <KpiCard
             icon={TrendingDown}
@@ -968,6 +996,7 @@ export default function StockAnalysisPage() {
             value={abbr(totalExpLeft)}
             sub="Primary − Secondary qty"
             color="#7c3aed"
+            loading={loading}
           />
           <KpiCard
             icon={Package}
@@ -975,6 +1004,7 @@ export default function StockAnalysisPage() {
             value={abbr(totalActual)}
             sub={`From ${discRows} stock report rows`}
             color="var(--green)"
+            loading={loading}
           />
           <KpiCard
             icon={
@@ -999,6 +1029,7 @@ export default function StockAnalysisPage() {
                   ? "var(--red)"
                   : "var(--amber)"
             }
+            loading={loading}
           />
           <KpiCard
             icon={AlertTriangle}
@@ -1006,6 +1037,7 @@ export default function StockAnalysisPage() {
             value={anomalyCount}
             sub="Discrepancy > 5% of balance stock"
             color={anomalyCount > 0 ? "var(--red)" : "var(--green)"}
+            loading={loading}
           />
         </div>
       )}
@@ -2509,7 +2541,36 @@ export default function StockAnalysisPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((row, i) => {
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={11}
+                      style={{
+                        textAlign: "center",
+                        padding: 40,
+                        color: "var(--text-dim)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <Loader2
+                          size={18}
+                          className="animate-spin"
+                          style={{ color: "var(--primary)" }}
+                        />
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>
+                          Loading stock analysis data…
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  pageRows.map((row, i) => {
                   const disc = row.discrepancy;
                   const discColor =
                     disc === null
@@ -2626,7 +2687,7 @@ export default function StockAnalysisPage() {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
             <Pagination

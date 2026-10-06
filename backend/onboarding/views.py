@@ -99,7 +99,16 @@ class OnboardingStatusView(APIView):
         try:
             user = DistributorUser.objects.get(entra_object_id=claims['oid'])
             onboarding = OnboardingRequest.objects.get(user=user)
-            return Response({'status': 'success', 'data': {'status': onboarding.status}}, status=200)
+            latest_log = onboarding.logs.order_by('-timestamp').first()
+            comment = latest_log.comment if latest_log else onboarding.notes
+            return Response({
+                'status': 'success', 
+                'data': {
+                    'status': onboarding.status,
+                    'notes': onboarding.notes,
+                    'comment': comment
+                }
+            }, status=200)
         except (DistributorUser.DoesNotExist, OnboardingRequest.DoesNotExist):
             return Response({'status': 'error', 'message': 'No onboarding state found.'}, status=404)
 
@@ -219,21 +228,26 @@ class RequestActionView(APIView):
                     req_obj.status = 'csd_approved'
             elif approver_role == 'it_admin':
                 req_obj.status = 'approved'
-        elif action == 'reject':
-            req_obj.status = 'rejected'
+        elif action in ['send_back', 'sent_back', 'reject']:
+            req_obj.status = 'sent_back'
+            if comment:
+                req_obj.notes = comment
         elif action == 'clarification':
             req_obj.status = 'clarification'
+            if comment:
+                req_obj.notes = comment
         else:
             return Response({'status': 'error', 'message': f'Invalid action: {action}'}, status=400)
             
         req_obj.save()
         
         # Log approval log
+        log_action = 'sent_back' if action in ['send_back', 'sent_back', 'reject'] else action
         ApprovalLog.objects.create(
             onboarding_request=req_obj,
             approver_role=approver_role,
             approver_upn=approver_upn,
-            action=action,
+            action=log_action,
             comment=comment
         )
         

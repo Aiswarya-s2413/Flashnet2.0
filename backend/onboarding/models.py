@@ -8,6 +8,7 @@ class OnboardingRequest(models.Model):
         ('csd_approved', 'CSD Approved'),
         ('approved', 'Fully Approved'),
         ('rejected', 'Rejected'),
+        ('sent_back', 'Sent Back to Distributor'),
         ('clarification', 'Clarification Requested'),
     ]
     user = models.OneToOneField(DistributorUser, on_delete=models.CASCADE)
