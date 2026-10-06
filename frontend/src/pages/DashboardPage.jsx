@@ -1608,95 +1608,6 @@ const SecondarySalesTab = ({
           )}
         </div>
       </div>
-
-
-
-      {/* Top customers table */}
-      <div className="card" style={{ padding: 24, marginTop: 24 }}>
-        <SectionHeader
-          title="Top Customers — Secondary Sales"
-          subtitle="Ranked by value (Top 20)"
-        />
-        <DataTable
-          loading={isFetching}
-          columns={[
-            {
-              key: "rank",
-              label: "#",
-              thStyle: { width: 46 },
-              render: (_r, i) => i + 1,
-            },
-            {
-              key: "name",
-              label: "Customer / Distributor",
-              tdStyle: { fontWeight: 700, color: "var(--primary)" },
-            },
-            {
-              key: "ship_to",
-              label: "Ship To",
-              tdStyle: { color: "var(--text-muted)", fontSize: 13 },
-            },
-            {
-              key: "value",
-              label: "Value",
-              thStyle: { textAlign: "right" },
-              tdStyle: {
-                textAlign: "right",
-                fontWeight: 700,
-                color: "#2F7A60",
-              },
-              render: (r) => formatCrores(r.value),
-            },
-            {
-              key: "qty",
-              label: "Qty (KG)",
-              thStyle: { textAlign: "right" },
-              tdStyle: { textAlign: "right" },
-              render: (r) => formatKG(r.qty),
-            },
-          ]}
-          rows={top_customers || []}
-          footer={
-            <tfoot>
-              <tr style={{ backgroundColor: "transparent" }}>
-                <td
-                  colSpan={3}
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  TOTAL SECONDARY SALES:
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 16,
-                    color: "#2F7A60",
-                    border: "none",
-                    padding: "16px",
-                    textAlign: "right",
-                  }}
-                >
-                  {formatCrores(totalSS)}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    textAlign: "right",
-                    padding: "16px",
-                    border: "none",
-                  }}
-                >
-                  {formatKG(totalQty)}
-                </td>
-              </tr>
-            </tfoot>
-          }
-        />
-      </div>
     </div>
   );
 };
@@ -2345,7 +2256,6 @@ const PsVsSsTab = ({ data, isFetching = false }) => {
         <div className="section-card">
           <SectionHeader
             title="Slow Movers"
-            subtitle="Products with high distributor purchases but low market sales (lowest sell-through ratio)"
           />
           <div style={{ width: "100%", height: 380 }}>
             {slowMoversData.length === 0 ? (
