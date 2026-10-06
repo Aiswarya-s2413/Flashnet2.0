@@ -3015,10 +3015,27 @@ const DISTRIBUTOR_CODES = {
   ],
 };
 
+const DEFAULT_SALES_LEADERS = [
+  "Amardeep Gadiya",
+  "Amish Jain",
+  "Anandharaman R",
+  "Ashim Ghosh",
+  "Balaji Annam",
+  "Co-Producers & Fiber",
+  "HPPL",
+  "Narender Kumar",
+  "Parag Sawant",
+  "Pranav Gayatri",
+  "Rajan Arora",
+  "Sunil Sharma",
+];
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("primary");
   const [selectedDistributor, setSelectedDistributor] = useState("CHEMIELINK");
   const [selectedDistCode, setSelectedDistCode] = useState("");
+  const [selectedSalesLeader, setSelectedSalesLeader] = useState("");
+  const [salesLeaders, setSalesLeaders] = useState(DEFAULT_SALES_LEADERS);
   const [primaryData, setPrimaryData] = useState(null);
   const [secondaryData, setSecondaryData] = useState(null);
   const [psssData, setPsssData] = useState(null);
@@ -3033,6 +3050,16 @@ export default function DashboardPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    API.get("/dashboard/sales-leaders/")
+      .then((res) => {
+        if (res.data?.sales_leaders?.length) {
+          setSalesLeaders(res.data.sales_leaders);
+        }
+      })
+      .catch((err) => console.error("Error loading sales leaders:", err));
+  }, []);
 
   useEffect(() => {
     API.get("/products/")
@@ -3090,6 +3117,8 @@ export default function DashboardPage() {
           `?distributor=${selectedDistributor}${
             selectedDistCode ? `&distributor_code=${encodeURIComponent(selectedDistCode)}` : ""
           }${
+            selectedSalesLeader ? `&sales_leader=${encodeURIComponent(selectedSalesLeader)}` : ""
+          }${
             productQ ? `&product=${encodeURIComponent(productQ)}` : ""
           }${
             fromDate ? `&from_date=${encodeURIComponent(fromDate)}` : ""
@@ -3121,7 +3150,7 @@ export default function DashboardPage() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedDistributor, selectedDistCode, debouncedProductFilter, fromDate, toDate]);
+  }, [selectedDistributor, selectedDistCode, selectedSalesLeader, debouncedProductFilter, fromDate, toDate]);
 
   if (loading) {
     return (
@@ -3149,6 +3178,7 @@ export default function DashboardPage() {
     productFilter.trim() ||
     distFilter.trim() ||
     selectedDistCode ||
+    selectedSalesLeader ||
     fromDate ||
     toDate;
 
@@ -3435,7 +3465,7 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          {/* DATE FROM */}
+          {/* SALES LEADER */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span
               style={{
@@ -3444,83 +3474,127 @@ export default function DashboardPage() {
                 color: "var(--text-dim)",
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
+                whiteSpace: "nowrap",
               }}
             >
-              From:
+              Sales Leader:
             </span>
-            <input
-              type="date"
+            <select
               className="form-control"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              value={selectedSalesLeader}
+              onChange={(e) => setSelectedSalesLeader(e.target.value)}
               style={{
+                minWidth: 160,
                 padding: "6px 10px",
                 fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text)",
-                cursor: "pointer",
-              }}
-            />
-          </div>
-
-          {/* DATE TO */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                fontSize: 12,
                 fontWeight: 700,
-                color: "var(--text-dim)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
               }}
             >
-              To:
-            </span>
-            <input
-              type="date"
-              className="form-control"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text)",
-                cursor: "pointer",
-              }}
-            />
+              <option value="">All Sales Leaders</option>
+              {salesLeaders.map((ldr) => (
+                <option key={ldr} value={ldr}>
+                  {ldr}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {(fromDate || toDate) && (
-            <button
-              onClick={() => {
-                setFromDate("");
-                setToDate("");
-              }}
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--text-muted)",
-                padding: "6px 10px",
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-              title="Clear date filter"
-            >
-              <X size={12} /> Clear Dates
-            </button>
-          )}
+          {/* DATE FILTER: FROM & TO ON SAME LINE */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                From:
+              </span>
+              <input
+                type="date"
+                className="form-control"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                To:
+              </span>
+              <input
+                type="date"
+                className="form-control"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                }}
+              />
+            </div>
+
+            {(fromDate || toDate) && (
+              <button
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                }}
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text-muted)",
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  flexShrink: 0,
+                }}
+                title="Clear date filter"
+              >
+                <X size={12} /> Clear Dates
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ROW 3: ACTIVE FILTERS */}
@@ -3599,6 +3673,36 @@ export default function DashboardPage() {
                     cursor: "pointer",
                     display: "flex",
                     color: "#2F7A60",
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {selectedSalesLeader && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "3px 10px",
+                  background: "rgba(37, 99, 235, 0.1)",
+                  color: "#2563EB",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Leader: {selectedSalesLeader}
+                <button
+                  onClick={() => setSelectedSalesLeader("")}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                    display: "flex",
+                    color: "#2563EB",
                   }}
                 >
                   <X size={12} />

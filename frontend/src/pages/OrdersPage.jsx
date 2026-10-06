@@ -111,12 +111,12 @@ export default function OrdersPage() {
       }}>
         {/* Date Filter Inputs */}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 13, flexShrink: 0, whiteSpace: 'nowrap' }}>
             <Calendar size={16} style={{ color: 'var(--primary)' }} />
             <span>Invoice Date:</span>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexShrink: 0, whiteSpace: 'nowrap' }}>
             <input
               type="date"
               className="search-input"
@@ -125,7 +125,7 @@ export default function OrdersPage() {
               onChange={(e) => setStartDate(e.target.value)}
               title="From Date"
             />
-            <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>to</span>
+            <span style={{ color: 'var(--text-dim)', fontSize: 13, flexShrink: 0 }}>to</span>
             <input
               type="date"
               className="search-input"

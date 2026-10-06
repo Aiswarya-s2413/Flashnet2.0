@@ -37,6 +37,8 @@ import {
   BarChart2,
 } from "lucide-react";
 
+import { APP_VERSION } from "./version";
+
 // AppShell holds the sidebar layout and top header
 function AppShell({ children }) {
   return (
@@ -222,6 +224,35 @@ function AppShell({ children }) {
             </nav>
           </div>
         </div>
+        <div
+          className="sidebar-footer"
+          style={{
+            marginTop: "auto",
+            paddingTop: "14px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: "11px",
+            color: "var(--text-dim)",
+          }}
+        >
+          <span>FlashNet</span>
+          <span
+            style={{
+              padding: "2px 8px",
+              background: "var(--surface2)",
+              borderRadius: "4px",
+              fontFamily: "monospace",
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "var(--text-muted)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {APP_VERSION}
+          </span>
+        </div>
       </aside>
       <main className="main-content">
         <header className="app-header">
@@ -245,6 +276,35 @@ function AppShell({ children }) {
           </div>
         </header>
         {children}
+        <footer
+          style={{
+            marginTop: "48px",
+            paddingTop: "16px",
+            paddingBottom: "16px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: "12px",
+            color: "var(--text-dim)",
+          }}
+        >
+          <span>Archroma Network · FlashNet 2.0</span>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: "11px",
+              fontWeight: 700,
+              color: "var(--text-muted)",
+              background: "var(--surface2)",
+              padding: "2px 8px",
+              borderRadius: "4px",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {APP_VERSION}
+          </span>
+        </footer>
       </main>
     </div>
   );

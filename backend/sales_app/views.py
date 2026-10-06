@@ -1906,6 +1906,7 @@ def dashboard_metrics(request):
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
         dist_code_param = request.GET.get("distributor_code", "").strip()
+        sales_leader_param = request.GET.get("sales_leader", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
@@ -1914,7 +1915,7 @@ def dashboard_metrics(request):
         from_ym = from_date[:7] if from_date else ""
         to_ym = to_date[:7] if to_date else ""
 
-        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v5"
+        cache_key = f"dash_metrics_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{sales_leader_param}_{product_param}_{from_date}_{to_date}_v6"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -1926,6 +1927,20 @@ def dashboard_metrics(request):
             stock_level_qs = StockLevel.objects.filter(
                 Q(sold_to=dist_code) | Q(ship_to=dist_code)
             )
+        elif sales_leader_param and sales_leader_param.upper() != "ALL":
+            from sales_app.models import SalesExecutiveMapping
+            leader_ship_tos = list(
+                SalesExecutiveMapping.objects.filter(sales_leader__iexact=sales_leader_param).values_list("ship_to", flat=True)
+            )
+            monthly_sales_qs = MonthlySales.objects.filter(
+                Q(ship_to_code__in=leader_ship_tos) | Q(distributor_name__in=leader_ship_tos)
+            )
+            stock_level_qs = StockLevel.objects.filter(
+                Q(sold_to__in=leader_ship_tos) | Q(ship_to__in=leader_ship_tos)
+            )
+            if dist_code_param and dist_code_param.upper() != "ALL":
+                monthly_sales_qs = monthly_sales_qs.filter(ship_to_code=dist_code_param)
+                stock_level_qs = stock_level_qs.filter(Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param))
         elif dist_code_param and dist_code_param.upper() != "ALL":
             monthly_sales_qs = MonthlySales.objects.filter(
                 ship_to_code=dist_code_param
@@ -2086,6 +2101,7 @@ def primary_vs_secondary_analytics(request):
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
         dist_code_param = request.GET.get("distributor_code", "").strip()
+        sales_leader_param = request.GET.get("sales_leader", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
@@ -2104,7 +2120,7 @@ def primary_vs_secondary_analytics(request):
         except:
             fast_months_param = 2
 
-        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_{moq_param}_{fast_months_param}_v9"
+        cache_key = f"dash_ps_ss_{user.id if user and user.is_authenticated else 'anon'}_{dist_code if is_dist else dist_param}_{dist_code_param}_{sales_leader_param}_{product_param}_{from_date}_{to_date}_{moq_param}_{fast_months_param}_v10"
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached, status=status.HTTP_200_OK)
@@ -2116,6 +2132,20 @@ def primary_vs_secondary_analytics(request):
             monthly_sales_qs = MonthlySales.objects.filter(
                 Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
             )
+        elif sales_leader_param and sales_leader_param.upper() != "ALL":
+            from sales_app.models import SalesExecutiveMapping
+            leader_ship_tos = list(
+                SalesExecutiveMapping.objects.filter(sales_leader__iexact=sales_leader_param).values_list("ship_to", flat=True)
+            )
+            primary_sales_qs = PrimarySales.objects.filter(
+                Q(sold_to_party__in=leader_ship_tos) | Q(ship_to_party__in=leader_ship_tos)
+            )
+            monthly_sales_qs = MonthlySales.objects.filter(
+                Q(ship_to_code__in=leader_ship_tos) | Q(distributor_name__in=leader_ship_tos)
+            )
+            if dist_code_param and dist_code_param.upper() != "ALL":
+                primary_sales_qs = primary_sales_qs.filter(Q(sold_to_party=dist_code_param) | Q(ship_to_party=dist_code_param))
+                monthly_sales_qs = monthly_sales_qs.filter(ship_to_code=dist_code_param)
         elif dist_code_param and dist_code_param.upper() != "ALL":
             if dist_code_param == "438498":
                 primary_sales_qs = PrimarySales.objects.filter(
@@ -2907,6 +2937,7 @@ def _apply_distributor_filter(request):
     is_dist = is_distributor(user)
     dist_param = request.GET.get("distributor", "").strip()
     dist_code_param = request.GET.get("distributor_code", "").strip()
+    sales_leader_param = request.GET.get("sales_leader", "").strip()
     if not dist_param and not is_dist:
         dist_param = "CHEMIELINK"
 
@@ -2918,6 +2949,48 @@ def _apply_distributor_filter(request):
             Q(ship_to_code=dist_code) | Q(distributor_name=dist_code)
         )
         sl_qs = StockLevel.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
+        return ps_qs, ms_qs, sl_qs
+
+    if sales_leader_param and sales_leader_param.upper() != "ALL":
+        from sales_app.models import SalesExecutiveMapping
+        leader_ship_tos = list(
+            SalesExecutiveMapping.objects.filter(sales_leader__iexact=sales_leader_param).values_list("ship_to", flat=True)
+        )
+        if dist_code_param and dist_code_param.upper() != "ALL":
+            ps_qs = PrimarySales.objects.filter(
+                (Q(sold_to_party=dist_code_param) | Q(ship_to_party=dist_code_param)) &
+                (Q(sold_to_party__in=leader_ship_tos) | Q(ship_to_party__in=leader_ship_tos))
+            )
+            ms_qs = MonthlySales.objects.filter(
+                Q(ship_to_code=dist_code_param) &
+                (Q(ship_to_code__in=leader_ship_tos) | Q(distributor_name__in=leader_ship_tos))
+            )
+            sl_qs = StockLevel.objects.filter(
+                (Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param)) &
+                (Q(sold_to__in=leader_ship_tos) | Q(ship_to__in=leader_ship_tos))
+            )
+        elif dist_param and dist_param.upper() != "ALL" and "CHEMI" not in dist_param.upper():
+            ps_qs = PrimarySales.objects.filter(
+                (Q(sold_to_party_address__icontains=dist_param) | Q(ship_to_party_name__icontains=dist_param)) &
+                (Q(sold_to_party__in=leader_ship_tos) | Q(ship_to_party__in=leader_ship_tos))
+            )
+            ms_qs = MonthlySales.objects.filter(
+                Q(distributor_name__icontains=dist_param) &
+                (Q(ship_to_code__in=leader_ship_tos) | Q(distributor_name__in=leader_ship_tos))
+            )
+            sl_qs = StockLevel.objects.filter(
+                Q(sold_to__in=leader_ship_tos) | Q(ship_to__in=leader_ship_tos)
+            )
+        else:
+            ps_qs = PrimarySales.objects.filter(
+                Q(sold_to_party__in=leader_ship_tos) | Q(ship_to_party__in=leader_ship_tos)
+            )
+            ms_qs = MonthlySales.objects.filter(
+                Q(ship_to_code__in=leader_ship_tos) | Q(distributor_name__in=leader_ship_tos)
+            )
+            sl_qs = StockLevel.objects.filter(
+                Q(sold_to__in=leader_ship_tos) | Q(ship_to__in=leader_ship_tos)
+            )
         return ps_qs, ms_qs, sl_qs
 
     if dist_code_param and dist_code_param.upper() != "ALL":
@@ -3045,12 +3118,28 @@ def _apply_order_filter(request):
     is_dist = is_distributor(user)
     dist_param = request.GET.get("distributor", "").strip()
     dist_code_param = request.GET.get("distributor_code", "").strip()
+    sales_leader_param = request.GET.get("sales_leader", "").strip()
     if not dist_param and not is_dist:
         dist_param = "CHEMIELINK"
 
     if is_dist:
         return Order.objects.filter(Q(sold_to=dist_code) | Q(ship_to=dist_code))
-    elif dist_code_param and dist_code_param.upper() != "ALL":
+
+    if sales_leader_param and sales_leader_param.upper() != "ALL":
+        from sales_app.models import SalesExecutiveMapping
+        leader_ship_tos = list(
+            SalesExecutiveMapping.objects.filter(sales_leader__iexact=sales_leader_param).values_list("ship_to", flat=True)
+        )
+        if dist_code_param and dist_code_param.upper() != "ALL":
+            return Order.objects.filter(
+                (Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param)) &
+                (Q(sold_to__in=leader_ship_tos) | Q(ship_to__in=leader_ship_tos) | Q(customer__in=leader_ship_tos))
+            )
+        return Order.objects.filter(
+            Q(sold_to__in=leader_ship_tos) | Q(ship_to__in=leader_ship_tos) | Q(customer__in=leader_ship_tos)
+        )
+
+    if dist_code_param and dist_code_param.upper() != "ALL":
         return Order.objects.filter(
             Q(sold_to=dist_code_param) | Q(ship_to=dist_code_param)
         )
@@ -3165,6 +3254,7 @@ def primary_sales_analysis(request):
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
         dist_code_param = request.GET.get("distributor_code", "").strip()
+        sales_leader_param = request.GET.get("sales_leader", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
@@ -3172,7 +3262,7 @@ def primary_sales_analysis(request):
         to_date = request.GET.get("to_date", "").strip()
         cache_key = (
             f"dash_ps_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v7"
+            f"{dist_code if is_dist else dist_param}_{dist_code_param}_{sales_leader_param}_{product_param}_{from_date}_{to_date}_v8"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -3426,6 +3516,7 @@ def secondary_sales_analysis(request):
         is_dist = is_distributor(user)
         dist_param = request.GET.get("distributor", "").strip()
         dist_code_param = request.GET.get("distributor_code", "").strip()
+        sales_leader_param = request.GET.get("sales_leader", "").strip()
         if not dist_param and not is_dist:
             dist_param = "CHEMIELINK"
         product_param = request.GET.get("product", "").strip()
@@ -3435,7 +3526,7 @@ def secondary_sales_analysis(request):
         to_ym = to_date[:7] if to_date else ""
         cache_key = (
             f"dash_ss_analysis_{user.id if user and user.is_authenticated else 'anon'}_"
-            f"{dist_code if is_dist else dist_param}_{dist_code_param}_{product_param}_{from_date}_{to_date}_v6"
+            f"{dist_code if is_dist else dist_param}_{dist_code_param}_{sales_leader_param}_{product_param}_{from_date}_{to_date}_v7"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -4928,3 +5019,24 @@ def stock_analysis(request):
             {"error": str(e), "detail": traceback.format_exc()},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+def dashboard_sales_leaders(request):
+    """Return distinct list of sales leaders from SalesExecutiveMapping."""
+    try:
+        from sales_app.models import SalesExecutiveMapping
+        leaders = list(
+            SalesExecutiveMapping.objects.exclude(sales_leader__isnull=True)
+            .exclude(sales_leader="")
+            .exclude(sales_leader="—")
+            .exclude(sales_leader="NA")
+            .values_list("sales_leader", flat=True)
+            .distinct()
+            .order_by("sales_leader")
+        )
+        clean = sorted(list(set(l.strip() for l in leaders if l and l.strip())))
+        return Response({"sales_leaders": clean}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

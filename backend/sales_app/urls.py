@@ -23,6 +23,7 @@ from .views import (
     stock_analysis,
     primary_sales_analysis,
     secondary_sales_analysis,
+    dashboard_sales_leaders,
 )
 
 router = DefaultRouter()
@@ -60,6 +61,7 @@ urlpatterns = [
         secondary_sales_analysis,
         name="dashboard-secondary-sales",
     ),
+    path("dashboard/sales-leaders/", dashboard_sales_leaders, name="dashboard-sales-leaders"),
     path("analytics/sales-exec/", sales_exec_analytics, name="sales-exec-analytics"),
     path("analytics/stock/", stock_analysis, name="stock-analysis"),
     path("", include(router.urls)),
