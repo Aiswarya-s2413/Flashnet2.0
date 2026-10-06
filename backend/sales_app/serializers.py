@@ -54,6 +54,12 @@ class ExceptionalPriceRequestSerializer(serializers.ModelSerializer):
         model = ExceptionalPriceRequest
         fields = '__all__'
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if ret.get('status') == 'Rejected':
+            ret['status'] = 'Sent Back to Distributor'
+        return ret
+
     def create(self, validated_data):
         line_items_data = validated_data.pop('line_items', [])
         epr = ExceptionalPriceRequest.objects.create(**validated_data)

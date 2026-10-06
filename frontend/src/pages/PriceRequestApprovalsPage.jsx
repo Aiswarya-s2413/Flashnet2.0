@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { FileText, CheckCircle, XCircle, ArrowRight, X, Loader2 } from 'lucide-react'
+import { FileText, CheckCircle, RotateCcw, ArrowRight, X, Loader2 } from 'lucide-react'
 import API from '../api'
 
 export default function PriceRequestApprovalsPage() {
@@ -80,8 +80,8 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Commercial Manager')} className="btn btn-primary" style={{ backgroundColor: '#2563EB', borderColor: '#2563EB', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Commercial Manager
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Rejected')} className="btn btn-danger">
-            <XCircle size={16} /> Reject
+          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Distributor
           </button>
         </>
       )
@@ -99,8 +99,8 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Sales Director
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Rejected')} className="btn btn-danger">
-            <XCircle size={16} /> Reject
+          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Distributor
           </button>
         </>
       )
@@ -115,8 +115,8 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Sales Director
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Rejected')} className="btn btn-danger">
-            <XCircle size={16} /> Reject
+          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Distributor
           </button>
         </>
       )
@@ -128,23 +128,23 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Approved')} className="btn btn-success">
             <CheckCircle size={16} /> Director Approve
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Rejected')} className="btn btn-danger">
-            <XCircle size={16} /> Reject
+          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Distributor
           </button>
         </>
       )
     }
 
     return (
-      <span style={{ fontWeight: '800', color: epr.status === 'Approved' ? 'var(--green)' : 'var(--red)' }}>
-        Status: {epr.status}
+      <span style={{ fontWeight: '800', color: epr.status === 'Approved' ? 'var(--green)' : 'var(--amber)' }}>
+        Status: {epr.status === 'Rejected' ? 'Sent Back to Distributor' : epr.status}
       </span>
     )
   }
 
   const getStatusBadge = (status) => {
     if (status === 'Approved') return <span className="badge badge-status badge-green">Approved</span>
-    if (status === 'Rejected') return <span className="badge badge-status badge-red">Rejected</span>
+    if (status === 'Rejected' || status === 'Sent Back to Distributor') return <span className="badge badge-status badge-amber">Sent Back to Distributor</span>
     if (status === 'Draft') return <span className="badge badge-status badge-accent">Draft</span>
     return <span className="badge badge-status badge-amber">{status}</span>
   }
@@ -334,7 +334,7 @@ export default function PriceRequestApprovalsPage() {
                       )}
                     </div>
                     <div><span style={detailLabelStyle}>Comp. Name</span><div style={detailValueStyle}>{item.competition_product_name || '-'}</div></div>
-                    <div><span style={detailLabelStyle}>Comp. Price/Vol</span><div style={detailValueStyle}>{item.competition_price ? `${item.competition_price} INR` : '-'} {item.competition_volume ? `(${item.competition_volume} YTD)` : ''}</div></div>
+                    <div><span style={detailLabelStyle}>Comp. Price/Vol</span><div style={detailValueStyle}>{item.competition_price ? `${item.competition_price} INR` : '-'} {item.competition_volume ? `(${item.competition_volume} Monthly Avg)` : ''}</div></div>
                   </div>
                 </div>
               ))}

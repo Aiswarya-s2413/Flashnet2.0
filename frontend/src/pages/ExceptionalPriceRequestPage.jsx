@@ -125,7 +125,7 @@ export default function ExceptionalPriceRequestPage() {
 
   const getStatusBadge = (status) => {
     if (status === 'Approved') return <span className="badge badge-status badge-green">Approved</span>
-    if (status === 'Rejected') return <span className="badge badge-status badge-red">Rejected</span>
+    if (status === 'Rejected' || status === 'Sent Back to Distributor') return <span className="badge badge-status badge-amber">Sent Back to Distributor</span>
     if (status === 'Draft') return <span className="badge badge-status badge-accent">Draft</span>
     return <span className="badge badge-status badge-amber">{status || 'Pending'}</span>
   }

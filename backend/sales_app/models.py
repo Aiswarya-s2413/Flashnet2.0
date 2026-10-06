@@ -121,7 +121,8 @@ class ExceptionalPriceRequest(models.Model):
         ('Pending Commercial Manager', 'Pending Commercial Manager'),
         ('Pending Sales Director', 'Pending Sales Director'),
         ('Approved', 'Approved'),
-        ('Rejected', 'Rejected')
+        ('Sent Back to Distributor', 'Sent Back to Distributor'),
+        ('Rejected', 'Sent Back to Distributor'),
     ]
     legacy_organization = models.CharField(max_length=255, blank=True, null=True)
     soldto_code = models.CharField(max_length=100, blank=True, null=True)
