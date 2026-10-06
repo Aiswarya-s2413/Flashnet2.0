@@ -101,10 +101,11 @@ class OnboardingStatusView(APIView):
             onboarding = OnboardingRequest.objects.get(user=user)
             latest_log = onboarding.logs.order_by('-timestamp').first()
             comment = latest_log.comment if latest_log else onboarding.notes
+            status = 'sent_back' if onboarding.status in ['sent_back', 'send_back', 'rejected', 'reject'] else onboarding.status
             return Response({
                 'status': 'success', 
                 'data': {
-                    'status': onboarding.status,
+                    'status': status,
                     'notes': onboarding.notes,
                     'comment': comment
                 }
@@ -162,7 +163,7 @@ class ListRequestsView(APIView):
             logs = [{
                 'approver_role': l.approver_role,
                 'approver_upn': l.approver_upn,
-                'action': l.action,
+                'action': 'sent_back' if l.action in ['sent_back', 'send_back', 'rejected', 'reject'] else l.action,
                 'comment': l.comment,
                 'timestamp': str(l.timestamp)
             } for l in r.logs.all().order_by('timestamp')]
@@ -176,7 +177,7 @@ class ListRequestsView(APIView):
                     'display_name': r.user.display_name,
                     'entra_object_id': r.user.entra_object_id
                 },
-                'status': r.status,
+                'status': 'sent_back' if r.status in ['sent_back', 'send_back', 'rejected', 'reject'] else r.status,
                 'distributor_code': r.distributor_code,
                 'legal_entity': r.legal_entity,
                 'territory': r.territory,
@@ -196,7 +197,7 @@ class RequestActionView(APIView):
         except OnboardingRequest.DoesNotExist:
             return Response({'status': 'error', 'message': 'Onboarding request not found'}, status=404)
             
-        action = request.data.get('action') # 'approve', 'reject', 'clarification'
+        action = request.data.get('action') # 'approve', 'send_back', 'clarification'
         approver_role = request.data.get('approver_role') # 'sales', 'csd', 'it_admin'
         approver_upn = request.data.get('approver_upn', 'admin@archroma.com')
         comment = request.data.get('comment', '')
@@ -228,7 +229,7 @@ class RequestActionView(APIView):
                     req_obj.status = 'csd_approved'
             elif approver_role == 'it_admin':
                 req_obj.status = 'approved'
-        elif action in ['send_back', 'sent_back', 'reject']:
+        elif action in ['send_back', 'sent_back', 'reject', 'rejected']:
             req_obj.status = 'sent_back'
             if comment:
                 req_obj.notes = comment
@@ -242,7 +243,7 @@ class RequestActionView(APIView):
         req_obj.save()
         
         # Log approval log
-        log_action = 'sent_back' if action in ['send_back', 'sent_back', 'reject'] else action
+        log_action = 'sent_back' if action in ['send_back', 'sent_back', 'reject', 'rejected'] else action
         ApprovalLog.objects.create(
             onboarding_request=req_obj,
             approver_role=approver_role,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
-import { Check, X, HelpCircle, Users, Clipboard, MapPin, Building, Key, RotateCcw } from 'lucide-react'
+import { Check, HelpCircle, Users, Clipboard, MapPin, Building, Key, RotateCcw } from 'lucide-react'
 
 export default function OnboardingApprovalsPage() {
   const [requests, setRequests] = useState([])
@@ -44,7 +44,8 @@ export default function OnboardingApprovalsPage() {
 
   const openActionModal = (req, type) => {
     setActiveRequest(req)
-    setActionType(type)
+    const effectiveType = (type === 'reject' || type === 'rejected') ? 'send_back' : type
+    setActionType(effectiveType)
     setComment('')
     setDistributorCode(req.distributor_code || '')
     setLegalEntity(req.legal_entity || '')
@@ -68,8 +69,9 @@ export default function OnboardingApprovalsPage() {
     setActionLoading(true)
     setMessage(null)
     try {
+      const effectiveAction = (actionType === 'reject' || actionType === 'rejected') ? 'send_back' : actionType
       const payload = {
-        action: actionType,
+        action: effectiveAction,
         approver_role: approverRole,
         comment,
         distributor_code,
@@ -162,7 +164,7 @@ export default function OnboardingApprovalsPage() {
               onClick={() => setFilter('sent_back')}
             >
               <RotateCcw size={13} />
-              Sent Back to Distributor ({requests.filter(r => r.status === 'sent_back' || r.status === 'send_back' || r.status === 'rejected').length})
+              Sent Back to Distributor ({requests.filter(r => r.status === 'sent_back' || r.status === 'send_back' || r.status === 'rejected' || r.status === 'reject').length})
             </button>
             <button
               type="button"
@@ -177,13 +179,13 @@ export default function OnboardingApprovalsPage() {
           {/* Requests List */}
           {requests
             .filter(r => {
-              if (filter === 'sent_back') return r.status === 'sent_back' || r.status === 'send_back' || r.status === 'rejected'
+              if (filter === 'sent_back') return r.status === 'sent_back' || r.status === 'send_back' || r.status === 'rejected' || r.status === 'reject'
               if (filter === 'pending') return r.status === 'pending' || r.status === 'sales_approved' || r.status === 'csd_approved' || r.status === 'clarification'
               if (filter === 'approved') return r.status === 'approved'
               return true
             })
             .map((req) => {
-              const isSentBack = req.status === 'sent_back' || req.status === 'send_back' || req.status === 'rejected'
+              const isSentBack = req.status === 'sent_back' || req.status === 'send_back' || req.status === 'rejected' || req.status === 'reject'
 
               return (
                 <div key={req.id} className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -229,7 +231,7 @@ export default function OnboardingApprovalsPage() {
                       <div>
                         <strong style={{ color: '#92400e', fontSize: 13, display: 'block' }}>Sent Back to Distributor</strong>
                         <div style={{ fontSize: 12.5, color: '#78350f', marginTop: 2 }}>
-                          {req.notes || (req.logs?.slice().reverse().find(l => l.action === 'sent_back' || l.action === 'send_back' || l.action === 'rejected')?.comment) || 'This onboarding request was sent back to the distributor for updates or clarifications.'}
+                          {req.notes || (req.logs?.slice().reverse().find(l => l.action === 'sent_back' || l.action === 'send_back' || l.action === 'rejected' || l.action === 'reject')?.comment) || 'This onboarding request was sent back to the distributor for updates or clarifications.'}
                         </div>
                       </div>
                     </div>
@@ -284,7 +286,7 @@ export default function OnboardingApprovalsPage() {
                       </h5>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {req.logs.map((log, lIdx) => {
-                          const isLogSentBack = log.action === 'sent_back' || log.action === 'send_back' || log.action === 'rejected'
+                          const isLogSentBack = log.action === 'sent_back' || log.action === 'send_back' || log.action === 'rejected' || log.action === 'reject'
                           return (
                             <div key={lIdx} style={{ fontSize: 12, display: 'flex', gap: 12, background: 'rgba(0,0,0,0.01)', padding: 10, borderRadius: 8, border: '1px solid #f1f5f9' }}>
                               <div style={{ fontWeight: 700, minWidth: 100, textTransform: 'capitalize', color: 'var(--primary)' }}>
@@ -316,7 +318,7 @@ export default function OnboardingApprovalsPage() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 500 }}>
             <h3 className="modal-title" style={{ textTransform: 'capitalize' }}>
-              {actionType === 'send_back' ? 'Send Back to Distributor' : `${actionType} Onboarding Request`}
+              {(actionType === 'send_back' || actionType === 'reject' || actionType === 'rejected') ? 'Send Back to Distributor' : `${actionType} Onboarding Request`}
             </h3>
             
             <form onSubmit={handleActionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -355,13 +357,13 @@ export default function OnboardingApprovalsPage() {
 
               <div className="form-group">
                 <label>
-                  {actionType === 'send_back' ? 'Reason for Sending Back (Visible to Distributor)' : 'Approver Comments / Notes'}
+                  {(actionType === 'send_back' || actionType === 'reject' || actionType === 'rejected') ? 'Reason for Sending Back (Visible to Distributor)' : 'Approver Comments / Notes'}
                 </label>
                 <textarea 
                   rows="3" 
                   value={comment} 
                   onChange={(e) => setComment(e.target.value)} 
-                  placeholder={actionType === 'send_back' ? 'Explain what information or corrections the distributor needs to provide...' : 'Provide context, observations, or instructions...'} 
+                  placeholder={(actionType === 'send_back' || actionType === 'reject' || actionType === 'rejected') ? 'Explain what information or corrections the distributor needs to provide...' : 'Provide context, observations, or instructions...'} 
                   required
                 ></textarea>
               </div>
@@ -370,11 +372,11 @@ export default function OnboardingApprovalsPage() {
                 <button type="button" className="btn btn-secondary" onClick={() => setActiveRequest(null)} disabled={actionLoading}>Cancel</button>
                 <button 
                   type="submit" 
-                  className={actionType === 'send_back' ? 'btn btn-secondary' : 'btn btn-primary'} 
-                  style={actionType === 'send_back' ? { backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' } : {}}
+                  className={(actionType === 'send_back' || actionType === 'reject' || actionType === 'rejected') ? 'btn btn-secondary' : 'btn btn-primary'} 
+                  style={(actionType === 'send_back' || actionType === 'reject' || actionType === 'rejected') ? { backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' } : {}}
                   disabled={actionLoading}
                 >
-                  {actionLoading ? 'Executing...' : actionType === 'send_back' ? 'Send Back to Distributor' : 'Submit Action'}
+                  {actionLoading ? 'Executing...' : (actionType === 'send_back' || actionType === 'reject' || actionType === 'rejected') ? 'Send Back to Distributor' : 'Submit Action'}
                 </button>
               </div>
             </form>

@@ -7,7 +7,6 @@ class OnboardingRequest(models.Model):
         ('sales_approved', 'Sales Approved'),
         ('csd_approved', 'CSD Approved'),
         ('approved', 'Fully Approved'),
-        ('rejected', 'Rejected'),
         ('sent_back', 'Sent Back to Distributor'),
         ('clarification', 'Clarification Requested'),
     ]
@@ -27,7 +26,7 @@ class ApprovalLog(models.Model):
     onboarding_request = models.ForeignKey(OnboardingRequest, on_delete=models.CASCADE, related_name='logs')
     approver_role = models.CharField(max_length=50)  # 'sales', 'csd', 'it_admin'
     approver_upn = models.CharField(max_length=200)
-    action = models.CharField(max_length=30)  # 'approved', 'rejected', 'clarification'
+    action = models.CharField(max_length=30)  # 'approved', 'sent_back', 'clarification'
     comment = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
