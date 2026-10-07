@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import API from "../api";
+import StatLoader from "../components/StatLoader";
 import {
   BarChart,
   Bar,
@@ -185,7 +186,7 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent, loading = false }) => 
       )}
     </div>
     <span className="stat-value" style={{ color: accent, display: "block" }}>
-      {loading ? "–" : (value ?? "–")}
+      {loading ? <StatLoader color={accent} /> : (value ?? "–")}
     </span>
     {sub && (
       <span
@@ -196,7 +197,7 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent, loading = false }) => 
           display: "block",
         }}
       >
-        {loading ? "—" : sub}
+        {loading ? <StatLoader sub /> : sub}
       </span>
     )}
   </div>
@@ -2460,7 +2461,7 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
               Total Catalog Items
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: "var(--text)", marginTop: 4 }}>
-              {isFetching ? "—" : stats.total}
+              {isFetching ? <StatLoader /> : stats.total}
             </div>
           </div>
 
@@ -2476,7 +2477,7 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
               Replenish Order Needed
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: "#EF4444", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-              {isFetching ? "—" : stats.replenish}
+              {isFetching ? <StatLoader color="#EF4444" /> : stats.replenish}
               <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", background: "rgba(239, 68, 68, 0.15)", borderRadius: 12 }}>
                 Below 2× Avg
               </span>
@@ -2495,7 +2496,7 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
               Sufficient Stock
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: "#2F7A60", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-              {isFetching ? "—" : stats.sufficient}
+              {isFetching ? <StatLoader color="#2F7A60" /> : stats.sufficient}
               <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", background: "rgba(47, 122, 96, 0.15)", borderRadius: 12 }}>
                 &ge; 2× Avg
               </span>
@@ -2514,7 +2515,7 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
               Total Reorder Volume
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: "#EF4444", marginTop: 4 }}>
-              {isFetching ? "—" : formatKG(stats.totalShortage)}
+              {isFetching ? <StatLoader color="#EF4444" /> : formatKG(stats.totalShortage)}
             </div>
           </div>
         </div>

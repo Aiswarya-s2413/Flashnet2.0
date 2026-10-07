@@ -3,6 +3,7 @@ import API from '../api'
 import { ShoppingCart, RefreshCw, X, Calendar, Search, RotateCcw, Loader2 } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import { useSortableData, SortHeader } from '../components/SortableTable'
+import StatLoader from '../components/StatLoader'
 
 const ROWS_PER_PAGE = 25
 
@@ -201,14 +202,14 @@ export default function OrdersPage() {
             {isFiltered ? 'Filtered Orders' : 'Total Orders'}
           </span>
           <span className="stat-value stat-accent">
-            {loading ? '–' : filteredOrders.length}
+            {loading ? <StatLoader color="var(--accent)" /> : filteredOrders.length}
             {isFiltered && !loading && <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 500, marginLeft: 6 }}>/ {orders.length}</span>}
           </span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Total Qty</span>
           <span className="stat-value stat-green">
-            {loading ? '–' : (
+            {loading ? <StatLoader color="var(--green)" /> : (
               <>
                 {new Intl.NumberFormat('en-IN').format(filteredOrders.reduce((s, o) => s + (Number(o.qty) || 0), 0))}{' '}
                 <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 500 }}>KGs</span>
@@ -218,11 +219,11 @@ export default function OrdersPage() {
         </div>
         <div className="stat-card">
           <span className="stat-label">Unique Customers</span>
-          <span className="stat-value">{loading ? '–' : new Set(filteredOrders.map(o => o.customer)).size}</span>
+          <span className="stat-value">{loading ? <StatLoader /> : new Set(filteredOrders.map(o => o.customer)).size}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Unique Products</span>
-          <span className="stat-value">{loading ? '–' : new Set(filteredOrders.map(o => o.material_code)).size}</span>
+          <span className="stat-value">{loading ? <StatLoader /> : new Set(filteredOrders.map(o => o.material_code)).size}</span>
         </div>
       </div>
 

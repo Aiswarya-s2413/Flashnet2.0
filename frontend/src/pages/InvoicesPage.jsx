@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import API from '../api'
 import { Plus, FileText, X, ArrowUpCircle, RefreshCw, Loader2 } from 'lucide-react'
 import SearchableSelect from '../components/SearchableSelect'
+import StatLoader from '../components/StatLoader'
 
 const EMPTY_FORM = {
   invoice_no: '', invoice_date: '', material_code: '', material_name: '',
@@ -167,15 +168,15 @@ export default function InvoicesPage() {
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Total Invoices</span>
-          <span className="stat-value stat-accent">{loading ? '–' : invoices.length}</span>
+          <span className="stat-value stat-accent">{loading ? <StatLoader color="var(--accent)" /> : invoices.length}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Total Qty</span>
-          <span className="stat-value stat-green">{loading ? '–' : invoices.reduce((s, i) => s + i.qty, 0)}</span>
+          <span className="stat-value stat-green">{loading ? <StatLoader color="var(--green)" /> : invoices.reduce((s, i) => s + i.qty, 0)}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Unique Customers</span>
-          <span className="stat-value">{loading ? '–' : new Set(invoices.map(i => i.customer)).size}</span>
+          <span className="stat-value">{loading ? <StatLoader /> : new Set(invoices.map(i => i.customer)).size}</span>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import API from '../api'
 import { Package, RefreshCw, Search, X, Loader2 } from 'lucide-react'
+import StatLoader from '../components/StatLoader'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
@@ -85,12 +86,12 @@ export default function ProductsPage() {
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Total Products</span>
-          <span className="stat-value stat-accent">{loading ? '–' : products.length}</span>
+          <span className="stat-value stat-accent">{loading ? <StatLoader color="var(--accent)" /> : products.length}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Last Updated</span>
           <span className="stat-value" style={{ fontSize: 16 }}>
-            {loading ? '–' : products.length > 0 ? (
+            {loading ? <StatLoader width={90} /> : products.length > 0 ? (
               new Date(Math.max(...products.map(p => new Date(p.updated_at).getTime()))).toLocaleString(undefined, { 
                 day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
               })
@@ -100,7 +101,7 @@ export default function ProductsPage() {
         {(searchQuery || selectedOrg !== 'ALL') && (
           <div className="stat-card">
             <span className="stat-label">Filtered Results</span>
-            <span className="stat-value" style={{ color: 'var(--text)' }}>{loading ? '–' : filteredProducts.length}</span>
+            <span className="stat-value" style={{ color: 'var(--text)' }}>{loading ? <StatLoader /> : filteredProducts.length}</span>
           </div>
         )}
       </div>

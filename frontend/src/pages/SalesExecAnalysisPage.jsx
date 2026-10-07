@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import API from "../api";
+import StatLoader from "../components/StatLoader";
 import {
   BarChart,
   Bar,
@@ -446,11 +447,11 @@ export default function SalesExecAnalysisPage() {
                 marginBottom: 6,
               }}
             >
-              {loading ? "–" : formatLakhs(kpis.total_revenue || 0)}
+              {loading ? <StatLoader color="#2F7A60" /> : formatLakhs(kpis.total_revenue || 0)}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-dim)" }}>
               {loading
-                ? "—"
+                ? <StatLoader sub />
                 : `${(kpis.total_transactions || 0).toLocaleString("en-IN")} billing records`}
             </div>
           </div>
@@ -513,7 +514,7 @@ export default function SalesExecAnalysisPage() {
                 lineHeight: 1.1,
               }}
             >
-              {loading ? "–" : formatQty(kpis.total_volume || 0)}
+              {loading ? <StatLoader color="#3D6A8A" /> : formatQty(kpis.total_volume || 0)}
             </div>
           </div>
         </div>
@@ -576,10 +577,10 @@ export default function SalesExecAnalysisPage() {
                 marginBottom: 6,
               }}
             >
-              {loading ? "–" : `${kpis.total_leaders || 13} Leaders • ${kpis.total_managers || 22} Managers`}
+              {loading ? <StatLoader color="#C07D38" /> : `${kpis.total_leaders || 13} Leaders • ${kpis.total_managers || 22} Managers`}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-dim)" }}>
-              {loading ? "—" : `${kpis.total_representatives || 38} Sales Representatives`}
+              {loading ? <StatLoader sub /> : `${kpis.total_representatives || 38} Sales Representatives`}
             </div>
           </div>
         </div>

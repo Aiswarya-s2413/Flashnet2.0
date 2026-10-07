@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import API from "../api";
+import StatLoader from "../components/StatLoader";
 import {
   BarChart2,
   AlertTriangle,
@@ -152,13 +153,13 @@ function KpiCard({ icon: Icon, label, value, sub, color, prefix = "", loading = 
           whiteSpace: "nowrap",
         }}
       >
-        {loading ? "–" : `${prefix}${value ?? "–"}`}
+        {loading ? <StatLoader /> : `${prefix}${value ?? "–"}`}
       </div>
       {sub && (
         <div
           style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.3 }}
         >
-          {loading ? "—" : sub}
+          {loading ? <StatLoader sub /> : sub}
         </div>
       )}
     </div>
