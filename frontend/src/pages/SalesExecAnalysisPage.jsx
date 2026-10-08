@@ -141,12 +141,16 @@ export default function SalesExecAnalysisPage() {
   const [selectedLeaderDetails, setSelectedLeaderDetails] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Synchronized sticky bottom horizontal scroll for table
+  // Always-visible synchronized sticky bottom horizontal scroll for table
   const tableWrapperRef = useRef(null);
-  const stickyBottomScrollRef = useRef(null);
+  const trackRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [tableClientWidth, setTableClientWidth] = useState(0);
+  const [tableScrollLeft, setTableScrollLeft] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ startX: 0, startScrollLeft: 0 });
 
   const checkScroll = () => {
     if (tableWrapperRef.current) {
@@ -154,24 +158,82 @@ export default function SalesExecAnalysisPage() {
       setCanScrollLeft(scrollLeft > 5);
       setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 5);
       setTableScrollWidth(scrollWidth);
-      if (stickyBottomScrollRef.current && Math.abs(stickyBottomScrollRef.current.scrollLeft - scrollLeft) > 1) {
-        stickyBottomScrollRef.current.scrollLeft = scrollLeft;
-      }
+      setTableClientWidth(clientWidth);
+      setTableScrollLeft(scrollLeft);
     }
   };
 
-  const handleStickyBottomScroll = (e) => {
-    if (tableWrapperRef.current && Math.abs(tableWrapperRef.current.scrollLeft - e.target.scrollLeft) > 1) {
-      tableWrapperRef.current.scrollLeft = e.target.scrollLeft;
-    }
+  const handleTableScroll = () => {
     checkScroll();
   };
 
-  const handleTableScroll = (e) => {
-    if (stickyBottomScrollRef.current && Math.abs(stickyBottomScrollRef.current.scrollLeft - e.target.scrollLeft) > 1) {
-      stickyBottomScrollRef.current.scrollLeft = e.target.scrollLeft;
+  const handleThumbMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    dragStartRef.current = {
+      startX: e.clientX,
+      startScrollLeft: tableWrapperRef.current ? tableWrapperRef.current.scrollLeft : 0,
+    };
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      if (!tableWrapperRef.current || !trackRef.current) return;
+      const deltaX = e.clientX - dragStartRef.current.startX;
+      const trackWidth = trackRef.current.clientWidth;
+      const maxScroll = tableWrapperRef.current.scrollWidth - tableWrapperRef.current.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const thumbWidthPercent = Math.max(8, Math.min(100, (tableWrapperRef.current.clientWidth / tableWrapperRef.current.scrollWidth) * 100));
+      const thumbWidthPx = (thumbWidthPercent / 100) * trackWidth;
+      const availableTrack = Math.max(1, trackWidth - thumbWidthPx);
+
+      const scrollDelta = (deltaX / availableTrack) * maxScroll;
+      const newScrollLeft = Math.max(0, Math.min(maxScroll, dragStartRef.current.startScrollLeft + scrollDelta));
+      tableWrapperRef.current.scrollLeft = newScrollLeft;
+      checkScroll();
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleTrackClick = (e) => {
+    if (!tableWrapperRef.current || !trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const trackWidth = rect.width;
+    const maxScroll = tableWrapperRef.current.scrollWidth - tableWrapperRef.current.clientWidth;
+    if (maxScroll <= 0) return;
+
+    const thumbWidthPercent = Math.max(8, Math.min(100, (tableWrapperRef.current.clientWidth / tableWrapperRef.current.scrollWidth) * 100));
+    const thumbWidthPx = (thumbWidthPercent / 100) * trackWidth;
+    const availableTrack = Math.max(1, trackWidth - thumbWidthPx);
+
+    const targetLeft = clickX - thumbWidthPx / 2;
+    const ratio = Math.max(0, Math.min(1, targetLeft / availableTrack));
+    tableWrapperRef.current.scrollTo({
+      left: ratio * maxScroll,
+      behavior: "smooth",
+    });
+  };
+
+  const handleTrackWheel = (e) => {
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollLeft += e.deltaX || e.deltaY;
+      checkScroll();
     }
-    checkScroll();
   };
 
   const scrollByAmount = (amount) => {
@@ -1760,28 +1822,112 @@ export default function SalesExecAnalysisPage() {
           )}
         </div>
 
-        {/* Sticky Bottom Horizontal Scrollbar */}
-        {tableScrollWidth > (tableWrapperRef.current?.clientWidth || 0) && (
+        {/* Always-Visible Sticky Bottom Horizontal Scrollbar */}
+        {tableScrollWidth > tableClientWidth && tableClientWidth > 0 && (
           <div
-            ref={stickyBottomScrollRef}
-            onScroll={handleStickyBottomScroll}
-            className="sticky-bottom-scrollbar"
             style={{
               position: "sticky",
               bottom: 0,
               zIndex: 35,
               width: "100%",
-              overflowX: "auto",
-              overflowY: "hidden",
-              height: 12,
-              backgroundColor: "var(--surface)",
+              padding: "7px 14px",
+              backgroundColor: "rgba(255, 255, 255, 0.98)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
               borderTop: "1px solid var(--border)",
               boxShadow: "0 -4px 14px rgba(0, 0, 0, 0.08)",
-              borderRadius: "0 0 8px 8px",
+              borderRadius: "0 0 12px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              boxSizing: "border-box",
             }}
-            title="Scroll columns horizontally"
           >
-            <div style={{ width: tableScrollWidth || 1200, height: 1 }} />
+            <button
+              type="button"
+              onClick={() => scrollByAmount(-350)}
+              disabled={!canScrollLeft}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: canScrollLeft ? "var(--primary)" : "var(--text-dim)",
+                cursor: canScrollLeft ? "pointer" : "default",
+                padding: "2px 4px",
+                display: "flex",
+                alignItems: "center",
+                opacity: canScrollLeft ? 1 : 0.35,
+              }}
+              title="Scroll Left"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <div
+              ref={trackRef}
+              onClick={handleTrackClick}
+              onWheel={handleTrackWheel}
+              style={{
+                flex: 1,
+                height: 10,
+                backgroundColor: "var(--surface2)",
+                borderRadius: 99,
+                position: "relative",
+                cursor: "pointer",
+                border: "1px solid rgba(0, 0, 0, 0.08)",
+              }}
+            >
+              <div
+                onMouseDown={handleThumbMouseDown}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: `${
+                    tableScrollWidth > tableClientWidth
+                      ? Math.min(
+                          100 - Math.max(8, Math.min(100, (tableClientWidth / tableScrollWidth) * 100)),
+                          Math.max(
+                            0,
+                            (tableScrollLeft / Math.max(1, tableScrollWidth - tableClientWidth)) *
+                              (100 - Math.max(8, Math.min(100, (tableClientWidth / tableScrollWidth) * 100)))
+                          )
+                        )
+                      : 0
+                  }%`,
+                  width: `${
+                    tableScrollWidth > 0
+                      ? Math.max(8, Math.min(100, (tableClientWidth / tableScrollWidth) * 100))
+                      : 20
+                  }%`,
+                  minWidth: 40,
+                  backgroundColor: isDragging ? "var(--accent-hover)" : "var(--primary)",
+                  borderRadius: 99,
+                  cursor: isDragging ? "grabbing" : "grab",
+                  boxShadow: "0 1px 4px rgba(0, 0, 0, 0.25)",
+                  transition: isDragging ? "none" : "background-color 0.2s ease",
+                }}
+                title="Drag to scroll columns horizontally"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollByAmount(350)}
+              disabled={!canScrollRight}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: canScrollRight ? "var(--primary)" : "var(--text-dim)",
+                cursor: canScrollRight ? "pointer" : "default",
+                padding: "2px 4px",
+                display: "flex",
+                alignItems: "center",
+                opacity: canScrollRight ? 1 : 0.35,
+              }}
+              title="Scroll Right"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
 
