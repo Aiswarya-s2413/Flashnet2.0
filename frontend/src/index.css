@@ -921,6 +921,34 @@ textarea {
   background: var(--text-dim);
 }
 
+/* Sticky Bottom Scrollbar */
+.sticky-bottom-scrollbar {
+  scrollbar-color: var(--primary) var(--surface2);
+  scrollbar-width: thin;
+}
+.sticky-bottom-scrollbar::-webkit-scrollbar {
+  height: 10px;
+}
+.sticky-bottom-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface2);
+  border-radius: 99px;
+}
+.sticky-bottom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 99px;
+}
+.sticky-bottom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
+}
+
+.table-wrapper-clean-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.table-wrapper-clean-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* =========================================
    HEADER COMPONENT HELPERS
    ========================================= */

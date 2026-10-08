@@ -141,9 +141,9 @@ export default function SalesExecAnalysisPage() {
   const [selectedLeaderDetails, setSelectedLeaderDetails] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Synchronized horizontal scroll for table
+  // Synchronized sticky bottom horizontal scroll for table
   const tableWrapperRef = useRef(null);
-  const topScrollRef = useRef(null);
+  const stickyBottomScrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
@@ -154,10 +154,13 @@ export default function SalesExecAnalysisPage() {
       setCanScrollLeft(scrollLeft > 5);
       setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 5);
       setTableScrollWidth(scrollWidth);
+      if (stickyBottomScrollRef.current && Math.abs(stickyBottomScrollRef.current.scrollLeft - scrollLeft) > 1) {
+        stickyBottomScrollRef.current.scrollLeft = scrollLeft;
+      }
     }
   };
 
-  const handleTopScroll = (e) => {
+  const handleStickyBottomScroll = (e) => {
     if (tableWrapperRef.current && Math.abs(tableWrapperRef.current.scrollLeft - e.target.scrollLeft) > 1) {
       tableWrapperRef.current.scrollLeft = e.target.scrollLeft;
     }
@@ -165,8 +168,8 @@ export default function SalesExecAnalysisPage() {
   };
 
   const handleTableScroll = (e) => {
-    if (topScrollRef.current && Math.abs(topScrollRef.current.scrollLeft - e.target.scrollLeft) > 1) {
-      topScrollRef.current.scrollLeft = e.target.scrollLeft;
+    if (stickyBottomScrollRef.current && Math.abs(stickyBottomScrollRef.current.scrollLeft - e.target.scrollLeft) > 1) {
+      stickyBottomScrollRef.current.scrollLeft = e.target.scrollLeft;
     }
     checkScroll();
   };
@@ -1225,7 +1228,7 @@ export default function SalesExecAnalysisPage() {
           width: "100%",
           maxWidth: "100%",
           minWidth: 0,
-          overflow: "hidden",
+          overflow: "visible",
           boxSizing: "border-box",
         }}
       >
@@ -1322,52 +1325,10 @@ export default function SalesExecAnalysisPage() {
           </div>
         </div>
 
-        {/* Top Synchronized Horizontal Scrollbar */}
-        {tableScrollWidth > (tableWrapperRef.current?.clientWidth || 0) && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 10,
-              padding: "6px 14px",
-              background: "rgba(11, 59, 44, 0.03)",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: "var(--primary)",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Scroll Top Bar
-            </span>
-            <div
-              ref={topScrollRef}
-              onScroll={handleTopScroll}
-              style={{
-                flex: 1,
-                overflowX: "auto",
-                overflowY: "hidden",
-                height: 14,
-              }}
-              title="Drag or scroll to view all table columns"
-            >
-              <div style={{ width: tableScrollWidth || 1200, height: 1 }} />
-            </div>
-          </div>
-        )}
-
         <div
           ref={tableWrapperRef}
           onScroll={handleTableScroll}
-          className="table-wrapper"
+          className="table-wrapper table-wrapper-clean-scroll"
           style={{
             width: "100%",
             maxWidth: "100%",
@@ -1798,6 +1759,31 @@ export default function SalesExecAnalysisPage() {
             </table>
           )}
         </div>
+
+        {/* Sticky Bottom Horizontal Scrollbar */}
+        {tableScrollWidth > (tableWrapperRef.current?.clientWidth || 0) && (
+          <div
+            ref={stickyBottomScrollRef}
+            onScroll={handleStickyBottomScroll}
+            className="sticky-bottom-scrollbar"
+            style={{
+              position: "sticky",
+              bottom: 0,
+              zIndex: 35,
+              width: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              height: 12,
+              backgroundColor: "var(--surface)",
+              borderTop: "1px solid var(--border)",
+              boxShadow: "0 -4px 14px rgba(0, 0, 0, 0.08)",
+              borderRadius: "0 0 8px 8px",
+            }}
+            title="Scroll columns horizontally"
+          >
+            <div style={{ width: tableScrollWidth || 1200, height: 1 }} />
+          </div>
+        )}
 
         <Pagination
           currentPage={currentPage}
