@@ -39,6 +39,7 @@ import {
   Barcode,
   Clock,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import Pagination from "../components/Pagination";
 
@@ -203,76 +204,216 @@ const KpiCard = ({ label, value, sub, icon: Icon, accent, loading = false }) => 
   </div>
 );
 
-const DataTable = ({ columns, rows, footer, loading = false }) => (
-  <div className="table-wrapper">
-    <table className="data-table" style={{ width: "100%", minWidth: 600 }}>
-      <thead>
-        <tr>
-          {columns.map((c) => (
-            <th key={c.key} style={c.thStyle || {}}>
-              {c.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <tr>
-            <td
-              colSpan={columns.length}
-              style={{
-                textAlign: "center",
-                padding: "36px",
-                color: "var(--text-dim)",
-              }}
-            >
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <Loader2
-                  size={16}
-                  className="animate-spin"
-                  style={{ color: "var(--primary)" }}
-                />
-                <span style={{ fontSize: 13, fontWeight: 500 }}>
-                  Loading table data…
-                </span>
-              </div>
-            </td>
-          </tr>
-        ) : (rows || []).length === 0 ? (
-          <tr>
-            <td
-              colSpan={columns.length}
-              style={{
-                textAlign: "center",
-                padding: "24px",
-                color: "var(--text-dim)",
-              }}
-            >
-              No data available.
-            </td>
-          </tr>
-        ) : (
-          rows.map((r, i) => (
-            <tr key={i} style={r._style || {}}>
+const DataTable = ({ columns, rows, footer, loading = false, onRowClick }) => {
+  const [selectedRow, setSelectedRow] = useState(null);
+
+  return (
+    <>
+      <div className="table-wrapper">
+        <table className="data-table" style={{ width: "100%", minWidth: 600 }}>
+          <thead>
+            <tr>
               {columns.map((c) => (
-                <td key={c.key} style={c.tdStyle || {}}>
-                  {c.render ? c.render(r, i) : r[c.key]}
-                </td>
+                <th key={c.key} style={c.thStyle || {}}>
+                  {c.label}
+                </th>
               ))}
             </tr>
-          ))
-        )}
-      </tbody>
-      {footer && footer}
-    </table>
-  </div>
-);
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  style={{
+                    textAlign: "center",
+                    padding: "36px",
+                    color: "var(--text-dim)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <Loader2
+                      size={16}
+                      className="animate-spin"
+                      style={{ color: "var(--primary)" }}
+                    />
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>
+                      Loading table data…
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ) : (rows || []).length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  style={{
+                    textAlign: "center",
+                    padding: "24px",
+                    color: "var(--text-dim)",
+                  }}
+                >
+                  No data available.
+                </td>
+              </tr>
+            ) : (
+              rows.map((r, i) => (
+                <tr
+                  key={i}
+                  style={{ cursor: "pointer", ...(r._style || {}) }}
+                  onClick={() => {
+                    if (onRowClick) onRowClick(r, i);
+                    else if (r._onClick) r._onClick(r, i);
+                    else setSelectedRow(r);
+                  }}
+                >
+                  {columns.map((c) => (
+                    <td key={c.key} style={c.tdStyle || {}}>
+                      {c.render ? c.render(r, i) : r[c.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+          {footer && footer}
+        </table>
+      </div>
+
+      {selectedRow && (
+        <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+          <div
+            className="modal"
+            style={{ maxWidth: "640px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: 18 }}>
+                  Row Details
+                </h2>
+                <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>
+                  {columns[0] ? `${columns[0].label}: ${selectedRow[columns[0].key] ?? ""}` : ""}
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ padding: "6px 8px", borderRadius: "50%" }}
+                onClick={() => setSelectedRow(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: 16,
+                maxHeight: "480px",
+                overflowY: "auto",
+              }}
+            >
+              {columns.map((col) => {
+                const val = selectedRow[col.key];
+                return (
+                  <div
+                    key={col.key}
+                    style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}
+                  >
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "var(--text-dim)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {col.label || col.key}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 14,
+                        color: "var(--text)",
+                        fontWeight: 600,
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {val !== null && val !== undefined ? String(val) : "-"}
+                    </span>
+                  </div>
+                );
+              })}
+              {Object.entries(selectedRow)
+                .filter(([k]) => !k.startsWith("_") && !columns.some((c) => c.key === k))
+                .map(([key, val]) => {
+                  const formattedKey = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                  return (
+                    <div
+                      key={key}
+                      style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}
+                    >
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "var(--text-dim)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {formattedKey}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 14,
+                          color: "var(--text)",
+                          fontWeight: 600,
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {val !== null && val !== undefined
+                          ? typeof val === "object"
+                            ? JSON.stringify(val)
+                            : String(val)
+                          : "-"}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+const DISTRIBUTOR_CODES = {
+  CHEMIELINK: [
+    { code: "438498", name: "Chemielink" },
+    { code: "441522", name: "Chemie Link" },
+  ],
+};
 
 /* ============================================================
    PRIMARY SALES ANALYSIS TAB
@@ -282,11 +423,17 @@ const PrimarySalesTab = ({
   productFilter = "",
   distFilter = "",
   isFetching = false,
+  selectedDistCode = "",
+  selectedDistributor = "CHEMIELINK",
 }) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [rowKind, setRowKind] = useState(null);
   const [productPage, setProductPage] = useState(1);
   const PRODUCTS_PER_PAGE = 20;
+
+  const activeDistCodesCount = selectedDistCode
+    ? 1
+    : (DISTRIBUTOR_CODES[selectedDistributor] || []).length || 1;
 
   if (!data)
     return (
@@ -699,6 +846,80 @@ const PrimarySalesTab = ({
     );
   };
 
+  const renderSalesLeaderModal = () => {
+    if (rowKind !== "sales_leader" || !selectedRow) return null;
+    return (
+      <div className="modal-overlay" onClick={() => setSelectedRow(null)}>
+        <div
+          className="modal"
+          style={{ maxWidth: 600 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderBottom: "1px solid var(--border)",
+              paddingBottom: 14,
+              marginBottom: 20,
+            }}
+          >
+            <h2 className="modal-title" style={{ margin: 0 }}>
+              Sales Leader Details
+            </h2>
+            <button
+              className="btn btn-outline"
+              style={{ padding: "6px 8px", borderRadius: "50%" }}
+              onClick={() => setSelectedRow(null)}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 16,
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>
+                Sales Leader
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{selectedRow.name || "-"}</div>
+            </div>
+            <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>
+                Total Value
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0B3B2C", marginTop: 2 }}>
+                {formatCrores(selectedRow.value || 0)}
+              </div>
+            </div>
+            <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>
+                Total Volume
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                {formatKG(selectedRow.qty || 0)}
+              </div>
+            </div>
+            <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>
+                Invoices
+              </span>
+              <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                {selectedRow.invoices ?? "-"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* KPIs */}
@@ -729,7 +950,8 @@ const PrimarySalesTab = ({
         />
         <KpiCard
           label="Active Dist Codes"
-          value={2}
+          value={activeDistCodesCount}
+          sub={selectedDistCode ? `Code: ${selectedDistCode}` : "All active codes"}
           icon={Barcode}
           accent="#7B5E7B"
           loading={isFetching}
@@ -784,8 +1006,12 @@ const PrimarySalesTab = ({
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k KG`}
+                tickFormatter={(v) => {
+                  const t = v / 1000;
+                  return `${t % 1 === 0 ? t.toFixed(0) : t.toFixed(1)} Tonnes`;
+                }}
                 tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                width={72}
                 axisLine={false}
                 tickLine={false}
               />
@@ -994,7 +1220,14 @@ const PrimarySalesTab = ({
                         ? "< 0.1"
                         : pctNum.toFixed(1);
                     return (
-                      <tr key={exec.rawName || idx}>
+                      <tr
+                        key={exec.rawName || idx}
+                        onClick={() => {
+                          setSelectedRow(exec);
+                          setRowKind("sales_leader");
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
                         <td
                           style={{
                             padding: "14px 14px",
@@ -1066,6 +1299,10 @@ const PrimarySalesTab = ({
         />
         <DataTable
           loading={isFetching}
+          onRowClick={(r) => {
+            setSelectedRow(r);
+            setRowKind("product");
+          }}
           columns={[
             {
               key: "rank",
@@ -1252,6 +1489,7 @@ const PrimarySalesTab = ({
 
       {selectedRow && rowKind === "product" && renderProductModal()}
       {selectedRow && rowKind === "customer" && renderCustomerModal()}
+      {selectedRow && rowKind === "sales_leader" && renderSalesLeaderModal()}
     </div>
   );
 };
@@ -1450,8 +1688,12 @@ const SecondarySalesTab = ({
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k KG`}
+                tickFormatter={(v) => {
+                  const t = v / 1000;
+                  return `${t % 1 === 0 ? t.toFixed(0) : t.toFixed(1)} Tonnes`;
+                }}
                 tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                width={72}
                 axisLine={false}
                 tickLine={false}
               />
@@ -2420,6 +2662,58 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
     return { total, replenish, sufficient, totalShortage };
   }, [rawItems]);
 
+  const aiSummary = useMemo(() => {
+    if (!rawItems || rawItems.length === 0) {
+      return "No catalog items found to analyze for replenishment.";
+    }
+
+    const total = stats.total;
+    const replenish = stats.replenish;
+    const sufficient = stats.sufficient;
+    const totalShortage = stats.totalShortage;
+    const replenishPct = total > 0 ? Math.round((replenish / total) * 100) : 0;
+    const sufficientPct = total > 0 ? Math.round((sufficient / total) * 100) : 0;
+
+    if (replenish === 0) {
+      return (
+        <span>
+          Inventory health is optimal across all <strong>{total}</strong> catalog products (<strong>{sufficientPct}%</strong> sufficient). Current stock levels comfortably exceed the required 2× half-yearly average demand with zero reorder shortages.
+        </span>
+      );
+    }
+
+    const topShortageList = [...rawItems]
+      .filter((x) => x.needs_replenish && (x.shortage_qty || 0) > 0)
+      .sort((a, b) => (b.shortage_qty || 0) - (a.shortage_qty || 0))
+      .slice(0, 3);
+
+    const topNames = topShortageList.map((x) => x.product_name).join(", ");
+    const topShortageVolume = topShortageList.reduce((acc, x) => acc + (x.shortage_qty || 0), 0);
+    const topSharePct = totalShortage > 0 ? Math.round((topShortageVolume / totalShortage) * 100) : 0;
+
+    const zeroStockItems = rawItems.filter((x) => x.needs_replenish && (!x.stock_qty || Number(x.stock_qty) <= 0));
+    const zeroStockNote = zeroStockItems.length > 0
+      ? ` Note: ${zeroStockItems.length} SKU${zeroStockItems.length > 1 ? "s have" : " has"} zero inventory on hand and require${zeroStockItems.length === 1 ? "s" : ""} immediate purchase order placement.`
+      : "";
+
+    return (
+      <>
+        <span>
+          <strong>{replenish} of {total} products ({replenishPct}%)</strong> are below safe threshold (&lt;2× 6M avg volume), requiring an aggregate reorder of <strong>{formatKG(totalShortage)}</strong>.
+        </span>{" "}
+        {topShortageList.length > 0 && (
+          <span>
+            Highest reorder deficit is driven by <strong>{topNames}</strong> ({topSharePct}% of total shortage).
+          </span>
+        )}{" "}
+        {zeroStockNote && <span style={{ color: "#EF4444", fontWeight: 600 }}>{zeroStockNote}</span>}{" "}
+        <span style={{ color: "var(--text-muted)" }}>
+          {sufficient} products ({sufficientPct}%) maintain sufficient stock cover.
+        </span>
+      </>
+    );
+  }, [rawItems, stats]);
+
   const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
   const paginatedRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -2517,6 +2811,67 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
             <div style={{ fontSize: 20, fontWeight: 800, color: "#EF4444", marginTop: 4 }}>
               {isFetching ? <StatLoader color="#EF4444" /> : formatKG(stats.totalShortage)}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI SUMMARY CARD */}
+      <div
+        className="section-card"
+        style={{
+          background: "linear-gradient(135deg, rgba(11, 59, 44, 0.04) 0%, rgba(61, 106, 138, 0.06) 100%)",
+          border: "1px solid rgba(11, 59, 44, 0.16)",
+          borderRadius: 12,
+          padding: "16px 20px",
+          display: "flex",
+          gap: 14,
+          alignItems: "flex-start",
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: "linear-gradient(135deg, #0B3B2C 0%, #2F7A60 100%)",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            boxShadow: "0 2px 6px rgba(11, 59, 44, 0.2)",
+          }}
+        >
+          <Sparkles size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.01em" }}>
+              AI Replenishment Summary
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                background: "rgba(11, 59, 44, 0.1)",
+                color: "var(--primary)",
+                padding: "2px 7px",
+                borderRadius: 12,
+              }}
+            >
+              Smart Analysis
+            </span>
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.55, color: "var(--text)" }}>
+            {isFetching ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-muted)" }}>
+                <Loader2 size={13} className="animate-spin" /> Analyzing replenishment metrics…
+              </span>
+            ) : (
+              aiSummary
+            )}
           </div>
         </div>
       </div>
@@ -2827,7 +3182,13 @@ const OverviewTab = ({ data }) => {
                 tick={{ fontSize: 10, fill: "var(--text-dim)", angle: -35, textAnchor: "end" }}
                 height={45}
               />
-              <YAxis stroke="var(--text-dim)" />
+              <YAxis
+                stroke="var(--text-dim)"
+                tickFormatter={(v) => {
+                  const t = v / 1000;
+                  return `${t % 1 === 0 ? t.toFixed(0) : t.toFixed(1)} Tonnes`;
+                }}
+              />
               <Tooltip content={<CustomTooltip suffix=" KG" />} />
               <Area
                 type="monotone"
@@ -2919,13 +3280,6 @@ const OverviewTab = ({ data }) => {
 /* ============================================================
    ROOT PAGE
    ============================================================ */
-const DISTRIBUTOR_CODES = {
-  CHEMIELINK: [
-    { code: "438498", name: "Chemielink" },
-    { code: "441522", name: "Chemie Link" },
-  ],
-};
-
 const DEFAULT_SALES_LEADERS = [
   "Amardeep Gadiya",
   "Amish Jain",
@@ -3709,6 +4063,8 @@ export default function DashboardPage() {
             productFilter={productFilter}
             distFilter={distFilter}
             isFetching={isFetching}
+            selectedDistCode={selectedDistCode}
+            selectedDistributor={selectedDistributor}
           />
         ) : activeTab === "secondary" ? (
           <SecondarySalesTab

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Trash2, Save, ChevronDown, ChevronUp, RefreshCw, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Save, ChevronDown, ChevronUp, RefreshCw, Loader2, X } from 'lucide-react'
 import API from '../api'
 import SearchableSelect from '../components/SearchableSelect'
 
@@ -71,6 +71,7 @@ export default function ExceptionalPriceRequestPage() {
   const [submittedEprs, setSubmittedEprs] = useState([])
   const [fetchingSubmitted, setFetchingSubmitted] = useState(false)
   const [expandedEprIds, setExpandedEprIds] = useState(new Set())
+  const [selectedLineItem, setSelectedLineItem] = useState(null)
 
   const fetchSubmittedEprs = async (highlightId = null) => {
     setFetchingSubmitted(true)
@@ -842,7 +843,11 @@ export default function ExceptionalPriceRequestPage() {
                               </tr>
                             ) : (
                               epr.line_items.map((item, idx) => (
-                                <tr key={item.id || idx}>
+                                <tr
+                                  key={item.id || idx}
+                                  onClick={() => setSelectedLineItem(item)}
+                                  style={{ cursor: 'pointer' }}
+                                >
                                   <td style={{ fontWeight: '700' }}>{idx + 1}</td>
                                   <td>
                                     <div style={{ fontWeight: '700', color: 'var(--text)' }}>
@@ -913,6 +918,102 @@ export default function ExceptionalPriceRequestPage() {
           </div>
         )}
       </div>
+
+      {selectedLineItem && (
+        <div className="modal-overlay" onClick={() => setSelectedLineItem(null)}>
+          <div className="modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '20px' }}>
+              <div>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: 18 }}>Product Line Item Details</h2>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
+                  {selectedLineItem.material_name || selectedLineItem.material_code || 'Line Item'}
+                </div>
+              </div>
+              <button className="btn btn-outline" style={{ padding: '6px 8px', borderRadius: '50%' }} onClick={() => setSelectedLineItem(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', maxHeight: '460px', overflowY: 'auto' }}>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Product Name</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '700' }}>{selectedLineItem.material_name || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Material Code</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600', fontFamily: 'monospace' }}>{selectedLineItem.material_code || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Proposal</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.business_proposal || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Request Type</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.price_request_type || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Old Dist Price</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.existing_dist_price != null ? `₹${selectedLineItem.existing_dist_price}` : '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Old ICP</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.existing_icp != null ? `₹${selectedLineItem.existing_icp}` : '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Requested Dist Price</span>
+                <span style={{ fontSize: '14px', color: 'var(--primary)', fontWeight: '700' }}>{selectedLineItem.requested_dist_price != null ? `₹${selectedLineItem.requested_dist_price}` : '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Requested ICP</span>
+                <span style={{ fontSize: '14px', color: 'var(--primary)', fontWeight: '700' }}>{selectedLineItem.requested_icp != null ? `₹${selectedLineItem.requested_icp}` : '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Old Volume</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.existing_sale_volume != null ? `${selectedLineItem.existing_sale_volume} kg` : '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Proposed Volume</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '700' }}>{selectedLineItem.proposed_sale_volume != null ? `${selectedLineItem.proposed_sale_volume} kg` : '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Freight Charges</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.freight_charges || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Dist Payment Terms</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.distributor_payment_terms || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>End Customer Payment Terms</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.end_customer_payment_terms || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Used in Package</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.product_used_in_package || '-'}</span>
+              </div>
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Competition Running</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.competition_running || '-'}</span>
+              </div>
+              {selectedLineItem.competition_running === 'Yes' && (
+                <>
+                  <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Competition Product</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.competition_product_name || '-'}</span>
+                  </div>
+                  <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Competition Price</span>
+                    <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.competition_price ? `₹${selectedLineItem.competition_price}` : '-'}</span>
+                  </div>
+                </>
+              )}
+              <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '8px', gridColumn: '1 / -1' }}>
+                <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Remarks</span>
+                <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: '600' }}>{selectedLineItem.remarks || '-'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import API from "../api";
 import StatLoader from "../components/StatLoader";
 import {
@@ -23,6 +23,7 @@ import {
   Search,
   X,
   ChevronRight,
+  ChevronLeft,
   Filter,
   DollarSign,
   Briefcase,
@@ -124,7 +125,7 @@ const CustomChartTooltip = ({ active, payload, label }) => {
 export default function SalesExecAnalysisPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("mappings"); // "mappings", "reps", "managers", "leaders"
+  const [activeTab, setActiveTab] = useState("reps"); // "reps", "mappings", "managers", "leaders"
   const [selectedLeader, setSelectedLeader] = useState("all");
   const [selectedManager, setSelectedManager] = useState("all");
   const [selectedRep, setSelectedRep] = useState("all");
@@ -135,7 +136,56 @@ export default function SalesExecAnalysisPage() {
   const [selectedDistributor, setSelectedDistributor] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedExec, setSelectedExec] = useState(null);
+  const [selectedMapping, setSelectedMapping] = useState(null);
+  const [selectedManagerDetails, setSelectedManagerDetails] = useState(null);
+  const [selectedLeaderDetails, setSelectedLeaderDetails] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Synchronized horizontal scroll for table
+  const tableWrapperRef = useRef(null);
+  const topScrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+
+  const checkScroll = () => {
+    if (tableWrapperRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tableWrapperRef.current;
+      setCanScrollLeft(scrollLeft > 5);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 5);
+      setTableScrollWidth(scrollWidth);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 60);
+    const handleResize = () => checkScroll();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [activeTab, sorted, currentPage, loading]);
+
+  const handleTopScroll = (e) => {
+    if (tableWrapperRef.current && Math.abs(tableWrapperRef.current.scrollLeft - e.target.scrollLeft) > 1) {
+      tableWrapperRef.current.scrollLeft = e.target.scrollLeft;
+    }
+    checkScroll();
+  };
+
+  const handleTableScroll = (e) => {
+    if (topScrollRef.current && Math.abs(topScrollRef.current.scrollLeft - e.target.scrollLeft) > 1) {
+      topScrollRef.current.scrollLeft = e.target.scrollLeft;
+    }
+    checkScroll();
+  };
+
+  const scrollByAmount = (amount) => {
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollBy({ left: amount, behavior: "smooth" });
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -586,231 +636,7 @@ export default function SalesExecAnalysisPage() {
         </div>
       </div>
 
-      {/* Leaderboard Chart according to Active Tab */}
-      <div
-        className="card"
-        style={{
-          padding: "24px 28px",
-          height: 420,
-          marginBottom: 28,
-          width: "100%",
-          maxWidth: "100%",
-          minWidth: 0,
-          boxSizing: "border-box",
-        }}
-      >
-        <div
-          style={{
-            marginBottom: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 17,
-                fontWeight: 800,
-                color: "var(--text)",
-              }}
-            >
-              {chartTitle}
-            </h3>
-            <p
-              style={{
-                color: "var(--text-dim)",
-                fontSize: 13,
-                margin: "4px 0 0 0",
-              }}
-            >
-              Primary Sales Revenue comparison across top performers
-            </p>
-          </div>
-          <span
-            className="badge badge-accent"
-            style={{ fontSize: 12, padding: "4px 10px" }}
-          >
-            Top 15 Ranking
-          </span>
-        </div>
-
-        {chartData && chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height="82%">
-            <ComposedChart
-              data={chartData}
-              margin={{ top: 10, right: 10, bottom: 45, left: 10 }}
-            >
-              <defs>
-                <linearGradient
-                  id="execRevenueGrad"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="#0B3B2C" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.7} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="var(--border)"
-              />
-              <XAxis
-                dataKey="name"
-                tick={{ fill: "var(--text-dim)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                interval={0}
-                angle={-25}
-                textAnchor="end"
-                height={55}
-              />
-              <YAxis
-                tickFormatter={(val) => `₹${(val / 10000000).toFixed(1)}Cr`}
-                tick={{ fill: "var(--text-dim)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                content={<CustomChartTooltip />}
-                cursor={{ fill: "var(--bg)", opacity: 0.5 }}
-              />
-              <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
-              <Bar
-                name="Revenue"
-                dataKey="Revenue"
-                fill="url(#execRevenueGrad)"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={36}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        ) : (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 60,
-              color: "var(--text-dim)",
-            }}
-          >
-            {loading ? (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <Loader2
-                  size={18}
-                  className="animate-spin"
-                  style={{ color: "var(--primary)" }}
-                />
-                <span style={{ fontSize: 13, fontWeight: 500 }}>
-                  Loading Chart…
-                </span>
-              </div>
-            ) : (
-              "No performance data found for current filters."
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Tabs Navigation Bar */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 16,
-          borderBottom: "1px solid var(--border)",
-          paddingBottom: 8,
-          overflowX: "auto",
-          width: "100%",
-          maxWidth: "100%",
-          minWidth: 0,
-          boxSizing: "border-box",
-        }}
-      >
-        <button
-          className={`btn ${activeTab === "mappings" ? "btn-primary" : "btn-outline"}`}
-          onClick={() => {
-            setActiveTab("mappings");
-            setCurrentPage(1);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            fontSize: 13,
-            fontWeight: 700,
-          }}
-        >
-          <FileSpreadsheet size={15} />
-          All Accounts Mapping ({filteredMappings.length})
-        </button>
-        <button
-          className={`btn ${activeTab === "reps" ? "btn-primary" : "btn-outline"}`}
-          onClick={() => {
-            setActiveTab("reps");
-            setCurrentPage(1);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            fontSize: 13,
-            fontWeight: 700,
-          }}
-        >
-          <Users size={15} />
-          By Sales Representative ({filteredReps.length})
-        </button>
-        <button
-          className={`btn ${activeTab === "managers" ? "btn-primary" : "btn-outline"}`}
-          onClick={() => {
-            setActiveTab("managers");
-            setCurrentPage(1);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            fontSize: 13,
-            fontWeight: 700,
-          }}
-        >
-          <Building size={15} />
-          By Regional Manager ({filteredManagers.length})
-        </button>
-        <button
-          className={`btn ${activeTab === "leaders" ? "btn-primary" : "btn-outline"}`}
-          onClick={() => {
-            setActiveTab("leaders");
-            setCurrentPage(1);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "8px 16px",
-            fontSize: 13,
-            fontWeight: 700,
-          }}
-        >
-          <Layers size={15} />
-          By Sales Leader ({filteredLeaders.length})
-        </button>
-      </div>
-
-      {/* Clean Filters Toolbar (Sticky above Table) */}
+      {/* Clean Filters Toolbar */}
       <div
         className="card"
         style={{
@@ -1166,6 +992,230 @@ export default function SalesExecAnalysisPage() {
         </div>
       </div>
 
+      {/* Leaderboard Chart according to Active Tab */}
+      <div
+        className="card"
+        style={{
+          padding: "24px 28px",
+          height: 420,
+          marginBottom: 28,
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            marginBottom: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 17,
+                fontWeight: 800,
+                color: "var(--text)",
+              }}
+            >
+              {chartTitle}
+            </h3>
+            <p
+              style={{
+                color: "var(--text-dim)",
+                fontSize: 13,
+                margin: "4px 0 0 0",
+              }}
+            >
+              Primary Sales Revenue comparison across top performers
+            </p>
+          </div>
+          <span
+            className="badge badge-accent"
+            style={{ fontSize: 12, padding: "4px 10px" }}
+          >
+            Top 15 Ranking
+          </span>
+        </div>
+
+        {chartData && chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="82%">
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 10, right: 10, bottom: 45, left: 10 }}
+            >
+              <defs>
+                <linearGradient
+                  id="execRevenueGrad"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="#0B3B2C" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#0B3B2C" stopOpacity={0.7} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="var(--border)"
+              />
+              <XAxis
+                dataKey="name"
+                tick={{ fill: "var(--text-dim)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                angle={-25}
+                textAnchor="end"
+                height={55}
+              />
+              <YAxis
+                tickFormatter={(val) => `₹${(val / 10000000).toFixed(1)}Cr`}
+                tick={{ fill: "var(--text-dim)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={<CustomChartTooltip />}
+                cursor={{ fill: "var(--bg)", opacity: 0.5 }}
+              />
+              <Legend wrapperStyle={{ paddingTop: 8, fontSize: 12 }} />
+              <Bar
+                name="Revenue"
+                dataKey="Revenue"
+                fill="url(#execRevenueGrad)"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={36}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div
+            style={{
+              textAlign: "center",
+              padding: 60,
+              color: "var(--text-dim)",
+            }}
+          >
+            {loading ? (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <Loader2
+                  size={18}
+                  className="animate-spin"
+                  style={{ color: "var(--primary)" }}
+                />
+                <span style={{ fontSize: 13, fontWeight: 500 }}>
+                  Loading Chart…
+                </span>
+              </div>
+            ) : (
+              "No performance data found for current filters."
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Tabs Navigation Bar */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 16,
+          borderBottom: "1px solid var(--border)",
+          paddingBottom: 8,
+          overflowX: "auto",
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <button
+          className={`btn ${activeTab === "reps" ? "btn-primary" : "btn-outline"}`}
+          onClick={() => {
+            setActiveTab("reps");
+            setCurrentPage(1);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          <Users size={15} />
+          By Sales Representative ({filteredReps.length})
+        </button>
+        <button
+          className={`btn ${activeTab === "mappings" ? "btn-primary" : "btn-outline"}`}
+          onClick={() => {
+            setActiveTab("mappings");
+            setCurrentPage(1);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          <FileSpreadsheet size={15} />
+          All Accounts Mapping ({filteredMappings.length})
+        </button>
+        <button
+          className={`btn ${activeTab === "managers" ? "btn-primary" : "btn-outline"}`}
+          onClick={() => {
+            setActiveTab("managers");
+            setCurrentPage(1);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          <Building size={15} />
+          By Regional Manager ({filteredManagers.length})
+        </button>
+        <button
+          className={`btn ${activeTab === "leaders" ? "btn-primary" : "btn-outline"}`}
+          onClick={() => {
+            setActiveTab("leaders");
+            setCurrentPage(1);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          <Layers size={15} />
+          By Sales Leader ({filteredLeaders.length})
+        </button>
+      </div>
+
       {/* Main Table Card */}
       <div
         className="card"
@@ -1203,21 +1253,120 @@ export default function SalesExecAnalysisPage() {
                 margin: "4px 0 0 0",
               }}
             >
-              {activeTab === "mappings" && "Complete 10-column mapping from shared master file with live primary sales revenue, volume, ASP and invoices."}
+              {activeTab === "mappings" && "Complete mapping from shared master file with live primary sales revenue and volume."}
               {activeTab === "reps" && "Performance aggregated by New Sales Representative with mapped accounts and hierarchy."}
               {activeTab === "managers" && "Performance aggregated by New Regional Manager with team size and mapped accounts."}
               {activeTab === "leaders" && "Performance aggregated by New Sales Leader across regional managers and territories."}
             </p>
           </div>
-          <span
-            style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 600 }}
-          >
-            Page {currentPage} of{" "}
-            {Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE))}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            {/* Quick Column Scroll Buttons */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                backgroundColor: "var(--bg)",
+                padding: "3px 8px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+              }}
+            >
+              <span style={{ fontSize: 11.5, color: "var(--text-dim)", fontWeight: 700, marginRight: 2 }}>
+                Scroll Columns:
+              </span>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={!canScrollLeft}
+                onClick={() => scrollByAmount(-350)}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: 11,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                  opacity: canScrollLeft ? 1 : 0.4,
+                  cursor: canScrollLeft ? "pointer" : "default",
+                }}
+                title="Scroll Left"
+              >
+                <ChevronLeft size={13} /> Left
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={!canScrollRight}
+                onClick={() => scrollByAmount(350)}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: 11,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                  opacity: canScrollRight ? 1 : 0.4,
+                  cursor: canScrollRight ? "pointer" : "default",
+                }}
+                title="Scroll Right"
+              >
+                Right <ChevronRight size={13} />
+              </button>
+            </div>
+
+            <span
+              style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 600 }}
+            >
+              Page {currentPage} of{" "}
+              {Math.max(1, Math.ceil(sorted.length / ROWS_PER_PAGE))}
+            </span>
+          </div>
         </div>
 
+        {/* Top Synchronized Horizontal Scrollbar */}
+        {tableScrollWidth > (tableWrapperRef.current?.clientWidth || 0) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 10,
+              padding: "6px 14px",
+              background: "rgba(11, 59, 44, 0.03)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: "var(--primary)",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Scroll Top Bar
+            </span>
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              style={{
+                flex: 1,
+                overflowX: "auto",
+                overflowY: "hidden",
+                height: 14,
+              }}
+              title="Drag or scroll to view all table columns"
+            >
+              <div style={{ width: tableScrollWidth || 1200, height: 1 }} />
+            </div>
+          </div>
+        )}
+
         <div
+          ref={tableWrapperRef}
+          onScroll={handleTableScroll}
           className="table-wrapper"
           style={{
             width: "100%",
@@ -1245,14 +1394,12 @@ export default function SalesExecAnalysisPage() {
                   <SortHeader label="Status" sortKey="active_status" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Primary Revenue" sortKey="revenue" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Volume" sortKey="volume" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="ASP (₹/KG)" sortKey="asp" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="Invoices" sortKey="invoices" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={15} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
+                    <td colSpan={13} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                         <Loader2 size={18} className="animate-spin" style={{ color: "var(--primary)" }} />
                         <span style={{ fontSize: 13, fontWeight: 500 }}>Loading Mapping Data…</span>
@@ -1261,7 +1408,7 @@ export default function SalesExecAnalysisPage() {
                   </tr>
                 ) : sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={15} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
+                    <td colSpan={13} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
                       No account mappings match the selected filters.
                     </td>
                   </tr>
@@ -1269,7 +1416,14 @@ export default function SalesExecAnalysisPage() {
                   sorted
                     .slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE)
                     .map((item, idx) => (
-                      <tr key={item.id || idx} style={{ transition: "background 0.15s ease" }}>
+                      <tr
+                        key={item.id || idx}
+                        onClick={() => setSelectedMapping(item)}
+                        style={{
+                          cursor: "pointer",
+                          transition: "background 0.15s ease",
+                        }}
+                      >
                         <td style={{ textAlign: "center", color: "var(--text-dim)", fontSize: 12 }}>
                           {(currentPage - 1) * ROWS_PER_PAGE + idx + 1}
                         </td>
@@ -1339,12 +1493,6 @@ export default function SalesExecAnalysisPage() {
                         <td style={{ fontWeight: 600 }}>
                           {formatQty(item.volume)}
                         </td>
-                        <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
-                          {item.asp > 0 ? `₹${item.asp.toFixed(2)}` : "—"}
-                        </td>
-                        <td style={{ color: "var(--text-muted)", textAlign: "center" }}>
-                          {item.invoices ? item.invoices.toLocaleString("en-IN") : 0}
-                        </td>
                       </tr>
                     ))
                 )}
@@ -1364,15 +1512,13 @@ export default function SalesExecAnalysisPage() {
                   <SortHeader label="Mapped Accounts" sortKey="accounts_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Primary Revenue" sortKey="revenue" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Total Volume" sortKey="volume" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="ASP (₹/KG)" sortKey="asp" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="Invoices" sortKey="invoices" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <th style={{ width: 110, textAlign: "center" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
+                    <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                         <Loader2 size={18} className="animate-spin" style={{ color: "var(--primary)" }} />
                         <span style={{ fontSize: 13, fontWeight: 500 }}>Loading Representatives…</span>
@@ -1381,7 +1527,7 @@ export default function SalesExecAnalysisPage() {
                   </tr>
                 ) : sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
+                    <td colSpan={8} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
                       No sales representatives match your search.
                     </td>
                   </tr>
@@ -1390,15 +1536,25 @@ export default function SalesExecAnalysisPage() {
                     .slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE)
                     .map((rep, idx) => {
                       const rank = (currentPage - 1) * ROWS_PER_PAGE + idx + 1;
-                      const execDetails = data?.executives?.find((e) => e.name === rep.name);
+                      const execDetails = data?.executives?.find((e) => e.name === rep.name) || {
+                        name: rep.name,
+                        rank: rank,
+                        primary_division: "General",
+                        total_revenue: rep.revenue,
+                        total_volume: rep.volume,
+                        asp: rep.asp,
+                        unique_customers_count: rep.accounts_count || 0,
+                        divisions: [],
+                        monthly_trend: [],
+                        top_products: [],
+                        top_customers: (rep.accounts || []).map((acc) => ({ name: acc })),
+                      };
                       return (
                         <tr
                           key={rep.name}
-                          onClick={() => {
-                            if (execDetails) setSelectedExec(execDetails);
-                          }}
+                          onClick={() => setSelectedExec(execDetails)}
                           style={{
-                            cursor: execDetails ? "pointer" : "default",
+                            cursor: "pointer",
                             transition: "background 0.15s ease",
                           }}
                         >
@@ -1454,12 +1610,6 @@ export default function SalesExecAnalysisPage() {
                           <td style={{ fontWeight: 600 }}>
                             {formatQty(rep.volume)}
                           </td>
-                          <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
-                            ₹{rep.asp.toFixed(2)}
-                          </td>
-                          <td style={{ color: "var(--text-muted)" }}>
-                            {rep.invoices.toLocaleString("en-IN")}
-                          </td>
                           <td style={{ textAlign: "center" }}>
                             {execDetails && (
                               <button
@@ -1494,14 +1644,12 @@ export default function SalesExecAnalysisPage() {
                   <SortHeader label="Mapped Accounts" sortKey="accounts_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Primary Revenue" sortKey="revenue" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Total Volume" sortKey="volume" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="ASP (₹/KG)" sortKey="asp" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="Invoices" sortKey="invoices" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
+                    <td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                         <Loader2 size={18} className="animate-spin" style={{ color: "var(--primary)" }} />
                         <span style={{ fontSize: 13, fontWeight: 500 }}>Loading Regional Managers…</span>
@@ -1510,7 +1658,7 @@ export default function SalesExecAnalysisPage() {
                   </tr>
                 ) : sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
+                    <td colSpan={7} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
                       No regional managers match your search.
                     </td>
                   </tr>
@@ -1520,7 +1668,14 @@ export default function SalesExecAnalysisPage() {
                     .map((mgr, idx) => {
                       const rank = (currentPage - 1) * ROWS_PER_PAGE + idx + 1;
                       return (
-                        <tr key={mgr.name} style={{ transition: "background 0.15s ease" }}>
+                        <tr
+                          key={mgr.name}
+                          onClick={() => setSelectedManagerDetails({ ...mgr, rank })}
+                          style={{
+                            cursor: "pointer",
+                            transition: "background 0.15s ease",
+                          }}
+                        >
                           <td style={{ textAlign: "center" }}>
                             <span
                               className={`badge ${rank === 1 ? "badge-gold" : rank === 2 ? "badge-silver" : rank === 3 ? "badge-bronze" : ""}`}
@@ -1551,12 +1706,6 @@ export default function SalesExecAnalysisPage() {
                           <td style={{ fontWeight: 600 }}>
                             {formatQty(mgr.volume)}
                           </td>
-                          <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
-                            ₹{mgr.asp.toFixed(2)}
-                          </td>
-                          <td style={{ color: "var(--text-muted)" }}>
-                            {mgr.invoices.toLocaleString("en-IN")}
-                          </td>
                         </tr>
                       );
                     })
@@ -1577,14 +1726,12 @@ export default function SalesExecAnalysisPage() {
                   <SortHeader label="Mapped Accounts" sortKey="accounts_count" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Primary Revenue" sortKey="revenue" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                   <SortHeader label="Total Volume" sortKey="volume" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="ASP (₹/KG)" sortKey="asp" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
-                  <SortHeader label="Invoices" sortKey="invoices" currentSortKey={sortKey} currentSortDir={sortDir} onSort={requestSort} />
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
+                    <td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-dim)" }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                         <Loader2 size={18} className="animate-spin" style={{ color: "var(--primary)" }} />
                         <span style={{ fontSize: 13, fontWeight: 500 }}>Loading Sales Leaders…</span>
@@ -1593,7 +1740,7 @@ export default function SalesExecAnalysisPage() {
                   </tr>
                 ) : sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
+                    <td colSpan={7} style={{ textAlign: "center", padding: 50, color: "var(--text-dim)" }}>
                       No sales leaders match your search.
                     </td>
                   </tr>
@@ -1603,7 +1750,14 @@ export default function SalesExecAnalysisPage() {
                     .map((leader, idx) => {
                       const rank = (currentPage - 1) * ROWS_PER_PAGE + idx + 1;
                       return (
-                        <tr key={leader.name} style={{ transition: "background 0.15s ease" }}>
+                        <tr
+                          key={leader.name}
+                          onClick={() => setSelectedLeaderDetails({ ...leader, rank })}
+                          style={{
+                            cursor: "pointer",
+                            transition: "background 0.15s ease",
+                          }}
+                        >
                           <td style={{ textAlign: "center" }}>
                             <span
                               className={`badge ${rank === 1 ? "badge-gold" : rank === 2 ? "badge-silver" : rank === 3 ? "badge-bronze" : ""}`}
@@ -1635,12 +1789,6 @@ export default function SalesExecAnalysisPage() {
                           </td>
                           <td style={{ fontWeight: 600 }}>
                             {formatQty(leader.volume)}
-                          </td>
-                          <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
-                            ₹{leader.asp.toFixed(2)}
-                          </td>
-                          <td style={{ color: "var(--text-muted)" }}>
-                            {leader.invoices.toLocaleString("en-IN")}
                           </td>
                         </tr>
                       );
@@ -1913,8 +2061,12 @@ export default function SalesExecAnalysisPage() {
                         <YAxis
                           yAxisId="right"
                           orientation="right"
-                          tickFormatter={(val) => `${(val / 1000).toFixed(0)}T`}
+                          tickFormatter={(val) => {
+                            const t = val / 1000;
+                            return `${t % 1 === 0 ? t.toFixed(0) : t.toFixed(1)} Tonnes`;
+                          }}
                           tick={{ fill: "var(--text-dim)", fontSize: 10 }}
+                          width={65}
                           axisLine={false}
                           tickLine={false}
                         />
@@ -2118,6 +2270,616 @@ export default function SalesExecAnalysisPage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Account Mapping Modal */}
+      {selectedMapping && (
+        <div className="modal-overlay" onClick={() => setSelectedMapping(null)}>
+          <div
+            className="modal"
+            style={{
+              maxWidth: "760px",
+              width: "92%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(11, 59, 44, 0.1)",
+                    color: "var(--primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 800,
+                    fontSize: 16,
+                  }}
+                >
+                  <FileSpreadsheet size={20} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <h2 className="modal-title" style={{ margin: 0, fontSize: 19 }}>
+                      {selectedMapping.ship_to_party}
+                    </h2>
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        backgroundColor: "var(--bg)",
+                        padding: "2px 8px",
+                        borderRadius: 6,
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      Code: {selectedMapping.ship_to}
+                    </span>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor:
+                          selectedMapping.active_status === "Active"
+                            ? "rgba(47, 122, 96, 0.15)"
+                            : "rgba(0,0,0,0.06)",
+                        color: selectedMapping.active_status === "Active" ? "#2F7A60" : "var(--text-dim)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedMapping.active_status || "Active"}
+                    </span>
+                  </div>
+                  <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "var(--text-dim)" }}>
+                    Account Details & Sales Hierarchy
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ padding: "6px 8px", borderRadius: "50%" }}
+                onClick={() => setSelectedMapping(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* KPI Cards */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+                marginBottom: 24,
+              }}
+            >
+              <div
+                style={{
+                  padding: 14,
+                  backgroundColor: "var(--bg)",
+                  borderRadius: 10,
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-dim)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Primary Revenue
+                </span>
+                <p
+                  style={{
+                    margin: "4px 0 0 0",
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "var(--primary)",
+                  }}
+                >
+                  {formatLakhs(selectedMapping.revenue)}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  padding: 14,
+                  backgroundColor: "var(--bg)",
+                  borderRadius: 10,
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-dim)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Total Volume
+                </span>
+                <p
+                  style={{
+                    margin: "4px 0 0 0",
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "var(--text)",
+                  }}
+                >
+                  {formatQty(selectedMapping.volume)}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  padding: 14,
+                  backgroundColor: "var(--bg)",
+                  borderRadius: 10,
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-dim)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Average Selling Price
+                </span>
+                <p
+                  style={{
+                    margin: "4px 0 0 0",
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "#C07D38",
+                  }}
+                >
+                  {selectedMapping.asp > 0 ? `₹${selectedMapping.asp.toFixed(2)}/KG` : "—"}
+                </p>
+              </div>
+            </div>
+
+            {/* Full Details Table / Grid */}
+            <div
+              style={{
+                background: "var(--surface)",
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                padding: "16px 20px",
+                marginBottom: 16,
+              }}
+            >
+              <h4
+                style={{
+                  margin: "0 0 14px 0",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: "var(--text)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Account Information & Territory Hierarchy
+              </h4>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "14px 20px",
+                  fontSize: 13,
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Account / Party Name
+                  </span>
+                  <div style={{ fontWeight: 700, color: "var(--text)", marginTop: 2 }}>
+                    {selectedMapping.ship_to_party || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Ship-To / Customer Code
+                  </span>
+                  <div style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--text)", marginTop: 2 }}>
+                    {selectedMapping.ship_to || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Sales Representative
+                  </span>
+                  <div style={{ fontWeight: 700, color: "var(--primary)", marginTop: 2 }}>
+                    {selectedMapping.sales_rep || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Regional Manager
+                  </span>
+                  <div style={{ fontWeight: 600, color: "var(--text-muted)", marginTop: 2 }}>
+                    {selectedMapping.regional_manager || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Sales Leader
+                  </span>
+                  <div style={{ fontWeight: 600, color: "var(--text)", marginTop: 2 }}>
+                    {selectedMapping.sales_leader || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Classification
+                  </span>
+                  <div style={{ marginTop: 2 }}>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor:
+                          selectedMapping.classification === "Core"
+                            ? "rgba(47, 122, 96, 0.1)"
+                            : "var(--bg)",
+                        color: selectedMapping.classification === "Core" ? "#2F7A60" : "var(--text)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedMapping.classification || "General"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Channel (Dist / Direct)
+                  </span>
+                  <div style={{ marginTop: 2 }}>
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor:
+                          selectedMapping.dist_direct === "Direct"
+                            ? "rgba(61, 106, 138, 0.1)"
+                            : "rgba(192, 125, 56, 0.1)",
+                        color: selectedMapping.dist_direct === "Direct" ? "#3D6A8A" : "#C07D38",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedMapping.dist_direct || "Distributor"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Group Name
+                  </span>
+                  <div style={{ fontWeight: 600, color: "var(--text-dim)", marginTop: 2 }}>
+                    {selectedMapping.group_name || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Key Account
+                  </span>
+                  <div style={{ fontWeight: 600, color: "var(--text-dim)", marginTop: 2 }}>
+                    {selectedMapping.key_account || "—"}
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>
+                    Account Status
+                  </span>
+                  <div style={{ fontWeight: 700, marginTop: 2 }}>
+                    {selectedMapping.active_status || "Active"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Regional Manager Modal */}
+      {selectedManagerDetails && (
+        <div className="modal-overlay" onClick={() => setSelectedManagerDetails(null)}>
+          <div
+            className="modal"
+            style={{
+              maxWidth: "800px",
+              width: "92%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(61, 106, 138, 0.1)",
+                    color: "#3D6A8A",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 800,
+                    fontSize: 16,
+                  }}
+                >
+                  <Building size={20} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <h2 className="modal-title" style={{ margin: 0, fontSize: 20 }}>
+                      {selectedManagerDetails.name}
+                    </h2>
+                    {selectedManagerDetails.rank && (
+                      <span className="badge badge-accent">
+                        Rank {selectedManagerDetails.rank}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: "2px 0 0 0", fontSize: 13, color: "var(--text-dim)" }}>
+                    Regional Manager • Reports to: <strong>{selectedManagerDetails.sales_leader || "—"}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ padding: "6px 8px", borderRadius: "50%" }}
+                onClick={() => setSelectedManagerDetails(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* KPI Cards */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gap: 12,
+                marginBottom: 24,
+              }}
+            >
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Total Revenue</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>
+                  {formatLakhs(selectedManagerDetails.revenue)}
+                </p>
+              </div>
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Total Volume</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 18, fontWeight: 800, color: "var(--text)" }}>
+                  {formatQty(selectedManagerDetails.volume)}
+                </p>
+              </div>
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Average Selling Price</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 18, fontWeight: 800, color: "#C07D38" }}>
+                  ₹{selectedManagerDetails.asp ? selectedManagerDetails.asp.toFixed(2) : "0.00"}/KG
+                </p>
+              </div>
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Sales Team & Accounts</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
+                  {selectedManagerDetails.reps_count || 0} Reps • {selectedManagerDetails.accounts_count || 0} Accounts
+                </p>
+              </div>
+            </div>
+
+            {/* Reps under this manager */}
+            <div style={{ background: "var(--surface)", borderRadius: 10, border: "1px solid var(--border)", padding: "16px 20px" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 800, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Sales Representatives in Team
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {(data?.by_sales_rep || [])
+                  .filter((r) => r.regional_manager === selectedManagerDetails.name)
+                  .map((rep, rIdx) => (
+                    <div
+                      key={rIdx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "10px 14px",
+                        backgroundColor: "var(--bg)",
+                        borderRadius: 8,
+                        fontSize: 13,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontWeight: 700, color: "var(--text)" }}>{rep.name}</span>
+                        <span className="badge" style={{ fontSize: 11, backgroundColor: "var(--surface)" }}>{rep.accounts_count} accounts</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <span style={{ fontWeight: 700, color: "var(--primary)" }}>{formatLakhs(rep.revenue)}</span>
+                        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{formatQty(rep.volume)}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Sales Leader Modal */}
+      {selectedLeaderDetails && (
+        <div className="modal-overlay" onClick={() => setSelectedLeaderDetails(null)}>
+          <div
+            className="modal"
+            style={{
+              maxWidth: "800px",
+              width: "92%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(192, 125, 56, 0.1)",
+                    color: "#C07D38",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 800,
+                    fontSize: 16,
+                  }}
+                >
+                  <Layers size={20} />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <h2 className="modal-title" style={{ margin: 0, fontSize: 20 }}>
+                      {selectedLeaderDetails.name}
+                    </h2>
+                    {selectedLeaderDetails.rank && (
+                      <span className="badge badge-accent">
+                        Rank {selectedLeaderDetails.rank}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: "2px 0 0 0", fontSize: 13, color: "var(--text-dim)" }}>
+                    Sales Leader
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ padding: "6px 8px", borderRadius: "50%" }}
+                onClick={() => setSelectedLeaderDetails(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* KPI Cards */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gap: 12,
+                marginBottom: 24,
+              }}
+            >
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Total Revenue</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>
+                  {formatLakhs(selectedLeaderDetails.revenue)}
+                </p>
+              </div>
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Total Volume</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 18, fontWeight: 800, color: "var(--text)" }}>
+                  {formatQty(selectedLeaderDetails.volume)}
+                </p>
+              </div>
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Average Selling Price</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 18, fontWeight: 800, color: "#C07D38" }}>
+                  ₹{selectedLeaderDetails.asp ? selectedLeaderDetails.asp.toFixed(2) : "0.00"}/KG
+                </p>
+              </div>
+              <div style={{ padding: 14, backgroundColor: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 11, color: "var(--text-dim)", fontWeight: 700, textTransform: "uppercase" }}>Team Hierarchy</span>
+                <p style={{ margin: "4px 0 0 0", fontSize: 16, fontWeight: 800, color: "var(--text)" }}>
+                  {selectedLeaderDetails.managers_count || 0} Managers • {selectedLeaderDetails.reps_count || 0} Reps
+                </p>
+              </div>
+            </div>
+
+            {/* Regional Managers under this leader */}
+            <div style={{ background: "var(--surface)", borderRadius: 10, border: "1px solid var(--border)", padding: "16px 20px" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 800, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Regional Managers Reporting
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {(data?.by_regional_manager || [])
+                  .filter((m) => m.sales_leader === selectedLeaderDetails.name)
+                  .map((mgr, mIdx) => (
+                    <div
+                      key={mIdx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "10px 14px",
+                        backgroundColor: "var(--bg)",
+                        borderRadius: 8,
+                        fontSize: 13,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontWeight: 700, color: "var(--text)" }}>{mgr.name}</span>
+                        <span className="badge" style={{ fontSize: 11, backgroundColor: "var(--surface)" }}>{mgr.reps_count} reps • {mgr.accounts_count} accounts</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <span style={{ fontWeight: 700, color: "var(--primary)" }}>{formatLakhs(mgr.revenue)}</span>
+                        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{formatQty(mgr.volume)}</span>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>

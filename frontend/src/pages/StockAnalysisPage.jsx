@@ -570,6 +570,8 @@ export default function StockAnalysisPage() {
   const [sortKey, setSortKey] = useState("month");
   const [sortDir, setSortDir] = useState("asc");
   const [selectedRow, setSelectedRow] = useState(null);
+  const [selectedGapMatrixRow, setSelectedGapMatrixRow] = useState(null);
+  const [selectedMomRow, setSelectedMomRow] = useState(null);
 
   const [activeTab, setActiveTab] = useState("table");
   const [selectedGapMonth, setSelectedGapMonth] = useState(null);
@@ -1700,7 +1702,17 @@ export default function StockAnalysisPage() {
                     {products.map(([prod, pm], ri) => (
                       <tr
                         key={prod}
-                        style={{ borderTop: "1px solid var(--border)" }}
+                        onClick={() =>
+                          setSelectedGapMatrixRow({
+                            product: prod,
+                            monthlyData: pm,
+                            months,
+                          })
+                        }
+                        style={{
+                          borderTop: "1px solid var(--border)",
+                          cursor: "pointer",
+                        }}
                       >
                         <td
                           style={{
@@ -2359,7 +2371,11 @@ export default function StockAnalysisPage() {
                                 ? "#15803d"
                                 : "var(--text-dim)";
                           return (
-                            <tr key={i}>
+                            <tr
+                              key={i}
+                              onClick={() => setSelectedMomRow(g)}
+                              style={{ cursor: "pointer" }}
+                            >
                               <td
                                 style={{
                                   fontWeight: 600,
@@ -2721,6 +2737,148 @@ export default function StockAnalysisPage() {
       )}
 
       <DetailModal row={selectedRow} onClose={() => setSelectedRow(null)} />
+
+      {selectedMomRow && (
+        <div className="modal-overlay" onClick={() => setSelectedMomRow(null)}>
+          <div className="modal" style={{ maxWidth: 540 }} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 14,
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: 18 }}>
+                  Month-on-Month Summary Details
+                </h2>
+                <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>
+                  {selectedMomRow.label}
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ padding: "6px 8px", borderRadius: "50%" }}
+                onClick={() => setSelectedMomRow(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Month</span>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{selectedMomRow.label}</div>
+              </div>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Net Gap</span>
+                <div style={{ fontSize: 14, fontWeight: 700, color: (selectedMomRow.netGap || 0) < 0 ? "#b91c1c" : "#15803d", marginTop: 2 }}>
+                  {selectedMomRow.netGap != null ? `${selectedMomRow.netGap > 0 ? "+" : ""}${abbr(selectedMomRow.netGap)}` : "—"}
+                </div>
+              </div>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Excess Stock</span>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#b45309", marginTop: 2 }}>
+                  {selectedMomRow.excess != null ? `+${abbr(selectedMomRow.excess)}` : "—"}
+                </div>
+              </div>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>MoM Δ Excess</span>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                  {selectedMomRow.excessDelta != null ? `${selectedMomRow.excessDelta > 0 ? "+" : ""}${abbr(selectedMomRow.excessDelta)}` : "—"}
+                </div>
+              </div>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Missing Stock</span>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#b91c1c", marginTop: 2 }}>
+                  {selectedMomRow.missing != null ? abbr(selectedMomRow.missing) : "—"}
+                </div>
+              </div>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>MoM Δ Missing</span>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>
+                  {selectedMomRow.missingDelta != null ? `${selectedMomRow.missingDelta > 0 ? "+" : ""}${abbr(selectedMomRow.missingDelta)}` : "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedGapMatrixRow && (
+        <div className="modal-overlay" onClick={() => setSelectedGapMatrixRow(null)}>
+          <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid var(--border)",
+                paddingBottom: 14,
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <h2 className="modal-title" style={{ margin: 0, fontSize: 18 }}>
+                  Product Gap Matrix Details
+                </h2>
+                <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>
+                  {selectedGapMatrixRow.product}
+                </div>
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ padding: "6px 8px", borderRadius: "50%" }}
+                onClick={() => setSelectedGapMatrixRow(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-dim)", textTransform: "uppercase" }}>Product Name</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)", marginTop: 2 }}>{selectedGapMatrixRow.product}</div>
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "var(--text)" }}>Monthly Breakdown</div>
+            <div style={{ maxHeight: 360, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+              <table style={{ width: "100%", margin: 0, fontSize: 12 }}>
+                <thead style={{ background: "var(--surface)" }}>
+                  <tr>
+                    <th style={{ padding: "8px 12px", textAlign: "left" }}>Month</th>
+                    <th style={{ padding: "8px 12px", textAlign: "right" }}>Gap</th>
+                    <th style={{ padding: "8px 12px", textAlign: "center" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedGapMatrixRow.months || []).map((ym) => {
+                    const val = selectedGapMatrixRow.monthlyData?.byMonth?.[ym];
+                    return (
+                      <tr key={ym} style={{ borderTop: "1px solid var(--border)" }}>
+                        <td style={{ padding: "8px 12px", fontWeight: 600 }}>{fmtYM(ym)}</td>
+                        <td style={{ padding: "8px 12px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: val === undefined ? "var(--text-dim)" : val > 0 ? "#92400e" : "#991b1b" }}>
+                          {val !== undefined ? (val > 0 ? "+" : "") + abbr(val, 1) : "—"}
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          {val === undefined ? (
+                            <span style={{ color: "var(--text-dim)", fontSize: 11 }}>No Data</span>
+                          ) : val > 0 ? (
+                            <span className="badge badge-accent" style={{ fontSize: 10 }}>Excess</span>
+                          ) : val < 0 ? (
+                            <span className="badge badge-red" style={{ fontSize: 10 }}>Missing</span>
+                          ) : (
+                            <span className="badge badge-green" style={{ fontSize: 10 }}>Balanced</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { FileText, CheckCircle, RotateCcw, ArrowRight, X, Loader2 } from 'lucide-react'
 import API from '../api'
+import EPRAnalysisPieChart from '../components/EPRAnalysisPieChart'
 
 export default function PriceRequestApprovalsPage() {
   const [eprs, setEprs] = useState([])
   const [selectedEpr, setSelectedEpr] = useState(null)
+  const [statusFilter, setStatusFilter] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -77,9 +79,6 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Pricing & BD Teams')} className="btn btn-primary">
             <ArrowRight size={16} /> Forward to Pricing & BD
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Pending Commercial Manager')} className="btn btn-primary" style={{ backgroundColor: '#2563EB', borderColor: '#2563EB', color: '#fff' }}>
-            <ArrowRight size={16} /> Escalate to Commercial Manager
-          </button>
           <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
             <RotateCcw size={16} /> Send Back to Distributor
           </button>
@@ -99,8 +98,8 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Sales Director
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
-            <RotateCcw size={16} /> Send Back to Distributor
+          <button onClick={() => updateStatus(epr.id, 'Pending Sales Exec Review')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Sales Exec
           </button>
         </>
       )
@@ -115,8 +114,8 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Sales Director
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
-            <RotateCcw size={16} /> Send Back to Distributor
+          <button onClick={() => updateStatus(epr.id, 'Pending Pricing & BD Teams')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Pricing & BD
           </button>
         </>
       )
@@ -128,8 +127,8 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Approved')} className="btn btn-success">
             <CheckCircle size={16} /> Director Approve
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Sent Back to Distributor')} className="btn btn-danger">
-            <RotateCcw size={16} /> Send Back to Distributor
+          <button onClick={() => updateStatus(epr.id, 'Pending Commercial Manager')} className="btn btn-danger">
+            <RotateCcw size={16} /> Send Back to Commercial Manager
           </button>
         </>
       )
@@ -149,6 +148,13 @@ export default function PriceRequestApprovalsPage() {
     return <span className="badge badge-status badge-amber">{status}</span>
   }
 
+  const filteredEprs = statusFilter
+    ? eprs.filter(e => {
+        const s = e.status === 'Rejected' ? 'Sent Back to Distributor' : e.status
+        return s === statusFilter
+      })
+    : eprs
+
   return (
     <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
       <div className="page-header">
@@ -159,6 +165,37 @@ export default function PriceRequestApprovalsPage() {
       </div>
 
       {error && <div className="alert alert-error"><span className="alert-title">Error</span>{error}</div>}
+
+      {/* EPR Analysis Pie Chart Section */}
+      <EPRAnalysisPieChart 
+        eprs={eprs}
+        activeFilter={statusFilter}
+        onSelectFilter={setStatusFilter}
+      />
+
+      {statusFilter && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'var(--accent-soft)',
+          padding: '10px 16px',
+          borderRadius: '10px',
+          marginBottom: '16px',
+          border: '1px solid var(--border)'
+        }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--primary)' }}>
+            Showing <strong>{filteredEprs.length}</strong> request{filteredEprs.length === 1 ? '' : 's'} filtered by: <strong>{statusFilter}</strong>
+          </span>
+          <button
+            onClick={() => setStatusFilter(null)}
+            className="btn btn-outline"
+            style={{ padding: '4px 10px', fontSize: '12px', minHeight: '28px' }}
+          >
+            Show All Requests
+          </button>
+        </div>
+      )}
 
       <div className="table-wrapper">
         <table>
@@ -181,9 +218,13 @@ export default function PriceRequestApprovalsPage() {
                   </div>
                 </td>
               </tr>
-            ) : eprs.length === 0 ? (
-              <tr><td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)' }}>No requests found.</td></tr>
-            ) : eprs.map(epr => (
+            ) : filteredEprs.length === 0 ? (
+              <tr>
+                <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  {statusFilter ? `No requests found for "${statusFilter}".` : 'No requests found.'}
+                </td>
+              </tr>
+            ) : filteredEprs.map(epr => (
               <tr key={epr.id} onClick={() => setSelectedEpr(epr)} style={{ cursor: 'pointer' }}>
                 <td style={{ fontWeight: 700 }}>EPR-{epr.id}</td>
                 <td>{epr.soldto_name || 'N/A'} {epr.shipto_name ? `(${epr.shipto_name})` : ''}</td>
