@@ -157,16 +157,6 @@ export default function SalesExecAnalysisPage() {
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(checkScroll, 60);
-    const handleResize = () => checkScroll();
-    window.addEventListener("resize", handleResize);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [activeTab, sorted, currentPage, loading]);
-
   const handleTopScroll = (e) => {
     if (tableWrapperRef.current && Math.abs(tableWrapperRef.current.scrollLeft - e.target.scrollLeft) > 1) {
       tableWrapperRef.current.scrollLeft = e.target.scrollLeft;
@@ -350,6 +340,16 @@ export default function SalesExecAnalysisPage() {
     activeList,
     { key: "revenue", direction: "desc" },
   );
+
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 60);
+    const handleResize = () => checkScroll();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [activeTab, sorted, currentPage, loading]);
 
   const kpis = data?.kpis || {};
 
