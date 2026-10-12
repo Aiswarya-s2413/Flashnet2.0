@@ -2659,7 +2659,9 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
     const replenish = rawItems.filter((x) => x.needs_replenish).length;
     const sufficient = total - replenish;
     const totalShortage = rawItems.reduce((acc, x) => acc + (x.shortage_qty || 0), 0);
-    return { total, replenish, sufficient, totalShortage };
+    const totalTarget = rawItems.reduce((acc, x) => acc + (x.target_stock || 0), 0);
+    const totalCurrentStock = rawItems.reduce((acc, x) => acc + (x.stock_qty || 0), 0);
+    return { total, replenish, sufficient, totalShortage, totalTarget, totalCurrentStock };
   }, [rawItems]);
 
   const aiSummary = useMemo(() => {
@@ -2671,13 +2673,12 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
     const replenish = stats.replenish;
     const sufficient = stats.sufficient;
     const totalShortage = stats.totalShortage;
-    const replenishPct = total > 0 ? Math.round((replenish / total) * 100) : 0;
     const sufficientPct = total > 0 ? Math.round((sufficient / total) * 100) : 0;
 
     if (replenish === 0) {
       return (
         <span>
-          Inventory health is optimal across all <strong>{total}</strong> catalog products (<strong>{sufficientPct}%</strong> sufficient). Current stock levels comfortably exceed the required 2× half-yearly average demand with zero reorder shortages.
+          Inventory health is optimal across all <strong>{total}</strong> catalog products (<strong>{sufficientPct}%</strong> sufficient). Current stock levels ({formatKG(stats.totalCurrentStock)}) comfortably exceed the expected safety target ({formatKG(stats.totalTarget)}) with zero reorder shortages.
         </span>
       );
     }
@@ -2687,30 +2688,63 @@ const OrderReplenishmentTab = ({ data, isFetching = false }) => {
       .sort((a, b) => (b.shortage_qty || 0) - (a.shortage_qty || 0))
       .slice(0, 3);
 
-    const topNames = topShortageList.map((x) => x.product_name).join(", ");
-    const topShortageVolume = topShortageList.reduce((acc, x) => acc + (x.shortage_qty || 0), 0);
-    const topSharePct = totalShortage > 0 ? Math.round((topShortageVolume / totalShortage) * 100) : 0;
+    const zeroStockItems = rawItems.filter(
+      (x) => x.needs_replenish && (!x.stock_qty || Number(x.stock_qty) <= 0)
+    );
 
-    const zeroStockItems = rawItems.filter((x) => x.needs_replenish && (!x.stock_qty || Number(x.stock_qty) <= 0));
-    const zeroStockNote = zeroStockItems.length > 0
-      ? ` Note: ${zeroStockItems.length} SKU${zeroStockItems.length > 1 ? "s have" : " has"} zero inventory on hand and require${zeroStockItems.length === 1 ? "s" : ""} immediate purchase order placement.`
-      : "";
+    const overallCoverPct = stats.totalTarget > 0 
+      ? Math.round((stats.totalCurrentStock / stats.totalTarget) * 100) 
+      : 0;
 
     return (
-      <>
-        <span>
-          <strong>{replenish} of {total} products ({replenishPct}%)</strong> are below safe threshold (&lt;2× 6M avg volume), requiring an aggregate reorder of <strong>{formatKG(totalShortage)}</strong>.
-        </span>{" "}
-        {topShortageList.length > 0 && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div>
           <span>
-            Highest reorder deficit is driven by <strong>{topNames}</strong> ({topSharePct}% of total shortage).
+            Highest reorder deficit is concentrated in key products:{" "}
           </span>
-        )}{" "}
-        {zeroStockNote && <span style={{ color: "#EF4444", fontWeight: 600 }}>{zeroStockNote}</span>}{" "}
-        <span style={{ color: "var(--text-muted)" }}>
-          {sufficient} products ({sufficientPct}%) maintain sufficient stock cover.
-        </span>
-      </>
+          {topShortageList.map((item, idx) => {
+            const share = totalShortage > 0 ? Math.round(((item.shortage_qty || 0) / totalShortage) * 100) : 0;
+            const target = item.target_stock || 0;
+            const current = item.stock_qty || 0;
+            return (
+              <span key={item.product_code || idx}>
+                <strong>{item.product_name}</strong> (Expected Target: <strong>{formatKG(target)}</strong>, Current Stock: <strong>{formatKG(current)}</strong> &rarr; Deficit: <strong style={{ color: "#EF4444" }}>+{formatKG(item.shortage_qty)}</strong>, {share}% share)
+                {idx < topShortageList.length - 1 ? "; " : ". "}
+              </span>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: 12.5, marginTop: 2 }}>
+          {zeroStockItems.length > 0 && (
+            <div style={{ 
+              background: "rgba(239, 68, 68, 0.08)", 
+              border: "1px solid rgba(239, 68, 68, 0.25)", 
+              padding: "4px 10px", 
+              borderRadius: 6, 
+              color: "#DC2626", 
+              fontWeight: 600 
+            }}>
+              Critical Zero-Stock Risk: {zeroStockItems.length} SKU{zeroStockItems.length > 1 ? "s" : ""} ({zeroStockItems.slice(0, 2).map(x => x.product_name).join(", ")}{zeroStockItems.length > 2 ? ` +${zeroStockItems.length - 2} more` : ""}) require immediate purchase orders.
+            </div>
+          )}
+
+          <div style={{ 
+            background: "rgba(11, 59, 44, 0.06)", 
+            border: "1px solid rgba(11, 59, 44, 0.15)", 
+            padding: "4px 10px", 
+            borderRadius: 6, 
+            color: "var(--primary)", 
+            fontWeight: 600 
+          }}>
+            Expected Target Safety Stock: {formatKG(stats.totalTarget)} (Current On-Hand: {formatKG(stats.totalCurrentStock)} &middot; {overallCoverPct}% fulfilled).
+          </div>
+
+          <span style={{ color: "var(--text-muted)" }}>
+            {sufficient} products ({sufficientPct}%) maintain sufficient stock cover.
+          </span>
+        </div>
+      </div>
     );
   }, [rawItems, stats]);
 
