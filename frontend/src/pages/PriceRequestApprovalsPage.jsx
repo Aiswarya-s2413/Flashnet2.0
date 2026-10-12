@@ -95,9 +95,6 @@ export default function PriceRequestApprovalsPage() {
           <button onClick={() => updateStatus(epr.id, 'Pending Commercial Manager')} className="btn btn-primary" style={{ backgroundColor: '#2563EB', borderColor: '#2563EB', color: '#fff' }}>
             <ArrowRight size={16} /> Escalate to Commercial Manager
           </button>
-          <button onClick={() => updateStatus(epr.id, 'Pending Sales Director')} className="btn btn-primary" style={{ backgroundColor: 'var(--amber)', borderColor: 'var(--amber)', color: '#fff' }}>
-            <ArrowRight size={16} /> Escalate to Sales Director
-          </button>
           <button onClick={() => updateStatus(epr.id, 'Pending Sales Exec Review')} className="btn btn-danger">
             <RotateCcw size={16} /> Send Back to Sales Exec
           </button>
